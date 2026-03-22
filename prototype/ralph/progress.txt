@@ -13,6 +13,8 @@ Started: Sun Mar 22 18:31:48 UTC 2026
 - Typecheck: `npx tsc --noEmit`
 - Fastify routes are registered as plugins in server/index.ts
 - Seed pattern: define data array + `seedIfEmpty()` function that checks `.all().length > 0`, called at route plugin registration time
+- Route plugins call seed functions at top of the exported function (e.g., `await seedBuiltInTemplates()`)
+- Apply template pattern: copy `chainDefinition` from template to project, increment `installCount`
 - `getOrCreateDefaultWorkspace()` helper returns the default workspace ID (duplicated across routes — consider extracting)
 - ChainDefinition format: `{ version: 1, nodes: [{id, type, label, model, systemPrompt, status, abilities, position}], edges: [{id, source, target, condition}] }`
 - Node types: trigger, prototyper, builder, tester, reviewer, auditor
@@ -41,4 +43,21 @@ Started: Sun Mar 22 18:31:48 UTC 2026
   - The seed function follows the same pattern as projects/providers: check `.all().length > 0`, skip if data exists
   - `seedBuiltInTemplates()` needs to be called from somewhere at startup (e.g., from the templates route plugin when it's created in US-003)
   - Template `chainDefinition` is stored as JSON in a `text` column with `{ mode: "json" }`
+---
+
+## 2026-03-22 - US-003
+- Created `server/routes/templates.ts` as a Fastify plugin with 5 endpoints:
+  - GET /api/templates — list all templates
+  - GET /api/templates/:id — get single template
+  - POST /api/templates — create user template with JSON Schema validation
+  - POST /api/templates/:id/apply — apply template to project (copies chainDefinition, increments installCount)
+  - DELETE /api/templates/:id — delete user template (403 for built-in)
+- Calls `seedBuiltInTemplates()` at plugin registration time
+- Registered routes in server/index.ts
+- Files changed: server/routes/templates.ts (new), server/index.ts
+- **Learnings for future iterations:**
+  - Apply endpoint needs both template ID (from params) and projectId (from body)
+  - Built-in templates are protected from deletion with a 403 response
+  - Fastify generic types: `<{ Params: {...}; Body: {...} }>` for combined param + body routes
+  - POST schema validation uses `additionalProperties: false` to reject unexpected fields
 ---
