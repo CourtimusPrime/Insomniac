@@ -31,3 +31,18 @@ Started: Sun Mar 22 19:11:30 UTC 2026
   - The adapter holds a single Page instance — future stories may need multi-page support
   - `evaluate()` accepts a string script (not a function) per the BrowserEngine interface
 ---
+
+## 2026-03-22 - US-003
+- Created `server/browser/browser-tools.ts` with 9 MCP-compatible tool definitions
+- Tools: navigate, click, fill, screenshot, assertText, assertElement, getConsoleErrors, evaluateScript, waitForSelector
+- Each tool handler delegates to the `BrowserEngine` abstraction
+- `executeBrowserTool()` function dispatches tool calls by name
+- `browserTestAbility` defines the 'browser-test' Ability record (type: "plugin")
+- Exported all public types and functions from `server/browser/index.ts`
+- Files changed: `server/browser/browser-tools.ts`, `server/browser/index.ts`
+- **Learnings for future iterations:**
+  - Abilities use type `"plugin"` for internal tool-providing abilities (vs `"skill"` for SKILL.md imports and `"mcp"` for external MCP servers)
+  - `getConsoleErrors` relies on `__insomniac_console_errors` global — a console.error override must be injected after page navigation for this to work
+  - `waitForSelector` uses an in-page polling evaluate script since BrowserEngine doesn't expose native waitFor
+  - Tool input schemas follow MCP JSON Schema format: `{ type: "object", properties, required }`
+---
