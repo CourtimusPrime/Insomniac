@@ -4,3 +4,5 @@ export type {
   AgentStatus,
   AgentConfig,
 } from "./types.js";
+
+export { StdioAdapter } from "./stdio-adapter.js";
