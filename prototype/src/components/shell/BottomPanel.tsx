@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square
+  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square, RefreshCw, X
 } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
 import { useDevServerStatus, useStartDevServer, useStopDevServer } from '../../api/localhost';
+import { useBrowserStatus, useLaunchBrowser, useNavigate, useCloseBrowser } from '../../api/browser';
 
 export function BottomPanel() {
   const activeTab = useLayoutStore((s) => s.activeTab);
@@ -16,6 +17,25 @@ export function BottomPanel() {
   const { data: devStatus } = useDevServerStatus(activeProjectId);
   const startServer = useStartDevServer();
   const stopServer = useStopDevServer();
+
+  const { data: browserStatus } = useBrowserStatus();
+  const launchBrowser = useLaunchBrowser();
+  const navigateBrowser = useNavigate();
+  const closeBrowser = useCloseBrowser();
+
+  const [browserUrl, setBrowserUrl] = useState('');
+  const [iframeKey, setIframeKey] = useState(0);
+
+  const handleNavigate = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (browserUrl.trim()) {
+      navigateBrowser.mutate({ url: browserUrl.trim() });
+    }
+  }, [browserUrl, navigateBrowser]);
+
+  const handleRefresh = useCallback(() => {
+    setIframeKey((k) => k + 1);
+  }, []);
 
   const [logs, setLogs] = useState<string[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -165,15 +185,71 @@ export function BottomPanel() {
           </div>
         )}
         {activeTab === 'browser' && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <Globe size={11} className="text-accent-primary" />
-              <span className="text-text-secondary">localhost:3000 · Playwright Chromium</span>
-              <button className="ml-auto text-[10px] px-2 py-1 bg-status-success/15 text-status-success border border-status-success/30 rounded">
-                Launch
-              </button>
-            </div>
-            <div className="text-text-faint italic">Live screenshot feed from autonomous browser agent renders here.</div>
+          <div className="flex flex-col h-full gap-2">
+            {!activeProjectId ? (
+              <div className="text-text-faint italic">Select a project to use the dev browser.</div>
+            ) : !devStatus?.running ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <Globe size={24} className="text-text-faint" />
+                <div className="text-text-faint text-sm">Dev server not running</div>
+                <button
+                  onClick={() => startServer.mutate(activeProjectId)}
+                  disabled={startServer.isPending}
+                  className="flex items-center gap-1 text-[10px] px-3 py-1.5 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition disabled:opacity-50"
+                >
+                  <Play size={9} /> Start Dev Server
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Toolbar: URL bar + actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${browserStatus?.running ? 'bg-status-success' : 'bg-text-faint'}`} />
+                  <form onSubmit={handleNavigate} className="flex-1 flex items-center gap-1">
+                    <input
+                      value={browserUrl}
+                      onChange={(e) => setBrowserUrl(e.target.value)}
+                      placeholder={`http://localhost:${devStatus.port ?? 3000}`}
+                      className="flex-1 bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
+                    />
+                  </form>
+                  <button
+                    onClick={handleRefresh}
+                    className="p-1 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
+                    title="Refresh"
+                  >
+                    <RefreshCw size={12} />
+                  </button>
+                  {!browserStatus?.running ? (
+                    <button
+                      onClick={() => launchBrowser.mutate()}
+                      disabled={launchBrowser.isPending}
+                      className="flex items-center gap-1 text-[10px] px-2 py-1 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition disabled:opacity-50"
+                    >
+                      <Play size={9} /> Launch
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => closeBrowser.mutate()}
+                      disabled={closeBrowser.isPending}
+                      className="flex items-center gap-1 text-[10px] px-2 py-1 bg-status-error/15 text-status-error border border-status-error/30 rounded hover:bg-status-error/25 transition disabled:opacity-50"
+                    >
+                      <X size={9} /> Close
+                    </button>
+                  )}
+                </div>
+                {/* iframe preview */}
+                <div className="flex-1 min-h-0 border border-border-default rounded overflow-hidden bg-white">
+                  <iframe
+                    key={iframeKey}
+                    src={`http://localhost:4321/api/browser/proxy/?projectId=${activeProjectId}`}
+                    className="w-full h-full border-0"
+                    title="Dev Browser Preview"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
