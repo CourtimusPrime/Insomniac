@@ -12,6 +12,11 @@ Started: Sun Mar 22 18:31:48 UTC 2026
 - Migration workflow: `npx drizzle-kit generate` then `npx drizzle-kit migrate`
 - Typecheck: `npx tsc --noEmit`
 - Fastify routes are registered as plugins in server/index.ts
+- Seed pattern: define data array + `seedIfEmpty()` function that checks `.all().length > 0`, called at route plugin registration time
+- `getOrCreateDefaultWorkspace()` helper returns the default workspace ID (duplicated across routes — consider extracting)
+- ChainDefinition format: `{ version: 1, nodes: [{id, type, label, model, systemPrompt, status, abilities, position}], edges: [{id, source, target, condition}] }`
+- Node types: trigger, prototyper, builder, tester, reviewer, auditor
+- Edge conditions: always, on-success, on-failure, on-decision
 ---
 
 ## 2026-03-22 - US-001
@@ -23,4 +28,17 @@ Started: Sun Mar 22 18:31:48 UTC 2026
   - Category enum values: 'workflow', 'agent-config', 'template', 'mcp-adapter'
   - workspaceId references workspaces.id (same FK pattern as all other tables)
   - The drizzle config at drizzle.config.ts points to `./data/insomniac.db` for SQLite
+---
+
+## 2026-03-22 - US-002
+- Created `server/templates/built-in.ts` with 6 built-in pipeline template definitions
+- Templates: Full Stack Build, Security Audit, Code Review, Rapid Prototype, Test Suite, Full Pipeline
+- Each template has a complete chainDefinition with nodes and edges using `buildChain()` helper
+- Exported `seedBuiltInTemplates()` function that inserts templates on first run if table is empty
+- Files changed: server/templates/built-in.ts
+- **Learnings for future iterations:**
+  - `buildChain()` helper generates linear chains from a list of node types with consistent positioning (x+280 per node, y=180)
+  - The seed function follows the same pattern as projects/providers: check `.all().length > 0`, skip if data exists
+  - `seedBuiltInTemplates()` needs to be called from somewhere at startup (e.g., from the templates route plugin when it's created in US-003)
+  - Template `chainDefinition` is stored as JSON in a `text` column with `{ mode: "json" }`
 ---
