@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square, RefreshCw, X
+  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square, RefreshCw, X, Camera, Copy, Download
 } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
 import { useDevServerStatus, useStartDevServer, useStopDevServer } from '../../api/localhost';
-import { useBrowserStatus, useLaunchBrowser, useNavigate, useCloseBrowser } from '../../api/browser';
+import { useBrowserStatus, useLaunchBrowser, useNavigate, useScreenshot, useCloseBrowser } from '../../api/browser';
 
 export function BottomPanel() {
   const activeTab = useLayoutStore((s) => s.activeTab);
@@ -21,10 +21,12 @@ export function BottomPanel() {
   const { data: browserStatus } = useBrowserStatus();
   const launchBrowser = useLaunchBrowser();
   const navigateBrowser = useNavigate();
+  const screenshot = useScreenshot();
   const closeBrowser = useCloseBrowser();
 
   const [browserUrl, setBrowserUrl] = useState('');
   const [iframeKey, setIframeKey] = useState(0);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
 
   const handleNavigate = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +38,28 @@ export function BottomPanel() {
   const handleRefresh = useCallback(() => {
     setIframeKey((k) => k + 1);
   }, []);
+
+  const handleScreenshot = useCallback(() => {
+    screenshot.mutate(undefined, {
+      onSuccess: (data) => {
+        if (data.image) setScreenshotPreview(data.image);
+      },
+    });
+  }, [screenshot]);
+
+  const handleCopyScreenshot = useCallback(async () => {
+    if (!screenshotPreview) return;
+    const blob = await fetch(`data:image/png;base64,${screenshotPreview}`).then((r) => r.blob());
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+  }, [screenshotPreview]);
+
+  const handleSaveScreenshot = useCallback(() => {
+    if (!screenshotPreview) return;
+    const link = document.createElement('a');
+    link.href = `data:image/png;base64,${screenshotPreview}`;
+    link.download = `screenshot-${Date.now()}.png`;
+    link.click();
+  }, [screenshotPreview]);
 
   const [logs, setLogs] = useState<string[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -220,6 +244,14 @@ export function BottomPanel() {
                   >
                     <RefreshCw size={12} />
                   </button>
+                  <button
+                    onClick={handleScreenshot}
+                    disabled={screenshot.isPending || !browserStatus?.running}
+                    className="flex items-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition disabled:opacity-50"
+                    title="Capture screenshot"
+                  >
+                    <Camera size={10} /> {screenshot.isPending ? 'Capturing…' : 'Screenshot'}
+                  </button>
                   {!browserStatus?.running ? (
                     <button
                       onClick={() => launchBrowser.mutate()}
@@ -239,7 +271,7 @@ export function BottomPanel() {
                   )}
                 </div>
                 {/* iframe preview */}
-                <div className="flex-1 min-h-0 border border-border-default rounded overflow-hidden bg-white">
+                <div className="flex-1 min-h-0 border border-border-default rounded overflow-hidden bg-white relative">
                   <iframe
                     key={iframeKey}
                     src={`http://localhost:4321/api/browser/proxy/?projectId=${activeProjectId}`}
@@ -247,6 +279,39 @@ export function BottomPanel() {
                     title="Dev Browser Preview"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                   />
+                  {/* Screenshot preview overlay */}
+                  {screenshotPreview && (
+                    <div className="absolute inset-0 bg-bg-base/95 flex flex-col items-center justify-center gap-3 z-10">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleCopyScreenshot}
+                          className="flex items-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition"
+                          title="Copy to clipboard"
+                        >
+                          <Copy size={10} /> Copy
+                        </button>
+                        <button
+                          onClick={handleSaveScreenshot}
+                          className="flex items-center gap-1 text-[10px] px-2 py-1 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition"
+                          title="Save as PNG"
+                        >
+                          <Download size={10} /> Save
+                        </button>
+                        <button
+                          onClick={() => setScreenshotPreview(null)}
+                          className="flex items-center gap-1 text-[10px] px-2 py-1 bg-bg-hover text-text-muted border border-border-default rounded hover:bg-bg-base transition"
+                          title="Close preview"
+                        >
+                          <X size={10} /> Close
+                        </button>
+                      </div>
+                      <img
+                        src={`data:image/png;base64,${screenshotPreview}`}
+                        alt="Screenshot"
+                        className="max-w-full max-h-[calc(100%-40px)] object-contain rounded border border-border-default"
+                      />
+                    </div>
+                  )}
                 </div>
               </>
             )}
