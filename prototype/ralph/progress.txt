@@ -136,3 +136,19 @@ Started: Sun Mar 22 17:15:36 UTC 2026
   - The singleton pattern (vs per-project like LocalhostRunner) works here because MCP connections are workspace-global
   - `restartCount` resets are not needed — once a connection hits MAX_RETRIES, it stays disconnected until manually reconnected
 ---
+
+## 2026-03-22 ~20:30 - US-009
+- Created `server/routes/mcp.ts` as a Fastify plugin with four endpoints
+- GET `/api/mcp/connections` — returns all MCP connections via `manager.listConnections()`
+- POST `/api/mcp/connections` — validates name+command, connects via `manager.connect(config)`, returns 201 with connection status
+- DELETE `/api/mcp/connections/:name` — disconnects and removes an MCP server
+- GET `/api/mcp/connections/:name/status` — returns a single connection's status
+- Registered `mcpRoutes` in `server/index.ts`
+- Module-level singleton `McpConnectionManager` instance (workspace-global, not per-project)
+- Files changed: `server/routes/mcp.ts` (new), `server/index.ts`
+- **Learnings for future iterations:**
+  - MCP routes use a singleton manager (unlike LocalhostRunner's per-project Map) — matches the workspace-global nature of MCP connections
+  - POST returns 409 Conflict when connection name already exists (McpConnectionManager.connect returns `{ success: false }` for duplicates)
+  - Route pattern: validate body fields with early return + 400, then delegate to the service class
+  - For routes that create a resource, return 201 + the created resource (not just `{ success: true }`)
+---
