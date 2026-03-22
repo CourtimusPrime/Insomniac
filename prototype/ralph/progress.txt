@@ -7,6 +7,8 @@ Started: Sun Mar 22 19:11:30 UTC 2026
 - Routes are registered in `server/index.ts` via `await server.register(xyzRoutes)`
 - Use `.js` extensions in imports (ESM module resolution)
 - Pre-existing typecheck error in `server/marketplace/client.ts:142` — not introduced by us
+- `getRunnerForProject(projectId)` is exported from `server/routes/localhost.ts` to access dev server state from other modules
+- Fastify wildcard routes use `server.get<{ Params: { "*": string } }>("/path/*", ...)` — access via `request.params["*"]`
 ---
 
 ## 2026-03-22 - US-001
@@ -60,4 +62,21 @@ Started: Sun Mar 22 19:11:30 UTC 2026
   - Fastify input validation uses JSON Schema in the `schema.body` option (see settings.ts for examples with pattern validation)
   - The launch endpoint hardcodes `headless: true` — future stories may want to make this configurable
   - US-005 (proxy endpoint) will need to be added to this same routes file or a separate one
+---
+
+## 2026-03-22 - US-005
+- Added `GET /api/browser/proxy/*` route to `server/routes/browser.ts`
+- Proxy requires `?projectId=xxx` query parameter to identify which dev server to proxy to
+- Uses `getRunnerForProject()` exported from `localhost.ts` to discover the dev server port
+- Proxies requests via Node's native `http.request` to `http://127.0.0.1:{port}/{path}`
+- Streams response back including content-type, content-length, and cache-control headers
+- Returns 502 if dev server is not running or not reachable
+- Adds CORS headers (Access-Control-Allow-Origin for localhost:5173)
+- Files changed: `server/routes/browser.ts`, `server/routes/localhost.ts`
+- **Learnings for future iterations:**
+  - Fastify wildcard routes: use `{ Params: { "*": string } }` generic and `request.params["*"]` to access the captured path
+  - Fastify querystring validation uses `schema.querystring` (not `schema.query`)
+  - Node's `http.request` callback receives an `IncomingMessage` (readable stream) — Fastify's `reply.send()` accepts streams directly
+  - Avoid unused parameters in Promise constructors — TypeScript's `noUnusedParameters` will catch them
+  - The proxy streams responses (no buffering), making it suitable for HTML, CSS, JS, and assets
 ---
