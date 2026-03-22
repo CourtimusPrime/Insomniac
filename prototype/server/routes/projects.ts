@@ -1,7 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
+import { resolve, dirname } from "node:path";
+import { mkdir } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { db } from "../db/connection.js";
 import { workspaces, projects } from "../db/schema/index.js";
+import { GitHubService } from "../integrations/github.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECTS_DIR = resolve(__dirname, "../../data/projects");
 
 const DEFAULT_WORKSPACE_NAME = "Default";
 
@@ -80,6 +87,71 @@ export async function projectRoutes(server: FastifyInstance) {
 
       db.insert(projects)
         .values({ id, workspaceId, name, language, repoUrl, path })
+        .run();
+
+      const created = db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, id))
+        .get();
+
+      reply.code(201);
+      return created;
+    },
+  );
+
+  // POST /api/projects/clone — create a project by cloning a GitHub repo
+  server.post<{ Body: { repoUrl: string; name?: string } }>(
+    "/api/projects/clone",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["repoUrl"],
+          additionalProperties: false,
+          properties: {
+            repoUrl: { type: "string", minLength: 1, maxLength: 500 },
+            name: { type: "string", minLength: 1, maxLength: 100 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { repoUrl, name } = request.body;
+
+      // Derive project name from URL if not provided
+      const repoName =
+        name ||
+        repoUrl
+          .replace(/\.git$/, "")
+          .split("/")
+          .pop()
+          ?.replace(/[^a-zA-Z0-9._-]/g, "") ||
+        "project";
+
+      const targetPath = resolve(PROJECTS_DIR, repoName);
+
+      // Ensure projects directory exists
+      await mkdir(PROJECTS_DIR, { recursive: true });
+
+      const github = new GitHubService();
+      const result = await github.cloneRepo(repoUrl, targetPath);
+
+      if (!result.success) {
+        reply.code(400);
+        return { error: result.error };
+      }
+
+      // Create a project record in the database
+      const id = crypto.randomUUID();
+      db.insert(projects)
+        .values({
+          id,
+          workspaceId,
+          name: repoName,
+          repoUrl,
+          path: targetPath,
+        })
         .run();
 
       const created = db
