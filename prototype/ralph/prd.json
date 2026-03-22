@@ -32,7 +32,7 @@
                 "Typecheck passes"
             ],
             "priority": 2,
-            "passes": false,
+            "passes": true,
             "notes": "Lightpanda adapter will be added when Lightpanda reaches stability gate. Playwright is the initial default."
         },
         {

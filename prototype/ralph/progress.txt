@@ -18,3 +18,16 @@ Started: Sun Mar 22 19:11:30 UTC 2026
   - There's a pre-existing unused variable error in marketplace code — don't try to fix it
   - Abilities live in `server/abilities/` — this is where browser tools will go (US-003)
 ---
+
+## 2026-03-22 - US-002
+- Created `server/browser/playwright-adapter.ts` implementing `BrowserEngine` with Playwright's Chromium
+- All interface methods (launch, navigate, click, fill, screenshot, getText, evaluate, close) delegate to Playwright's Page API
+- `screenshot()` returns base64 PNG string via `buffer.toString("base64")`
+- Added `playwright` to package.json dependencies
+- Exported `PlaywrightAdapter` from `server/browser/index.ts`
+- Files changed: `server/browser/playwright-adapter.ts`, `server/browser/index.ts`, `package.json`, `package-lock.json`
+- **Learnings for future iterations:**
+  - Playwright requires `npx playwright install chromium` to download browser binaries before first use
+  - The adapter holds a single Page instance — future stories may need multi-page support
+  - `evaluate()` accepts a string script (not a function) per the BrowserEngine interface
+---
