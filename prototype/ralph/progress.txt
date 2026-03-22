@@ -33,6 +33,10 @@ Started: Sun Mar 22 17:46:01 UTC 2026
 - NodeInspector lives in `src/components/graph/NodeInspector.tsx`; opens via `inspectedNodeId` state in ChainEditor
 - ChainToolbar is a pure presentational component — action callbacks are passed as props from ChainEditorInner
 - Export JSON uses Blob + createObjectURL + anchor click pattern for file downloads
+- Chain persistence: `chainDefinition` column on projects table is `text({ mode: "json" })` — drizzle handles JSON serialize/deserialize
+- Chain API: GET/PUT `/api/projects/:id/chain` — returns `{ version, nodes[], edges[] }`, defaults to empty chain if null
+- Auto-save pattern: `useRef` timer + `setTimeout(1000)` debounce; `hasLoadedRef` flag prevents overwriting user edits with stale query data
+- Deserialize chain → ReactFlow: map saved nodes to `Node<AgentNodeData>` with `type: 'agent'`, map edges with `type: 'custom'`
 
 ---
 
@@ -211,4 +215,20 @@ Started: Sun Mar 22 17:46:01 UTC 2026
   - File download pattern: `new Blob()` → `URL.createObjectURL()` → programmatic anchor click → `URL.revokeObjectURL()`
   - Auto-layout uses `Math.ceil(Math.sqrt(n))` for rows-per-column to produce roughly square grids
   - When removing an import used in JSX, check all usages in the file — `Plus` was still used in empty state overlay
+---
+
+## 2026-03-22 - US-013
+- Added `chainDefinition` (JSON text) column to projects table via migration 0006
+- Added GET /api/projects/:id/chain — returns chain JSON (defaults to empty `{ version: 1, nodes: [], edges: [] }`)
+- Added PUT /api/projects/:id/chain — saves chain JSON with validation (version, nodes[], edges[])
+- Added `useChain(projectId)` and `useSaveChain()` hooks in `src/api/projects.ts`
+- Updated ChainEditor: loads chain from API on mount, auto-saves with 1s debounce on nodes/edges changes
+- Added `serializeChain()` and `deserializeChain()` helpers for ReactFlow ↔ API format conversion
+- Files changed: server/db/schema/projects.ts, server/routes/projects.ts, src/api/projects.ts, src/components/graph/ChainEditor.tsx, migration 0006
+- **Learnings for future iterations:**
+  - `text({ mode: "json" })` in drizzle handles JSON serialization transparently — pass objects directly
+  - Use `hasLoadedRef` flag to prevent `useEffect` from resetting user edits when query cache updates
+  - Chain auto-save uses `useRef` for the timer to avoid stale closures — cleanup in useEffect return
+  - The `activeProjectId` from `useProjectsStore` is the link between ChainEditor and the persistence layer
+  - When deserializing, map saved `type` back to `nodeType` in AgentNodeData (not the ReactFlow `type` prop which is always `'agent'`)
 ---
