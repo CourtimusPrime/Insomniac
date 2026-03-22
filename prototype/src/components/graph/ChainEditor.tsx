@@ -27,7 +27,8 @@ import { NodeInspector } from './NodeInspector';
 import { ChainToolbar } from './ChainToolbar';
 import { useChain, useSaveChain, type ChainDefinition } from '../../api/projects';
 import { useProjectsStore } from '../../stores/projects';
-import { useTemplates, useApplyTemplate, type Template } from '../../api/templates';
+import { useTemplates, useApplyTemplate, useCreateTemplate, type Template } from '../../api/templates';
+import { useProjects } from '../../api/projects';
 
 const nodeTypes = { agent: AgentNode };
 const edgeTypes = { custom: CustomEdge };
@@ -240,12 +241,133 @@ function TemplatePicker({
   );
 }
 
+/* ── Save Template Form overlay ── */
+function SaveTemplateForm({
+  onSave,
+  onClose,
+  isPending,
+}: {
+  onSave: (data: { name: string; description: string; category: 'workflow' | 'agent-config' | 'template' | 'mcp-adapter' }) => void;
+  onClose: () => void;
+  isPending: boolean;
+}) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState<'workflow' | 'agent-config' | 'template' | 'mcp-adapter'>('workflow');
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: globalThis.MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as HTMLElement)) {
+        onClose();
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onSave({ name: name.trim(), description: description.trim(), category });
+  };
+
+  const inputClass =
+    'w-full px-3 py-2 rounded-md text-xs text-text-primary border bg-transparent outline-none focus:border-accent-primary transition-colors';
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/40">
+      <div
+        ref={ref}
+        className="w-96 rounded-lg border shadow-xl overflow-hidden flex flex-col"
+        style={{ background: '#111827', borderColor: '#1e2a3a' }}
+      >
+        <div
+          className="px-4 py-3 border-b flex items-center justify-between shrink-0"
+          style={{ borderColor: '#1e2a3a' }}
+        >
+          <div className="text-xs font-semibold text-text-primary">Save as Template</div>
+          <button className="text-text-muted hover:text-text-primary transition-colors" onClick={onClose}>
+            <X size={14} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-4 space-y-3">
+          <div>
+            <label className="block text-[10px] font-medium text-text-muted mb-1">Name</label>
+            <input
+              className={inputClass}
+              style={{ borderColor: '#1e2a3a' }}
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="My Pipeline Template"
+              autoFocus
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-text-muted mb-1">Description</label>
+            <textarea
+              className={`${inputClass} resize-none`}
+              style={{ borderColor: '#1e2a3a' }}
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe what this template does…"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-medium text-text-muted mb-1">Category</label>
+            <select
+              className={inputClass}
+              style={{ borderColor: '#1e2a3a' }}
+              value={category}
+              onChange={(e) => setCategory(e.target.value as typeof category)}
+            >
+              <option value="workflow">Workflow</option>
+              <option value="agent-config">Agent Config</option>
+              <option value="template">Template</option>
+              <option value="mcp-adapter">MCP Adapter</option>
+            </select>
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-md text-[11px] font-medium text-text-muted hover:text-text-primary transition-colors"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!name.trim() || isPending}
+              className="px-3 py-1.5 rounded-md text-[11px] font-medium text-white bg-accent-primary hover:bg-accent-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isPending ? 'Saving…' : 'Save Template'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function ChainEditorInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [menu, setMenu] = useState<MenuState>(null);
   const [inspectedNodeId, setInspectedNodeId] = useState<string | null>(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const { screenToFlowPosition, deleteElements } = useReactFlow();
 
   /* ── Chain persistence ── */
@@ -300,6 +422,34 @@ function ChainEditorInner() {
       setShowTemplatePicker(false);
     },
     [activeProjectId, applyTemplate, setNodes, setEdges],
+  );
+
+  /* ── Save as template ── */
+  const { data: projectsList } = useProjects();
+  const createTemplate = useCreateTemplate();
+  const handleSaveAsTemplate = useCallback(
+    (data: { name: string; description: string; category: 'workflow' | 'agent-config' | 'template' | 'mcp-adapter' }) => {
+      const workspaceId = projectsList?.[0]?.workspaceId;
+      if (!workspaceId) return;
+      const chain = serializeChain(nodes, edges);
+      createTemplate.mutate(
+        {
+          name: data.name,
+          description: data.description || undefined,
+          category: data.category,
+          chainDefinition: chain,
+          workspaceId,
+        },
+        {
+          onSuccess: () => {
+            setShowSaveForm(false);
+            setSaveSuccess(true);
+            setTimeout(() => setSaveSuccess(false), 2500);
+          },
+        },
+      );
+    },
+    [projectsList, nodes, edges, createTemplate],
   );
 
   /* ── Node open / delete callbacks (passed via node data) ── */
@@ -489,6 +639,7 @@ function ChainEditorInner() {
         onClearEdges={handleClearEdges}
         onExportJSON={handleExportJSON}
         onLoadTemplate={() => setShowTemplatePicker(true)}
+        onSaveAsTemplate={() => setShowSaveForm(true)}
       />
 
       {/* Canvas + Inspector */}
@@ -574,6 +725,24 @@ function ChainEditorInner() {
             onSelect={handleApplyTemplate}
             onClose={() => setShowTemplatePicker(false)}
           />
+        )}
+
+        {/* Save Template Form overlay */}
+        {showSaveForm && (
+          <SaveTemplateForm
+            onSave={handleSaveAsTemplate}
+            onClose={() => setShowSaveForm(false)}
+            isPending={createTemplate.isPending}
+          />
+        )}
+
+        {/* Save success toast */}
+        {saveSuccess && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg border text-[11px] font-medium text-green-400 shadow-lg"
+            style={{ background: '#111827', borderColor: '#1e2a3a' }}
+          >
+            Template saved successfully
+          </div>
         )}
 
         {/* Node Inspector panel (slide-in from right) */}

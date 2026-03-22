@@ -1,4 +1,4 @@
-import { Plus, LayoutGrid, Trash2, Download, Layers } from 'lucide-react';
+import { Plus, LayoutGrid, Trash2, Download, Layers, Save } from 'lucide-react';
 
 interface ChainToolbarProps {
   onAddNode: () => void;
@@ -6,6 +6,7 @@ interface ChainToolbarProps {
   onClearEdges: () => void;
   onExportJSON: () => void;
   onLoadTemplate: () => void;
+  onSaveAsTemplate: () => void;
 }
 
 const btnClass =
@@ -17,6 +18,7 @@ export function ChainToolbar({
   onClearEdges,
   onExportJSON,
   onLoadTemplate,
+  onSaveAsTemplate,
 }: ChainToolbarProps) {
   return (
     <div
@@ -40,9 +42,13 @@ export function ChainToolbar({
         Clear edges
       </button>
 
-      {/* Spacer pushes Export to right */}
+      {/* Spacer pushes right-side actions to right */}
       <div className="flex-1" />
 
+      <button className={btnClass} style={{ borderColor: '#1e2a3a' }} onClick={onSaveAsTemplate}>
+        <Save size={13} />
+        Save as template
+      </button>
       <button className={btnClass} style={{ borderColor: '#1e2a3a' }} onClick={onExportJSON}>
         <Download size={13} />
         Export JSON
