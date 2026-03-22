@@ -10,6 +10,9 @@ import { pipelineRoutes } from "./routes/pipelines.js";
 import { decisionRoutes } from "./routes/decisions.js";
 import { providerRoutes } from "./routes/providers.js";
 import { preferencesRoutes } from "./routes/preferences.js";
+import { localhostRoutes } from "./routes/localhost.js";
+import { settingsRoutes } from "./routes/settings.js";
+import { mcpRoutes } from "./routes/mcp.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -40,6 +43,9 @@ await server.register(pipelineRoutes);
 await server.register(decisionRoutes);
 await server.register(providerRoutes);
 await server.register(preferencesRoutes);
+await server.register(localhostRoutes);
+await server.register(settingsRoutes);
+await server.register(mcpRoutes);
 
 // Health check
 server.get("/api/health", async () => {

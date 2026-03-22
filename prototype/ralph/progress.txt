@@ -1,231 +1,218 @@
 # Ralph Progress Log
-Started: Sun Mar 22 16:36:44 UTC 2026
----
+Started: Sun Mar 22 17:15:36 UTC 2026
 
 ## Codebase Patterns
-- Schema files use `sqliteTable` from `drizzle-orm/sqlite-core` with `text`, `integer` columns
-- Primary keys use `text("id").primaryKey().$defaultFn(() => crypto.randomUUID())`
-- Timestamps use `integer("column_name", { mode: "timestamp" }).notNull().default(sql\`(unixepoch())\`)`
-- Foreign keys use `.references(() => parentTable.id)` with snake_case column names
-- Enums use `text("column", { enum: [...] })` (SQLite text enum pattern)
-- Booleans use `integer("column", { mode: "boolean" })`
-- Barrel export in `schema/index.ts` uses `.js` extension in imports
-- Migrations generated via `npx drizzle-kit generate`, applied via `npx drizzle-kit migrate`
-- Typecheck: `npx tsc --noEmit -p tsconfig.server.json` for server, `npx tsc --noEmit` for client
-- JSON columns use `text("col", { mode: "json" }).$type<T>()` for typed JSON in SQLite
-- Encryption utility at `server/crypto/keys.ts` — uses AES-256-GCM with scrypt-derived key
-- Ciphertext format: `iv:authTag:ciphertext` (hex-encoded, colon-separated)
-- Encryption key from `INSOMNIAC_SECRET` env var or auto-generated `data/.secret`
-- Service classes use `ProviderRegistry` pattern — class with CRUD methods, lives in `server/providers/`
-- Public types strip sensitive fields (e.g. `apiKeyEncrypted`) and add derived flags (e.g. `hasApiKey`)
-- Static model definitions live in `server/providers/models.ts` — `PROVIDER_MODELS` constant + `getModelsForProvider()` function
-- Ollama and OpenRouter have empty static lists — Ollama models fetched dynamically, OpenRouter accepts arbitrary strings
-- `OllamaProvider` class in `server/providers/ollama.ts` — async `fetchModels()` and `ping()`, takes optional baseUrl
-- Fastify route plugins: `async function routeName(server: FastifyInstance)`, registered in `server/index.ts` via `await server.register(fn)`
-- Upsert pattern: check existing row with `.get()`, then `insert` or `update` — no native upsert in better-sqlite3 drizzle
-- Fastify route order: static paths (e.g., `/ollama/models`) must be registered before parametric (e.g., `/:id/models`)
-- Route validation: JSON Schema in `schema.body` with `additionalProperties: false`
-- Frontend API hooks live in `src/api/` — TanStack Query with `useQuery` for reads, `useMutation` for writes, invalidating on success
-- Frontend types mirror server public types (no sensitive fields like apiKeyEncrypted)
-- Adding a new view: (1) add to `MainView` type in `src/stores/layout.ts`, (2) create component in `src/components/views/`, (3) add conditional render in `src/components/shell/MainView.tsx`
-- Settings view is accessed via toolbar icon, not via the header tab bar
-- Frontend forms needing `workspaceId`: get it from `useProjects()` first project (always seeded)
-- Form visibility pattern: `useState(false)` toggle + `onClose` callback prop to form component
-- Reusable UI components live in `src/components/ui/` — use `useQueries` for parallel dynamic fetches
-- Project preferences (default model) fetched via `useProjectPreferences(projectId)` — returns `null` if none set
-- Pipeline stage creation: `useAddStage(pipelineId)` mutation posts to `/api/pipelines/:id/stages`
+- Server code typechecked with `npx tsc --noEmit -p tsconfig.server.json`
+- Server routes are Fastify plugins registered in `server/index.ts`
+- Database uses Drizzle ORM with better-sqlite3; schemas in `server/db/schema/`
+- Project module uses ESNext with bundler module resolution
+- Integration services go in `server/integrations/`
+- Cloned projects live under `data/projects/` directory
+- Route handlers share `workspaceId` via closure from plugin load
+- LocalhostRunner is per-project; route layer uses a Map<projectId, LocalhostRunner> in server/routes/localhost.ts
+- McpConnectionManager is a singleton managing named connections; use `connect(config)` / `disconnect(name)` / `listConnections()` / `getConnection(name)`
+- MCP process auto-restart: on unexpected exit, retry up to 3 times (MAX_RETRIES), tracked via `restartCount`
+- WSL utilities in `server/utils/wsl.ts`; re-export from `server/utils/index.ts` — use `isWSL()` / `getVSCodeCommand()` / `resolveWSLPath()`
+- WebSocket log streaming uses `broadcast("devserver:log", { projectId, line })` from ws/handler.ts
+- Client API hooks go in `src/api/<resource>.ts` using TanStack React Query (`useQuery`, `useMutation`)
+- `apiFetch` from `src/api/client.ts` is the fetch wrapper for all API calls
+- Active project tracked via `useProjectsStore((s) => s.activeProjectId)` from `src/stores/projects.ts`
+- WebSocket event handling in `src/hooks/useWebSocket.ts` — add cases to the `handleEvent` switch to invalidate query keys
+- Settings stored in `settings` table as key-value pairs (key: text, value: JSON) scoped to workspaceId
+- Settings API: GET `/api/settings/:key` and PUT `/api/settings/:key` with `{ value, category? }` body
+- Settings hooks in `src/api/settings.ts`: `useSetting(key)`, `useSaveSetting()`, `useTestSlackWebhook()`
+- Context menus: use `fixed` positioning with `onContextMenu` handler; dismiss on outside click via `mousedown` listener on `document`
+- Inline editing: use `renamingId` state + `ref` focus pattern; commit on Enter/blur, cancel on Escape
+- API mutation hooks: `useDeleteProject()`, `useUpdateProject()`, `useOpenInVSCode()` in `src/api/projects.ts`
+
 ---
 
-## 2026-03-22 - US-001
-- Created `server/db/schema/providers.ts` with providers table
-- Columns: id, workspaceId (FK to workspaces), name (enum), displayName, baseUrl, apiKeyEncrypted, isActive, createdAt, updatedAt
-- Updated barrel export in `server/db/schema/index.ts`
-- Migration `0003_modern_calypso.sql` generated and applied
-- Files changed: `server/db/schema/providers.ts`, `server/db/schema/index.ts`, migration files
+## 2026-03-22 ~17:20 - US-001
+- Created `server/integrations/github.ts` with `GitHubService` class
+- `cloneRepo(repoUrl, targetPath)` validates GitHub HTTPS/SSH URLs, spawns `git clone`
+- Returns `{ success, path, error? }`, checks for existing target path
+- Files changed: `server/integrations/github.ts` (new)
 - **Learnings for future iterations:**
-  - Drizzle ORM schema pattern is consistent — follow existing files exactly
-  - `isActive` uses `integer` with `{ mode: "boolean" }` for SQLite boolean support
-  - Migration naming is auto-generated by drizzle-kit (e.g., `0003_modern_calypso`)
+  - tsconfig.server.json includes the `server/` directory — use it for server typechecks
+  - The project already has `repoUrl` and `path` columns on the projects table
+  - Integration services are standalone classes (no Fastify dependency)
 ---
 
-## 2026-03-22 - US-002
-- Created `server/db/schema/project-preferences.ts` with project_preferences table
-- Columns: id, projectId (FK to projects), providerId (FK to providers), defaultModel, taskTypeOverrides (JSON), createdAt
-- `taskTypeOverrides` stores a `Record<string, string>` map (e.g., `{ "code": "claude-sonnet-4", "review": "claude-haiku-4-5" }`)
-- Updated barrel export in `server/db/schema/index.ts`
-- Migration `0004_absurd_fixer.sql` generated and applied
-- Files changed: `server/db/schema/project-preferences.ts`, `server/db/schema/index.ts`, migration files
+## 2026-03-22 ~17:30 - US-002
+- Added `POST /api/projects/clone` endpoint to `server/routes/projects.ts`
+- Accepts `{ repoUrl, name? }`, validates via GitHubService, clones to `data/projects/{name}`
+- Creates project DB record with repoUrl and path, returns 201 with created project
+- Derives project name from repo URL if not provided
+- Files changed: `server/routes/projects.ts`
 - **Learnings for future iterations:**
-  - JSON columns in SQLite Drizzle use `text("col", { mode: "json" }).$type<T>()` for TypeScript typing
-  - The `createdAt` only (no `updatedAt`) is fine for preference tables that are upserted
+  - The `workspaceId` from `getOrCreateDefaultWorkspace()` is available as a closure variable in all route handlers
+  - Clone endpoint placed before PUT/DELETE routes (Fastify matches `/clone` literally before `:id` param)
+  - `data/projects/` is the target directory for cloned repos; `mkdir({ recursive: true })` ensures it exists
 ---
 
-## 2026-03-22 - US-003
-- Created `server/crypto/keys.ts` with `encryptApiKey()` and `decryptApiKey()` functions
-- Uses AES-256-GCM via Node.js crypto module with 96-bit random IV per encryption
-- Key derived via scrypt from `INSOMNIAC_SECRET` env var (or auto-generated `data/.secret`)
-- Ciphertext format: `iv:authTag:ciphertext` (hex-encoded, colon-separated)
-- Round-trip test verified: encrypt then decrypt returns original value
-- Different encryptions of same value produce different ciphertexts (unique IVs)
-- Files changed: `server/crypto/keys.ts` (new)
+## 2026-03-22 ~17:45 - US-003
+- Created `server/integrations/localhost-runner.ts` with `LocalhostRunner` class
+- `detectDevServer(projectPath)` reads package.json, matches Next.js/Vite/CRA/Astro by dependency, falls back to dev/start scripts
+- `start(projectPath)` spawns `npm run <script>` with auto-detected available port via `node:net` createServer
+- `stop()` kills the child process, `getStatus()` returns `{ running, port, pid }`
+- `onLog(listener)` method for subscribing to stdout/stderr output (for WebSocket streaming in US-004)
+- Files changed: `server/integrations/localhost-runner.ts` (new)
 - **Learnings for future iterations:**
-  - `data/` directory is already gitignored — safe for secrets
-  - `data/.secret` is auto-created with mode 0o600 on first run
-  - Key is cached in memory after first derivation for performance
-  - `tsx --eval` works for running ESM TypeScript snippets inline
+  - `node:net` createServer trick for port detection: try preferred port, on EADDRINUSE let OS pick with port 0
+  - `LocalhostRunner` instances are per-project (not a singleton) — US-004 will need a map of projectId → runner
+  - The `onLog` callback pattern matches how WebSocket events can be wired in the route layer
+  - Framework detection order matters: check specific frameworks first, then fall back to generic scripts
 ---
 
-## 2026-03-22 - US-004
-- Created `server/providers/registry.ts` with `ProviderRegistry` class
-- Methods: `listProviders()`, `getProvider(id)`, `getProviderWithKey(id)`, `addProvider(config)`, `updateProvider(id, config)`, `removeProvider(id)`
-- `addProvider` encrypts API key via `encryptApiKey()` before insert
-- `getProviderWithKey()` decrypts key for internal API-call use only
-- `listProviders()` and `getProvider()` strip `apiKeyEncrypted` and return `hasApiKey` boolean instead
-- Exported types: `ProviderPublic`, `ProviderWithKey`, `AddProviderConfig`, `UpdateProviderConfig`
-- Files changed: `server/providers/registry.ts` (new)
+## 2026-03-22 ~18:00 - US-004
+- Created `server/routes/localhost.ts` as a Fastify plugin with three endpoints
+- POST `/api/projects/:id/dev-server/start` — looks up project, validates it has a path, starts runner with log streaming via WebSocket broadcast
+- POST `/api/projects/:id/dev-server/stop` — stops the runner for a project
+- GET `/api/projects/:id/dev-server/status` — returns `{ running, port, pid }` (defaults to not-running if no runner exists)
+- Registered `localhostRoutes` in `server/index.ts`
+- Module-level `Map<string, LocalhostRunner>` manages per-project runner instances
+- Log streaming wired via `broadcast("devserver:log", { projectId, line })` from `ws/handler.ts`
+- Files changed: `server/routes/localhost.ts` (new), `server/index.ts`
 - **Learnings for future iterations:**
-  - Use `toPublic()` pattern to strip sensitive fields and add derived flags (e.g. `hasApiKey`)
-  - Drizzle `$inferSelect` type gives the row shape from a table schema
-  - `Omit<T, 'field'> & { newField: type }` pattern for safe public types
-  - Service classes live in `server/providers/` (new module directory for this milestone)
+  - The `broadcast` function from `ws/handler.ts` is the canonical way to push events to all WebSocket clients
+  - Route plugins don't need `workspaceId` closure if they only look up projects by `:id` param
+  - Always check `project.path` exists before passing to LocalhostRunner — seed projects have no path
+  - `onLog` returns an unsubscribe function but for long-lived runners it's fine to leave the listener attached
 ---
 
-## 2026-03-22 - US-005
-- Created `server/providers/models.ts` with `PROVIDER_MODELS` constant and `getModelsForProvider()` function
-- Anthropic: claude-sonnet-4, claude-haiku-4-5
-- OpenAI: gpt-4o, o3
-- Google: gemini-2.0-flash, gemini-2.5-pro
-- OpenRouter: empty array (custom model string input)
-- Ollama: empty array (dynamic — fetched from /api/tags)
-- Each model entry has: id, name, displayName, provider, contextWindow, costPerInputToken, costPerOutputToken
-- Files changed: `server/providers/models.ts` (new)
+## 2026-03-22 ~18:30 - US-005
+- Created `src/api/localhost.ts` with `useDevServerStatus(projectId)`, `useStartDevServer()`, `useStopDevServer()` hooks
+- Updated `src/hooks/useWebSocket.ts` to handle `devserver:log` and `devserver:status` events → invalidates `devServerStatus` query key
+- Rewrote BottomPanel Project Health tab: real dev server status indicator, start/stop buttons, live log streaming via WebSocket
+- Status polling at 5s interval plus real-time invalidation from WS events
+- Files changed: `src/api/localhost.ts` (new), `src/hooks/useWebSocket.ts`, `src/components/shell/BottomPanel.tsx`
 - **Learnings for future iterations:**
-  - `ModelDefinition` interface is the canonical shape for model entries across all providers
-  - Ollama and OpenRouter return empty arrays from static definitions — dynamic fetching handled elsewhere
-  - Cost fields use per-token pricing (e.g., 0.000003 = $3 per 1M tokens)
+  - `useProjectsStore((s) => s.activeProjectId)` is the canonical way to get the selected project in any component
+  - For WS log streaming on the client, open a dedicated WebSocket in a useEffect (the global useWebSocket hook only does cache invalidation, not data extraction)
+  - TanStack Query `enabled: !!projectId` prevents firing queries when no project is selected
+  - `refetchInterval: 5000` on status queries provides a polling baseline; WS events give instant updates on top
+  - BottomPanel health tab needs both `activeProjectId` and the dev server hooks — no project selected = show placeholder
 ---
 
-## 2026-03-22 - US-006
-- Created `server/providers/ollama.ts` with `OllamaProvider` class
-- `fetchModels()` queries GET `{baseUrl}/api/tags` and returns parsed `ModelDefinition[]`
-- Default baseUrl is `http://localhost:11434`
-- No API key required — Ollama is local-only
-- `ping()` method verifies Ollama is reachable (returns boolean)
-- Models returned in the same `ModelDefinition` format with zero cost (local)
-- Files changed: `server/providers/ollama.ts` (new)
+## 2026-03-22 ~19:00 - US-006
+- Created `server/integrations/slack.ts` with `SlackNotifier` class
+- `sendMessage(webhookUrl, message)` sends POST to Slack incoming webhook with JSON body
+- Supports formatted messages via `buildFormattedMessage(title, body, status)` using Slack attachments with color + Block Kit sections
+- Helper methods: `notifyPipelineComplete`, `notifyDecisionNeeded`, `notifyError` — each maps to a status color (green, yellow, red)
+- Returns `{ success: boolean, error?: string }`
+- Uses native `fetch` (no extra dependencies needed)
+- Files changed: `server/integrations/slack.ts` (new)
 - **Learnings for future iterations:**
-  - Ollama `/api/tags` returns `{ models: [{ name, model, size, digest, details }] }`
-  - `contextWindow` is 0 for Ollama models since the API doesn't expose it
-  - Cost fields are 0 for local Ollama models
-  - OllamaProvider strips trailing slashes from baseUrl to avoid double-slash in fetch URLs
+  - Slack incoming webhooks accept `{ text, blocks?, attachments? }` — use `attachments` with `color` field for colored sidebar indicators
+  - Block Kit `mrkdwn` type supports Slack markdown (`*bold*`, `_italic_`, `~strike~`, `<url|label>`)
+  - Native `fetch` is available in Node 18+ (this project's target), no need for `node-fetch`
+  - The `SlackNotifier` class is stateless — it can be instantiated once and reused across routes
+  - Status colors: success=#36a64f, warning=#f2c744, error=#e01e5a, info=#1264a3
 ---
 
-## 2026-03-22 - US-007
-- Created `server/routes/providers.ts` as a Fastify plugin with full CRUD endpoints
-- Endpoints: GET /api/providers, POST /api/providers, PUT /api/providers/:id, DELETE /api/providers/:id
-- GET /api/providers/:id/models returns static models or live Ollama models
-- GET /api/providers/ollama/models fetches live model list (with optional baseUrl query param)
-- Input validation via JSON Schema on POST/PUT bodies; API key never in responses
-- Registered `providerRoutes` in `server/index.ts`
-- Files changed: `server/routes/providers.ts` (new), `server/index.ts`
+## 2026-03-22 ~19:30 - US-007
+- Added 'Notifications' tab to SettingsView with Slack webhook URL configuration
+- Created `server/routes/settings.ts` with GET/PUT `/api/settings/:key` and POST `/api/settings/slack/test`
+- Created `src/api/settings.ts` with `useSetting`, `useSaveSetting`, `useTestSlackWebhook` hooks
+- Updated `SettingsView.tsx` with `NotificationsTab` component: webhook URL input, Save button, Test button with status feedback
+- Registered `settingsRoutes` in `server/index.ts`
+- Files changed: `server/routes/settings.ts` (new), `src/api/settings.ts` (new), `src/components/views/SettingsView.tsx`, `server/index.ts`
 - **Learnings for future iterations:**
-  - Fastify route order matters for parametric vs static: `/ollama/models` must be registered BEFORE `/:id/models`
-  - Route plugins are `async function(server: FastifyInstance)` exported by name
-  - Routes registered in `server/index.ts` via `await server.register(routeFn)`
-  - POST validation uses `additionalProperties: false` to reject unknown fields
-  - 502 is appropriate for upstream Ollama failures (gateway error)
+  - The `settings` table uses a key-value pattern with JSON value column — good for any workspace-level config
+  - Settings routes use a `getDefaultWorkspaceId()` helper (not the closure pattern from projects) since settings are workspace-global
+  - Drizzle's `text("value", { mode: "json" })` stores JSON but you still need `JSON.stringify()` when writing via `.set()` / `.values()`
+  - SettingsView uses a `SettingsTab` union type and `TABS` array for the tab bar — add new tabs by extending both
+  - For upsert pattern in SQLite via Drizzle: check existing row with `.get()`, then update or insert accordingly
 ---
 
-## 2026-03-22 - US-008
-- Created `server/routes/preferences.ts` as a Fastify plugin with project preferences endpoints
-- GET /api/projects/:id/preferences — returns project's model preferences (404 if none)
-- PUT /api/projects/:id/preferences — upserts preferences (creates on first PUT, updates thereafter)
-- Input validation on PUT body: `providerId` required, optional `defaultModel` and `taskTypeOverrides`
-- Registered `preferencesRoutes` in `server/index.ts`
-- Files changed: `server/routes/preferences.ts` (new), `server/index.ts`
+## 2026-03-22 ~20:00 - US-008
+- Created `server/integrations/mcp-manager.ts` with `McpConnectionManager` class
+- `connect(config)` spawns an MCP server as a child process with `{ name, command, args, env }` config
+- `disconnect(name)` kills the process and removes the connection from the map
+- `listConnections()` returns all connections with status, pid, and restart count
+- `getConnection(name)` returns a single connection's status or null
+- Auto-restart on crash: `close` and `error` events trigger `spawnProcess` up to MAX_RETRIES (3)
+- Removes all listeners before killing on disconnect to prevent auto-restart
+- Files changed: `server/integrations/mcp-manager.ts` (new)
 - **Learnings for future iterations:**
-  - Upsert pattern: check if row exists via `.get()`, then insert or update accordingly
-  - PUT that creates returns 201; PUT that updates returns 200 (Fastify default)
-  - Preferences are keyed by `projectId` — one preference row per project
-  - `taskTypeOverrides` validation uses `additionalProperties: { type: "string" }` for Record<string,string> JSON Schema
+  - MCP servers communicate via stdio (stdin/stdout/stderr pipes) — spawned with `stdio: ["pipe", "pipe", "pipe"]`
+  - `removeAllListeners("close")` before `.kill()` prevents the auto-restart handler from firing during intentional disconnect
+  - The singleton pattern (vs per-project like LocalhostRunner) works here because MCP connections are workspace-global
+  - `restartCount` resets are not needed — once a connection hits MAX_RETRIES, it stays disconnected until manually reconnected
 ---
 
-## 2026-03-22 - US-009
-- Created `src/api/providers.ts` with TanStack Query hooks for provider management
-- Hooks: `useProviders()`, `useAddProvider()`, `useUpdateProvider()`, `useDeleteProvider()`, `useProviderModels(providerId)`
-- All mutations invalidate the `providers` query key on success
-- `Provider` interface excludes apiKey, includes `hasApiKey` boolean (matches server `ProviderPublic` shape)
-- `ModelDefinition` interface mirrors server type for model data
-- `useProviderModels` uses `enabled: !!providerId` pattern to skip query when no provider selected
-- Files changed: `src/api/providers.ts` (new)
+## 2026-03-22 ~20:30 - US-009
+- Created `server/routes/mcp.ts` as a Fastify plugin with four endpoints
+- GET `/api/mcp/connections` — returns all MCP connections via `manager.listConnections()`
+- POST `/api/mcp/connections` — validates name+command, connects via `manager.connect(config)`, returns 201 with connection status
+- DELETE `/api/mcp/connections/:name` — disconnects and removes an MCP server
+- GET `/api/mcp/connections/:name/status` — returns a single connection's status
+- Registered `mcpRoutes` in `server/index.ts`
+- Module-level singleton `McpConnectionManager` instance (workspace-global, not per-project)
+- Files changed: `server/routes/mcp.ts` (new), `server/index.ts`
 - **Learnings for future iterations:**
-  - Frontend API hooks follow a consistent pattern: interfaces at top, query hooks, then mutation hooks
-  - Mutation hooks that modify a resource destructure `{ id, ...body }` to separate the URL param from the request body
-  - Query key convention: plural resource name (e.g., `["providers"]`), related sub-resources use `["providerModels", id]`
-  - `enabled: !!param` pattern used for conditional queries that depend on a selected entity
+  - MCP routes use a singleton manager (unlike LocalhostRunner's per-project Map) — matches the workspace-global nature of MCP connections
+  - POST returns 409 Conflict when connection name already exists (McpConnectionManager.connect returns `{ success: false }` for duplicates)
+  - Route pattern: validate body fields with early return + 400, then delegate to the service class
+  - For routes that create a resource, return 201 + the created resource (not just `{ success: true }`)
 ---
 
-## 2026-03-22 - US-010
-- Created `src/components/views/SettingsView.tsx` with tabbed layout (Providers tab)
-- Each provider card shows: displayName, provider name, active/inactive status badge, model count, key configured indicator
-- Added `'settings'` to `MainView` type in `src/stores/layout.ts`
-- Added `SettingsView` render branch in `src/components/shell/MainView.tsx`
-- Wired up Settings button in `src/components/shell/LeftToolbar.tsx` to navigate to settings view
-- Files changed: `src/stores/layout.ts`, `src/components/views/SettingsView.tsx` (new), `src/components/shell/MainView.tsx`, `src/components/shell/LeftToolbar.tsx`
+## 2026-03-22 ~21:00 - US-010
+- Created `server/utils/wsl.ts` with `isWSL()`, `getVSCodeCommand()`, `resolveWSLPath()` functions
+- Created `server/utils/index.ts` barrel export
+- `isWSL()` reads `/proc/version` and caches the result; checks for Microsoft/WSL strings
+- `getVSCodeCommand()` returns `code.exe` on WSL, `code` otherwise
+- `resolveWSLPath()` converts `C:\foo\bar` to `/mnt/c/foo/bar`
+- Files changed: `server/utils/wsl.ts` (new), `server/utils/index.ts` (new)
 - **Learnings for future iterations:**
-  - Settings button was already rendered in LeftToolbar but had no onClick — just needed wiring up
-  - View components live in `src/components/views/` and are conditionally rendered in `MainView.tsx`
-  - To add a new view: (1) add to MainView type in layout store, (2) create view component, (3) add conditional render in MainView.tsx
-  - Tab pattern uses local `useState` (not global store) for intra-view tabs
-  - `useProviderModels(provider.id)` can be called per-card to show model count — TanStack Query handles dedup
-  - Settings is not in the main header tab bar (pipeline/graph/backseat) — it's accessed via the toolbar Settings icon
+  - `server/utils/` is a new directory — first util module in the project
+  - `isWSL()` caches via module-level variable to avoid repeated filesystem reads
+  - `resolveWSLPath` only transforms paths matching `X:\...` pattern; non-Windows paths pass through unchanged
+  - US-011 will import `getVSCodeCommand` from `server/utils/index.js` (note `.js` extension for ESM resolution)
 ---
 
-## 2026-03-22 - US-011
-- Added `AddProviderForm` component to `SettingsView.tsx` with full provider configuration form
-- Provider type dropdown: Anthropic, OpenAI, Google, OpenRouter, Ollama, Custom
-- API key (password field) shown for all providers except Ollama
-- Base URL shown for Ollama (default `http://localhost:11434`) and Custom providers
-- Form submits via `useAddProvider()` mutation; closes and refreshes list on success
-- "Add Provider" button toggles form visibility in `ProvidersTab`
-- workspaceId sourced from first project via `useProjects()` hook (projects are always seeded)
-- Files changed: `src/components/views/SettingsView.tsx`
+## 2026-03-22 ~21:30 - US-011
+- Added `POST /api/projects/:id/open-vscode` endpoint to `server/routes/projects.ts`
+- Looks up project by ID, validates it has a `path`, spawns VS Code with `getVSCodeCommand()` from WSL utils
+- Uses `spawn` with `detached: true` + `child.unref()` so VS Code runs independently of the server process
+- Returns `{ success: boolean, error?: string }`
+- Files changed: `server/routes/projects.ts`
 - **Learnings for future iterations:**
-  - `useProjects()` is the reliable source for workspaceId (projects are seeded on startup)
-  - Form pattern: use local `useState` for form visibility, pass `onClose` callback to form component
-  - Conditional field rendering via boolean flags (`isOllama`, `isCustom`) keeps JSX clean
-  - `useMutation` `onSuccess` callback in `.mutate()` call (not hook options) enables per-call behavior like closing forms
+  - Place parameterized routes like `/api/projects/:id/open-vscode` before generic `:id` PUT/DELETE to avoid ambiguity (Fastify handles this, but it's cleaner)
+  - `spawn` with `detached: true` + `stdio: "ignore"` + `child.unref()` is the pattern for fire-and-forget child processes that outlive the request
+  - The `getVSCodeCommand()` import from `../utils/index.js` works — ESM requires the `.js` extension
+  - US-012 will need to call this endpoint from the frontend context menu
 ---
 
-## 2026-03-22 - US-012
-- Created `src/components/ui/ModelSelector.tsx` — reusable dropdown component
-- Shows models grouped by provider using `<optgroup>` elements
-- Fetches models for all active providers in parallel via `useQueries` from TanStack Query
-- Displays loading spinner while providers/models load; shows "no models" message if none available
-- Props: `value` (string), `onChange` (callback), optional `className`
-- Ollama models fetched dynamically via the existing `/api/providers/:id/models` endpoint
-- Files changed: `src/components/ui/ModelSelector.tsx` (new)
+## 2026-03-22 ~22:00 - US-012
+- Added right-click context menu to project items in LeftSidebar with Rename, Remove from list, Open in VS Code
+- Rename enables inline editing via input field (commit on Enter/blur, cancel on Escape)
+- Remove calls DELETE /api/projects/:id, Open in VS Code calls POST /api/projects/:id/open-vscode
+- Context menu positioned at cursor location, dismissed on outside click
+- Added `useDeleteProject`, `useUpdateProject`, `useOpenInVSCode` hooks to `src/api/projects.ts`
+- Files changed: `src/components/shell/LeftSidebar.tsx`, `src/api/projects.ts`
 - **Learnings for future iterations:**
-  - `useQueries` from TanStack Query enables parallel fetches for a dynamic list of queries
-  - `<optgroup label="...">` provides native grouped dropdown UI — no custom components needed
-  - UI components live in `src/components/ui/` directory (new — first component here)
-  - ModelSelector filters to only active providers (`p.isActive`) for the dropdown
-  - Styling follows the same pattern as SettingsView inputs: `border-border-default bg-bg-surface text-xs`
+  - Context menu pattern: `fixed` z-50 div positioned at `e.clientX/Y`, dismissed via `mousedown` listener on `document`
+  - Inline rename pattern: `renamingId` + `renameValue` state, `ref` for auto-focus/select, commit on blur/Enter, cancel on Escape
+  - `onClick={(e) => e.stopPropagation()}` on the rename input prevents the parent button's click (project selection) from firing
+  - The existing server PUT /api/projects/:id already supports partial updates including `name` — no server changes needed
+  - Import `type { Project }` separately from value imports when used only for type annotations (e.g., callback params)
 ---
 
-## 2026-03-22 - US-013
-- Integrated ModelSelector into pipeline stage creation via new `AddStageForm` component in PipelineView
-- Added `useAddStage(pipelineId)` mutation hook in `src/api/pipelines.ts` — POST to `/api/pipelines/:id/stages`
-- Added `useProjectPreferences(projectId)` query hook to fetch default model from project preferences
-- `AddStageForm` component: name input, ModelSelector dropdown, optional description, Add/Cancel buttons
-- Default model sourced from project preferences (`prefs.defaultModel`) when user hasn't explicitly selected one
-- Model selection stored in `pipeline_stages.model` column (already existed in schema)
-- "+ Add Stage" dashed-border button in PipelineView toggles the form visibility
-- Files changed: `src/api/pipelines.ts`, `src/components/views/PipelineView.tsx`
+## 2026-03-22 ~22:30 - US-013
+- Added `useCloneProject` mutation hook to `src/api/projects.ts` (calls POST /api/projects/clone)
+- Added create project dialog to LeftSidebar with three states: choose mode, GitHub clone form, empty project form
+- '+' button in projects header opens the dialog
+- GitHub mode: repo URL input (required) + optional project name, submits to clone endpoint
+- Empty mode: project name input (required), submits to create endpoint
+- Dialog closes and project list refreshes on success; shows error messages on failure
+- Loading states with spinner on submit buttons; form validation (disabled button when required fields empty)
+- Files changed: `src/api/projects.ts`, `src/components/shell/LeftSidebar.tsx`
 - **Learnings for future iterations:**
-  - `pipeline_stages.model` column already existed — no migration needed for this story
-  - `useProjectPreferences` returns `null` (not throws) when no preferences are set (404 from server)
-  - AddStageForm uses `effectiveModel = model || prefs?.defaultModel || ''` pattern for cascading defaults
-  - Mutation hooks accept `pipelineId` as constructor arg (not in mutate payload) — cleaner API
-  - Stage creation form follows same `useState(false)` toggle + `onClose` pattern as AddProviderForm
+  - Modal dialog pattern: fixed inset-0 z-50 with black/50 backdrop, stopPropagation on inner div, click backdrop to dismiss
+  - Multi-step dialogs: use a union type state (`'choose' | 'github' | 'empty'`) with back button to return to initial state
+  - `useCloneProject` follows same pattern as `useCreateProject` — both invalidate `["projects"]` query key on success
+  - `useMutation` supports `onSuccess`/`onError` callbacks in `.mutate()` call for per-invocation behavior (dialog close, error display)
+  - `autoFocus` on input elements works well for modal forms — focuses the first input when the form appears
+  - Lucide icons `Github`, `FolderPlus`, `X`, `ArrowLeft` used for dialog UI — check lucide-react exports for available icons
 ---

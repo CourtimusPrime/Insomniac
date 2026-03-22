@@ -1,13 +1,48 @@
+import { useState, useEffect, useRef } from 'react';
 import {
-  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe
+  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square
 } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout';
+import { useProjectsStore } from '../../stores/projects';
+import { useDevServerStatus, useStartDevServer, useStopDevServer } from '../../api/localhost';
 
 export function BottomPanel() {
   const activeTab = useLayoutStore((s) => s.activeTab);
   const setActiveTab = useLayoutStore((s) => s.setActiveTab);
   const collapsed = useLayoutStore((s) => s.collapsedPanels.bottomPanel);
   const togglePanel = useLayoutStore((s) => s.togglePanel);
+
+  const activeProjectId = useProjectsStore((s) => s.activeProjectId);
+  const { data: devStatus } = useDevServerStatus(activeProjectId);
+  const startServer = useStartDevServer();
+  const stopServer = useStopDevServer();
+
+  const [logs, setLogs] = useState<string[]>([]);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+
+  // Listen for devserver:log WebSocket events
+  useEffect(() => {
+    function onMessage(evt: MessageEvent) {
+      try {
+        const msg = JSON.parse(evt.data) as { event: string; data?: { projectId?: string; line?: string } };
+        if (msg.event === 'devserver:log' && msg.data?.projectId === activeProjectId && msg.data.line) {
+          setLogs((prev) => [...prev.slice(-199), msg.data!.line!]);
+        }
+      } catch { /* ignore */ }
+    }
+
+    const ws = new WebSocket('ws://localhost:4321/ws');
+    ws.addEventListener('message', onMessage);
+    return () => { ws.close(); };
+  }, [activeProjectId]);
+
+  // Auto-scroll logs
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
+  // Clear logs when project changes
+  useEffect(() => { setLogs([]); }, [activeProjectId]);
 
   return (
     <div className={`border-t border-border-default flex flex-col shrink-0 transition-[height] duration-200 ease-in-out ${
@@ -81,11 +116,52 @@ export function BottomPanel() {
           </div>
         )}
         {activeTab === 'health' && (
-          <div className="space-y-1">
-            <div className="text-status-success">All agents online · p50 latency: 42ms · p99: 218ms</div>
-            <div className="text-text-secondary">Pipeline completion rate (last 24h): 91.3%</div>
-            <div className="text-text-secondary">Active worktrees: 3 · Disk: 1.2GB used</div>
-            <div className="text-status-warning">1 decision pending · 0 errors</div>
+          <div className="space-y-3">
+            {!activeProjectId ? (
+              <div className="text-text-faint italic">Select a project to view dev server status.</div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <span className={`inline-block w-2 h-2 rounded-full ${devStatus?.running ? 'bg-status-success' : 'bg-text-faint'}`} />
+                  <span className="text-text-secondary">
+                    Dev server: <span className={devStatus?.running ? 'text-status-success' : 'text-text-faint'}>
+                      {devStatus?.running ? `Running on port ${devStatus.port}` : 'Stopped'}
+                    </span>
+                    {devStatus?.pid && <span className="text-text-faint ml-2">(PID {devStatus.pid})</span>}
+                  </span>
+                  {devStatus?.running ? (
+                    <button
+                      onClick={() => stopServer.mutate(activeProjectId)}
+                      disabled={stopServer.isPending}
+                      className="ml-auto flex items-center gap-1 text-[10px] px-2 py-1 bg-status-error/15 text-status-error border border-status-error/30 rounded hover:bg-status-error/25 transition disabled:opacity-50"
+                    >
+                      <Square size={9} /> Stop
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => startServer.mutate(activeProjectId)}
+                      disabled={startServer.isPending}
+                      className="ml-auto flex items-center gap-1 text-[10px] px-2 py-1 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition disabled:opacity-50"
+                    >
+                      <Play size={9} /> Start
+                    </button>
+                  )}
+                </div>
+                {(startServer.isError || stopServer.isError) && (
+                  <div className="text-status-error text-[10px]">
+                    {(startServer.error ?? stopServer.error)?.message}
+                  </div>
+                )}
+                {logs.length > 0 && (
+                  <div className="bg-bg-base border border-border-default rounded p-2 max-h-24 overflow-y-auto">
+                    {logs.map((line, i) => (
+                      <div key={i} className="text-text-muted whitespace-pre">{line}</div>
+                    ))}
+                    <div ref={logsEndRef} />
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
         {activeTab === 'browser' && (
