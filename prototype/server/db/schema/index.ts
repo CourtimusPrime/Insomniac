@@ -11,3 +11,4 @@ export { projectPreferences } from "./project-preferences.js";
 export { stageAbilities } from "./stage-abilities.js";
 export { templates } from "./templates.js";
 export { hooks } from "./hooks.js";
+export { credentials } from "./credentials.js";
