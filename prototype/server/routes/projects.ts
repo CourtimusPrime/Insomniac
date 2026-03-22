@@ -2,10 +2,12 @@ import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { resolve, dirname } from "node:path";
 import { mkdir } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { db } from "../db/connection.js";
 import { workspaces, projects } from "../db/schema/index.js";
 import { GitHubService } from "../integrations/github.js";
+import { getVSCodeCommand } from "../utils/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECTS_DIR = resolve(__dirname, "../../data/projects");
@@ -162,6 +164,45 @@ export async function projectRoutes(server: FastifyInstance) {
 
       reply.code(201);
       return created;
+    },
+  );
+
+  // POST /api/projects/:id/open-vscode — open project in VS Code
+  server.post<{ Params: { id: string } }>(
+    "/api/projects/:id/open-vscode",
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const project = db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, id))
+        .get();
+
+      if (!project) {
+        reply.code(404);
+        return { success: false, error: "Project not found" };
+      }
+
+      if (!project.path) {
+        reply.code(400);
+        return { success: false, error: "Project has no local path" };
+      }
+
+      const command = getVSCodeCommand();
+
+      try {
+        const child = spawn(command, [project.path], {
+          detached: true,
+          stdio: "ignore",
+        });
+        child.unref();
+        return { success: true };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to open VS Code";
+        reply.code(500);
+        return { success: false, error: message };
+      }
     },
   );
 
