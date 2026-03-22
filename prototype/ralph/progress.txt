@@ -198,3 +198,21 @@ Started: Sun Mar 22 17:15:36 UTC 2026
   - The existing server PUT /api/projects/:id already supports partial updates including `name` — no server changes needed
   - Import `type { Project }` separately from value imports when used only for type annotations (e.g., callback params)
 ---
+
+## 2026-03-22 ~22:30 - US-013
+- Added `useCloneProject` mutation hook to `src/api/projects.ts` (calls POST /api/projects/clone)
+- Added create project dialog to LeftSidebar with three states: choose mode, GitHub clone form, empty project form
+- '+' button in projects header opens the dialog
+- GitHub mode: repo URL input (required) + optional project name, submits to clone endpoint
+- Empty mode: project name input (required), submits to create endpoint
+- Dialog closes and project list refreshes on success; shows error messages on failure
+- Loading states with spinner on submit buttons; form validation (disabled button when required fields empty)
+- Files changed: `src/api/projects.ts`, `src/components/shell/LeftSidebar.tsx`
+- **Learnings for future iterations:**
+  - Modal dialog pattern: fixed inset-0 z-50 with black/50 backdrop, stopPropagation on inner div, click backdrop to dismiss
+  - Multi-step dialogs: use a union type state (`'choose' | 'github' | 'empty'`) with back button to return to initial state
+  - `useCloneProject` follows same pattern as `useCreateProject` — both invalidate `["projects"]` query key on success
+  - `useMutation` supports `onSuccess`/`onError` callbacks in `.mutate()` call for per-invocation behavior (dialog close, error display)
+  - `autoFocus` on input elements works well for modal forms — focuses the first input when the form appears
+  - Lucide icons `Github`, `FolderPlus`, `X`, `ArrowLeft` used for dialog UI — check lucide-react exports for available icons
+---
