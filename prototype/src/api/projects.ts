@@ -77,6 +77,49 @@ export function useCloneProject() {
   });
 }
 
+export interface ChainDefinition {
+  version: number;
+  nodes: {
+    id: string;
+    type: string;
+    label: string;
+    model?: string | null;
+    systemPrompt?: string | null;
+    status?: string;
+    abilities?: { id: string; name: string }[];
+    position: { x: number; y: number };
+  }[];
+  edges: {
+    id: string;
+    source: string;
+    target: string;
+    condition?: string;
+  }[];
+}
+
+export function useChain(projectId: string | null) {
+  return useQuery<ChainDefinition>({
+    queryKey: ["chain", projectId],
+    queryFn: () => apiFetch<ChainDefinition>(`/api/projects/${projectId}/chain`),
+    enabled: !!projectId,
+  });
+}
+
+export function useSaveChain() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ projectId, chain }: { projectId: string; chain: ChainDefinition }) =>
+      apiFetch<ChainDefinition>(`/api/projects/${projectId}/chain`, {
+        method: "PUT",
+        body: JSON.stringify(chain),
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["chain", variables.projectId] });
+    },
+  });
+}
+
 export function useOpenInVSCode() {
   return useMutation({
     mutationFn: (id: string) =>

@@ -24,4 +24,5 @@ export const projects = sqliteTable("projects", {
   updatedAt: integer("updated_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
+  chainDefinition: text("chain_definition", { mode: "json" }),
 });

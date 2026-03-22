@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import {
   ReactFlow,
   Background,
@@ -25,6 +25,8 @@ import { CustomEdge } from './CustomEdge';
 import { AddNodeMenu } from './AddNodeMenu';
 import { NodeInspector } from './NodeInspector';
 import { ChainToolbar } from './ChainToolbar';
+import { useChain, useSaveChain, type ChainDefinition } from '../../api/projects';
+import { useProjectsStore } from '../../stores/projects';
 
 const nodeTypes = { agent: AgentNode };
 const edgeTypes = { custom: CustomEdge };
@@ -98,12 +100,100 @@ const defaultEdgeOptions = {
 /* ── Menu state type ── */
 type MenuState = { screenX: number; screenY: number; flowX: number; flowY: number } | null;
 
+/* ── Serialize chain state for persistence ── */
+function serializeChain(nodes: Node[], edges: Edge[]): ChainDefinition {
+  return {
+    version: 1,
+    nodes: nodes.map((n) => {
+      const d = n.data as AgentNodeData;
+      return {
+        id: n.id,
+        type: d.nodeType,
+        label: d.label,
+        model: d.model ?? null,
+        systemPrompt: d.systemPrompt ?? null,
+        status: d.status ?? 'pending',
+        abilities: d.abilities ?? [],
+        position: n.position,
+      };
+    }),
+    edges: edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      condition: (e.data as { condition?: string })?.condition ?? 'always',
+    })),
+  };
+}
+
+/* ── Deserialize chain from API into ReactFlow state ── */
+function deserializeChain(chain: ChainDefinition): { nodes: Node<AgentNodeData>[]; edges: Edge[] } {
+  const nodes: Node<AgentNodeData>[] = chain.nodes.map((n) => ({
+    id: n.id,
+    type: 'agent',
+    position: n.position,
+    data: {
+      label: n.label,
+      nodeType: n.type,
+      model: n.model ?? undefined,
+      systemPrompt: n.systemPrompt ?? undefined,
+      status: (n.status as AgentNodeData['status']) ?? 'pending',
+      abilities: n.abilities ?? [],
+    },
+  }));
+  const edges: Edge[] = chain.edges.map((e) => ({
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    type: 'custom',
+    data: { condition: e.condition ?? 'always' },
+  }));
+  return { nodes, edges };
+}
+
 function ChainEditorInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [menu, setMenu] = useState<MenuState>(null);
   const [inspectedNodeId, setInspectedNodeId] = useState<string | null>(null);
   const { screenToFlowPosition, deleteElements } = useReactFlow();
+
+  /* ── Chain persistence ── */
+  const activeProjectId = useProjectsStore((s) => s.activeProjectId);
+  const { data: chainData } = useChain(activeProjectId);
+  const saveChain = useSaveChain();
+  const hasLoadedRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load chain from API on mount / project change
+  useEffect(() => {
+    if (!chainData) return;
+    // Only load once per project (avoid overwriting user edits with stale query data)
+    if (hasLoadedRef.current) return;
+    const { nodes: loadedNodes, edges: loadedEdges } = deserializeChain(chainData);
+    setNodes(loadedNodes);
+    setEdges(loadedEdges);
+    hasLoadedRef.current = true;
+  }, [chainData, setNodes, setEdges]);
+
+  // Reset loaded flag when project changes
+  useEffect(() => {
+    hasLoadedRef.current = false;
+  }, [activeProjectId]);
+
+  // Debounced auto-save (1s) on nodes/edges change
+  useEffect(() => {
+    if (!activeProjectId || !hasLoadedRef.current) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const chain = serializeChain(nodes, edges);
+      saveChain.mutate({ projectId: activeProjectId, chain });
+    }, 1000);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges, activeProjectId]);
 
   /* ── Node open / delete callbacks (passed via node data) ── */
   const handleNodeOpen = useCallback((nodeId: string) => {

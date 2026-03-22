@@ -217,6 +217,67 @@ export async function projectRoutes(server: FastifyInstance) {
     },
   );
 
+  // GET /api/projects/:id/chain — get chain definition
+  server.get<{ Params: { id: string } }>(
+    "/api/projects/:id/chain",
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const project = db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, id))
+        .get();
+
+      if (!project) {
+        reply.code(404);
+        return { error: "Project not found" };
+      }
+
+      return project.chainDefinition ?? { version: 1, nodes: [], edges: [] };
+    },
+  );
+
+  // PUT /api/projects/:id/chain — save chain definition
+  server.put<{ Params: { id: string }; Body: { version: number; nodes: unknown[]; edges: unknown[] } }>(
+    "/api/projects/:id/chain",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["version", "nodes", "edges"],
+          additionalProperties: false,
+          properties: {
+            version: { type: "number" },
+            nodes: { type: "array" },
+            edges: { type: "array" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const existing = db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, id))
+        .get();
+
+      if (!existing) {
+        reply.code(404);
+        return { error: "Project not found" };
+      }
+
+      db.update(projects)
+        .set({ chainDefinition: request.body, updatedAt: new Date() })
+        .where(eq(projects.id, id))
+        .run();
+
+      return request.body;
+    },
+  );
+
   // PUT /api/projects/:id — update a project
   server.put<{ Params: { id: string }; Body: Partial<{ name: string; status: "idle" | "building" | "completed" | "error"; language: string; repoUrl: string; path: string }> }>(
     "/api/projects/:id",
