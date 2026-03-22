@@ -13,6 +13,8 @@ Started: Sun Mar 22 17:46:01 UTC 2026
 - Junction tables use composite primary keys via `primaryKey({ columns: [...] })` in drizzle
 - Stage-ability routes live in pipelines.ts since they're nested under `/api/pipelines/...`
 - Use `innerJoin` on junction tables to return related entity data in GET endpoints
+- Frontend API hooks live in `src/api/*.ts`, follow pattern: export interface + useX query + useMutateX with invalidateQueries
+- `apiFetch` defaults to `Content-Type: application/json`; override header for raw text endpoints
 
 ---
 
@@ -49,4 +51,16 @@ Started: Sun Mar 22 17:46:01 UTC 2026
   - Fastify can accept `{ type: "string" }` body schema for raw text/markdown payloads
   - No need for a YAML library — simple key:value frontmatter can be parsed with string splitting
   - The import-skill endpoint reuses the existing `workspaceId` from the route plugin closure
+---
+
+## 2026-03-22 - US-004
+- Created `src/api/abilities.ts` with TanStack Query hooks: useAbilities(), useAbility(id), useCreateAbility(), useUpdateAbility(), useDeleteAbility(), useImportSkill()
+- All mutations invalidate the `["abilities"]` query key on success
+- useImportSkill sends raw markdown with `Content-Type: text/plain` header
+- Files changed: src/api/abilities.ts (created)
+- **Learnings for future iterations:**
+  - Follow the `projects.ts` pattern: interface + query hooks + mutation hooks with queryClient.invalidateQueries
+  - `useAbility(id)` uses `enabled: !!id` pattern for conditional fetching (same as usePipelines)
+  - The import-skill endpoint expects `text/plain` Content-Type, not `application/json` — override the default header from apiFetch
+  - Ability interface mirrors the DB schema: id, workspaceId, name, type, active, config, version, createdAt
 ---
