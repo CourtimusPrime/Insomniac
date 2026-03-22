@@ -94,3 +94,21 @@ Started: Sun Mar 22 19:11:30 UTC 2026
   - `apiFetch` already sets `Content-Type: application/json` header, so mutations just need `body: JSON.stringify(params)`
   - The `browser-status` query key is the central invalidation target for all browser mutations
 ---
+
+## 2026-03-22 - US-007
+- Replaced placeholder Browser tab in BottomPanel with real browser integration
+- Shows iframe pointing to proxy endpoint (`/api/browser/proxy/?projectId=...`) when dev server is running
+- URL bar with form submission for navigation via `useNavigate` hook
+- Refresh button increments iframe key to force reload
+- Launch/Close browser buttons toggle Playwright engine via `useLaunchBrowser`/`useCloseBrowser`
+- "Dev server not running" state with Start button when no server active
+- "Select a project" state when no project selected
+- Browser status indicator (green/gray dot) in toolbar
+- Files changed: `src/components/shell/BottomPanel.tsx`
+- **Learnings for future iterations:**
+  - The iframe uses `sandbox="allow-scripts allow-same-origin allow-forms allow-popups"` for security isolation
+  - Incrementing an iframe `key` prop is the React-idiomatic way to force a full iframe reload
+  - The browser tab reuses `devStatus` and `startServer` from the health tab — they're already declared at component top level
+  - Use `min-h-0` on flex children with `flex-1` to allow them to shrink properly in nested flex layouts
+  - The proxy endpoint requires `?projectId=` query param to identify which dev server to proxy to
+---
