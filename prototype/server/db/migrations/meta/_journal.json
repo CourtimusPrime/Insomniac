@@ -36,6 +36,13 @@
       "when": 1774197661191,
       "tag": "0004_absurd_fixer",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1774201832171,
+      "tag": "0005_red_freak",
+      "breakpoints": true
     }
   ]
 }
