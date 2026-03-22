@@ -32,6 +32,7 @@ Started: Sun Mar 22 18:31:48 UTC 2026
 - Grid card pattern: `grid grid-cols-2 gap-3` with `rounded-lg border border-border-default bg-bg-base p-4`
 - Badge color maps: define as `Record<string, string>` constants (TYPE_COLORS, TIER_CONFIG)
 - MarketplaceView uses max-w-4xl (wider than other views) since it has a 2-column grid
+- Per-item mutation state: track with `installedIds` Set + `errorIds` Record, use `mutation.variables?.id` for loading state
 ---
 
 ## 2026-03-22 - US-001
@@ -135,5 +136,19 @@ Started: Sun Mar 22 18:31:48 UTC 2026
   - `line-clamp-2` Tailwind utility works for truncating multi-line text
   - Trust tier badges use different lucide icons: Shield (community), ShieldCheck (verified), ShieldAlert (official)
   - MarketplaceView uses max-w-4xl to accommodate the 2-column grid layout
+  - Browser verification needed — no dev-browser available in this session
+---
+
+## 2026-03-22 - US-008
+- Added one-click Install button to each marketplace item card in MarketplaceView.tsx
+- Button shows loading spinner + "Installing…" during mutation via `useInstallItem()`
+- Success state: green check icon + "Installed" text replaces the button
+- Error state: inline red error message below the card footer
+- Tracks installed IDs and per-item errors via local state (Set and Record)
+- Files changed: src/components/views/MarketplaceView.tsx
+- **Learnings for future iterations:**
+  - `useMutation` from TanStack Query exposes `isPending` and `variables` — use `variables?.id` to match which item is loading
+  - Per-item callbacks: pass `onSuccess`/`onError` as the second arg to `mutation.mutate()` for item-scoped side effects
+  - Install button pattern: `installedIds` Set for success tracking, `errorIds` Record<string, string> for per-item errors
   - Browser verification needed — no dev-browser available in this session
 ---
