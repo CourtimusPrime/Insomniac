@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Loader2, AlertCircle, Search, Download, Shield, ShieldCheck, ShieldAlert } from 'lucide-react';
-import { useMarketplace, type MarketplaceItemType } from '../../api/marketplace';
+import { Loader2, AlertCircle, Search, Download, Shield, ShieldCheck, ShieldAlert, Check } from 'lucide-react';
+import { useMarketplace, useInstallItem, type MarketplaceItemType } from '../../api/marketplace';
 
 type CategoryTab = 'all' | MarketplaceItemType;
 
@@ -28,6 +28,9 @@ const TIER_CONFIG: Record<string, { icon: typeof Shield; color: string; label: s
 export function MarketplaceView() {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<CategoryTab>('all');
+  const [installedIds, setInstalledIds] = useState<Set<string>>(new Set());
+  const [errorIds, setErrorIds] = useState<Record<string, string>>({});
+  const installMutation = useInstallItem();
 
   const filters = {
     ...(activeCategory !== 'all' ? { type: activeCategory } : {}),
@@ -57,6 +60,26 @@ export function MarketplaceView() {
   }
 
   const items = data?.items ?? [];
+
+  const handleInstall = (itemId: string) => {
+    // Clear any previous error for this item
+    setErrorIds((prev) => {
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
+    installMutation.mutate(
+      { id: itemId },
+      {
+        onSuccess: () => {
+          setInstalledIds((prev) => new Set(prev).add(itemId));
+        },
+        onError: (err) => {
+          setErrorIds((prev) => ({ ...prev, [itemId]: (err as Error).message }));
+        },
+      }
+    );
+  };
 
   return (
     <div className="p-5 space-y-4 max-w-4xl">
@@ -137,14 +160,49 @@ export function MarketplaceView() {
                   {item.description}
                 </p>
 
-                {/* Footer: install count + version */}
-                <div className="flex items-center gap-3 text-[10px] text-text-faint">
-                  <span className="flex items-center gap-1">
-                    <Download size={10} />
-                    {item.installCount}
-                  </span>
-                  <span>v{item.version}</span>
+                {/* Footer: install count + install button */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-[10px] text-text-faint">
+                    <span className="flex items-center gap-1">
+                      <Download size={10} />
+                      {item.installCount}
+                    </span>
+                    <span>v{item.version}</span>
+                  </div>
+
+                  {installedIds.has(item.id) ? (
+                    <span className="flex items-center gap-1 text-[10px] text-status-success">
+                      <Check size={11} />
+                      Installed
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleInstall(item.id)}
+                      disabled={installMutation.isPending && installMutation.variables?.id === item.id}
+                      className="flex items-center gap-1 px-2 py-1 text-[10px] rounded border border-accent-primary/30 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {installMutation.isPending && installMutation.variables?.id === item.id ? (
+                        <>
+                          <Loader2 size={10} className="animate-spin" />
+                          Installing…
+                        </>
+                      ) : (
+                        <>
+                          <Download size={10} />
+                          Install
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
+
+                {/* Inline error */}
+                {errorIds[item.id] && (
+                  <div className="flex items-center gap-1 text-[10px] text-status-error">
+                    <AlertCircle size={10} />
+                    {errorIds[item.id]}
+                  </div>
+                )}
               </div>
             );
           })}
