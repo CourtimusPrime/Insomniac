@@ -16,6 +16,24 @@ Started: Sun Mar 22 16:36:44 UTC 2026
 - Encryption utility at `server/crypto/keys.ts` — uses AES-256-GCM with scrypt-derived key
 - Ciphertext format: `iv:authTag:ciphertext` (hex-encoded, colon-separated)
 - Encryption key from `INSOMNIAC_SECRET` env var or auto-generated `data/.secret`
+- Service classes use `ProviderRegistry` pattern — class with CRUD methods, lives in `server/providers/`
+- Public types strip sensitive fields (e.g. `apiKeyEncrypted`) and add derived flags (e.g. `hasApiKey`)
+- Static model definitions live in `server/providers/models.ts` — `PROVIDER_MODELS` constant + `getModelsForProvider()` function
+- Ollama and OpenRouter have empty static lists — Ollama models fetched dynamically, OpenRouter accepts arbitrary strings
+- `OllamaProvider` class in `server/providers/ollama.ts` — async `fetchModels()` and `ping()`, takes optional baseUrl
+- Fastify route plugins: `async function routeName(server: FastifyInstance)`, registered in `server/index.ts` via `await server.register(fn)`
+- Upsert pattern: check existing row with `.get()`, then `insert` or `update` — no native upsert in better-sqlite3 drizzle
+- Fastify route order: static paths (e.g., `/ollama/models`) must be registered before parametric (e.g., `/:id/models`)
+- Route validation: JSON Schema in `schema.body` with `additionalProperties: false`
+- Frontend API hooks live in `src/api/` — TanStack Query with `useQuery` for reads, `useMutation` for writes, invalidating on success
+- Frontend types mirror server public types (no sensitive fields like apiKeyEncrypted)
+- Adding a new view: (1) add to `MainView` type in `src/stores/layout.ts`, (2) create component in `src/components/views/`, (3) add conditional render in `src/components/shell/MainView.tsx`
+- Settings view is accessed via toolbar icon, not via the header tab bar
+- Frontend forms needing `workspaceId`: get it from `useProjects()` first project (always seeded)
+- Form visibility pattern: `useState(false)` toggle + `onClose` callback prop to form component
+- Reusable UI components live in `src/components/ui/` — use `useQueries` for parallel dynamic fetches
+- Project preferences (default model) fetched via `useProjectPreferences(projectId)` — returns `null` if none set
+- Pipeline stage creation: `useAddStage(pipelineId)` mutation posts to `/api/pipelines/:id/stages`
 ---
 
 ## 2026-03-22 - US-001
@@ -55,4 +73,159 @@ Started: Sun Mar 22 16:36:44 UTC 2026
   - `data/.secret` is auto-created with mode 0o600 on first run
   - Key is cached in memory after first derivation for performance
   - `tsx --eval` works for running ESM TypeScript snippets inline
+---
+
+## 2026-03-22 - US-004
+- Created `server/providers/registry.ts` with `ProviderRegistry` class
+- Methods: `listProviders()`, `getProvider(id)`, `getProviderWithKey(id)`, `addProvider(config)`, `updateProvider(id, config)`, `removeProvider(id)`
+- `addProvider` encrypts API key via `encryptApiKey()` before insert
+- `getProviderWithKey()` decrypts key for internal API-call use only
+- `listProviders()` and `getProvider()` strip `apiKeyEncrypted` and return `hasApiKey` boolean instead
+- Exported types: `ProviderPublic`, `ProviderWithKey`, `AddProviderConfig`, `UpdateProviderConfig`
+- Files changed: `server/providers/registry.ts` (new)
+- **Learnings for future iterations:**
+  - Use `toPublic()` pattern to strip sensitive fields and add derived flags (e.g. `hasApiKey`)
+  - Drizzle `$inferSelect` type gives the row shape from a table schema
+  - `Omit<T, 'field'> & { newField: type }` pattern for safe public types
+  - Service classes live in `server/providers/` (new module directory for this milestone)
+---
+
+## 2026-03-22 - US-005
+- Created `server/providers/models.ts` with `PROVIDER_MODELS` constant and `getModelsForProvider()` function
+- Anthropic: claude-sonnet-4, claude-haiku-4-5
+- OpenAI: gpt-4o, o3
+- Google: gemini-2.0-flash, gemini-2.5-pro
+- OpenRouter: empty array (custom model string input)
+- Ollama: empty array (dynamic — fetched from /api/tags)
+- Each model entry has: id, name, displayName, provider, contextWindow, costPerInputToken, costPerOutputToken
+- Files changed: `server/providers/models.ts` (new)
+- **Learnings for future iterations:**
+  - `ModelDefinition` interface is the canonical shape for model entries across all providers
+  - Ollama and OpenRouter return empty arrays from static definitions — dynamic fetching handled elsewhere
+  - Cost fields use per-token pricing (e.g., 0.000003 = $3 per 1M tokens)
+---
+
+## 2026-03-22 - US-006
+- Created `server/providers/ollama.ts` with `OllamaProvider` class
+- `fetchModels()` queries GET `{baseUrl}/api/tags` and returns parsed `ModelDefinition[]`
+- Default baseUrl is `http://localhost:11434`
+- No API key required — Ollama is local-only
+- `ping()` method verifies Ollama is reachable (returns boolean)
+- Models returned in the same `ModelDefinition` format with zero cost (local)
+- Files changed: `server/providers/ollama.ts` (new)
+- **Learnings for future iterations:**
+  - Ollama `/api/tags` returns `{ models: [{ name, model, size, digest, details }] }`
+  - `contextWindow` is 0 for Ollama models since the API doesn't expose it
+  - Cost fields are 0 for local Ollama models
+  - OllamaProvider strips trailing slashes from baseUrl to avoid double-slash in fetch URLs
+---
+
+## 2026-03-22 - US-007
+- Created `server/routes/providers.ts` as a Fastify plugin with full CRUD endpoints
+- Endpoints: GET /api/providers, POST /api/providers, PUT /api/providers/:id, DELETE /api/providers/:id
+- GET /api/providers/:id/models returns static models or live Ollama models
+- GET /api/providers/ollama/models fetches live model list (with optional baseUrl query param)
+- Input validation via JSON Schema on POST/PUT bodies; API key never in responses
+- Registered `providerRoutes` in `server/index.ts`
+- Files changed: `server/routes/providers.ts` (new), `server/index.ts`
+- **Learnings for future iterations:**
+  - Fastify route order matters for parametric vs static: `/ollama/models` must be registered BEFORE `/:id/models`
+  - Route plugins are `async function(server: FastifyInstance)` exported by name
+  - Routes registered in `server/index.ts` via `await server.register(routeFn)`
+  - POST validation uses `additionalProperties: false` to reject unknown fields
+  - 502 is appropriate for upstream Ollama failures (gateway error)
+---
+
+## 2026-03-22 - US-008
+- Created `server/routes/preferences.ts` as a Fastify plugin with project preferences endpoints
+- GET /api/projects/:id/preferences — returns project's model preferences (404 if none)
+- PUT /api/projects/:id/preferences — upserts preferences (creates on first PUT, updates thereafter)
+- Input validation on PUT body: `providerId` required, optional `defaultModel` and `taskTypeOverrides`
+- Registered `preferencesRoutes` in `server/index.ts`
+- Files changed: `server/routes/preferences.ts` (new), `server/index.ts`
+- **Learnings for future iterations:**
+  - Upsert pattern: check if row exists via `.get()`, then insert or update accordingly
+  - PUT that creates returns 201; PUT that updates returns 200 (Fastify default)
+  - Preferences are keyed by `projectId` — one preference row per project
+  - `taskTypeOverrides` validation uses `additionalProperties: { type: "string" }` for Record<string,string> JSON Schema
+---
+
+## 2026-03-22 - US-009
+- Created `src/api/providers.ts` with TanStack Query hooks for provider management
+- Hooks: `useProviders()`, `useAddProvider()`, `useUpdateProvider()`, `useDeleteProvider()`, `useProviderModels(providerId)`
+- All mutations invalidate the `providers` query key on success
+- `Provider` interface excludes apiKey, includes `hasApiKey` boolean (matches server `ProviderPublic` shape)
+- `ModelDefinition` interface mirrors server type for model data
+- `useProviderModels` uses `enabled: !!providerId` pattern to skip query when no provider selected
+- Files changed: `src/api/providers.ts` (new)
+- **Learnings for future iterations:**
+  - Frontend API hooks follow a consistent pattern: interfaces at top, query hooks, then mutation hooks
+  - Mutation hooks that modify a resource destructure `{ id, ...body }` to separate the URL param from the request body
+  - Query key convention: plural resource name (e.g., `["providers"]`), related sub-resources use `["providerModels", id]`
+  - `enabled: !!param` pattern used for conditional queries that depend on a selected entity
+---
+
+## 2026-03-22 - US-010
+- Created `src/components/views/SettingsView.tsx` with tabbed layout (Providers tab)
+- Each provider card shows: displayName, provider name, active/inactive status badge, model count, key configured indicator
+- Added `'settings'` to `MainView` type in `src/stores/layout.ts`
+- Added `SettingsView` render branch in `src/components/shell/MainView.tsx`
+- Wired up Settings button in `src/components/shell/LeftToolbar.tsx` to navigate to settings view
+- Files changed: `src/stores/layout.ts`, `src/components/views/SettingsView.tsx` (new), `src/components/shell/MainView.tsx`, `src/components/shell/LeftToolbar.tsx`
+- **Learnings for future iterations:**
+  - Settings button was already rendered in LeftToolbar but had no onClick — just needed wiring up
+  - View components live in `src/components/views/` and are conditionally rendered in `MainView.tsx`
+  - To add a new view: (1) add to MainView type in layout store, (2) create view component, (3) add conditional render in MainView.tsx
+  - Tab pattern uses local `useState` (not global store) for intra-view tabs
+  - `useProviderModels(provider.id)` can be called per-card to show model count — TanStack Query handles dedup
+  - Settings is not in the main header tab bar (pipeline/graph/backseat) — it's accessed via the toolbar Settings icon
+---
+
+## 2026-03-22 - US-011
+- Added `AddProviderForm` component to `SettingsView.tsx` with full provider configuration form
+- Provider type dropdown: Anthropic, OpenAI, Google, OpenRouter, Ollama, Custom
+- API key (password field) shown for all providers except Ollama
+- Base URL shown for Ollama (default `http://localhost:11434`) and Custom providers
+- Form submits via `useAddProvider()` mutation; closes and refreshes list on success
+- "Add Provider" button toggles form visibility in `ProvidersTab`
+- workspaceId sourced from first project via `useProjects()` hook (projects are always seeded)
+- Files changed: `src/components/views/SettingsView.tsx`
+- **Learnings for future iterations:**
+  - `useProjects()` is the reliable source for workspaceId (projects are seeded on startup)
+  - Form pattern: use local `useState` for form visibility, pass `onClose` callback to form component
+  - Conditional field rendering via boolean flags (`isOllama`, `isCustom`) keeps JSX clean
+  - `useMutation` `onSuccess` callback in `.mutate()` call (not hook options) enables per-call behavior like closing forms
+---
+
+## 2026-03-22 - US-012
+- Created `src/components/ui/ModelSelector.tsx` — reusable dropdown component
+- Shows models grouped by provider using `<optgroup>` elements
+- Fetches models for all active providers in parallel via `useQueries` from TanStack Query
+- Displays loading spinner while providers/models load; shows "no models" message if none available
+- Props: `value` (string), `onChange` (callback), optional `className`
+- Ollama models fetched dynamically via the existing `/api/providers/:id/models` endpoint
+- Files changed: `src/components/ui/ModelSelector.tsx` (new)
+- **Learnings for future iterations:**
+  - `useQueries` from TanStack Query enables parallel fetches for a dynamic list of queries
+  - `<optgroup label="...">` provides native grouped dropdown UI — no custom components needed
+  - UI components live in `src/components/ui/` directory (new — first component here)
+  - ModelSelector filters to only active providers (`p.isActive`) for the dropdown
+  - Styling follows the same pattern as SettingsView inputs: `border-border-default bg-bg-surface text-xs`
+---
+
+## 2026-03-22 - US-013
+- Integrated ModelSelector into pipeline stage creation via new `AddStageForm` component in PipelineView
+- Added `useAddStage(pipelineId)` mutation hook in `src/api/pipelines.ts` — POST to `/api/pipelines/:id/stages`
+- Added `useProjectPreferences(projectId)` query hook to fetch default model from project preferences
+- `AddStageForm` component: name input, ModelSelector dropdown, optional description, Add/Cancel buttons
+- Default model sourced from project preferences (`prefs.defaultModel`) when user hasn't explicitly selected one
+- Model selection stored in `pipeline_stages.model` column (already existed in schema)
+- "+ Add Stage" dashed-border button in PipelineView toggles the form visibility
+- Files changed: `src/api/pipelines.ts`, `src/components/views/PipelineView.tsx`
+- **Learnings for future iterations:**
+  - `pipeline_stages.model` column already existed — no migration needed for this story
+  - `useProjectPreferences` returns `null` (not throws) when no preferences are set (404 from server)
+  - AddStageForm uses `effectiveModel = model || prefs?.defaultModel || ''` pattern for cascading defaults
+  - Mutation hooks accept `pipelineId` as constructor arg (not in mutate payload) — cleaner API
+  - Stage creation form follows same `useState(false)` toggle + `onClose` pattern as AddProviderForm
 ---

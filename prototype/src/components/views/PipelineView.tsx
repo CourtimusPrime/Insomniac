@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { CheckCircle2, AlertCircle, Circle, ArrowRight, Loader2, SkipForward, Pause, Play, XCircle } from 'lucide-react';
-import { usePipelines, usePipelineStages, usePausePipeline, useResumePipeline, useCancelPipeline, useSteerPipeline } from '../../api/pipelines';
+import { usePipelines, usePipelineStages, usePausePipeline, useResumePipeline, useCancelPipeline, useSteerPipeline, useAddStage, useProjectPreferences } from '../../api/pipelines';
 import type { Pipeline, PipelineStage } from '../../api/pipelines';
 import { useProjectsStore } from '../../stores/projects';
+import { ModelSelector } from '../ui/ModelSelector';
 
 const stageColor = (s: string) => ({
   done: 'border-status-success/30 bg-status-success/5',
@@ -138,9 +139,70 @@ function SteeringInput({ pipelineId, projectId }: { pipelineId: string; projectI
   );
 }
 
+function AddStageForm({ pipelineId, projectId, onClose }: { pipelineId: string; projectId: string; onClose: () => void }) {
+  const [name, setName] = useState('');
+  const [model, setModel] = useState('');
+  const [description, setDescription] = useState('');
+  const addStage = useAddStage(pipelineId);
+  const { data: prefs } = useProjectPreferences(projectId);
+
+  // Default model from project preferences if user hasn't selected one yet
+  const effectiveModel = model || prefs?.defaultModel || '';
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    addStage.mutate(
+      { name: trimmed, model: effectiveModel || undefined, description: description.trim() || undefined },
+      { onSuccess: () => onClose() },
+    );
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-lg border border-border-muted bg-bg-base p-4 space-y-3">
+      <div className="text-xs font-medium text-text-primary">Add Stage</div>
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Stage name"
+        className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary placeholder-text-faint outline-none focus:border-accent-primary"
+        autoFocus
+      />
+      <div>
+        <label className="text-[11px] text-text-muted mb-1 block">Model</label>
+        <ModelSelector value={effectiveModel} onChange={setModel} className="w-full" />
+      </div>
+      <input
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="Description (optional)"
+        className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary placeholder-text-faint outline-none focus:border-accent-primary"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={!name.trim() || addStage.isPending}
+          className="px-3 py-1.5 text-xs font-medium rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition"
+        >
+          {addStage.isPending ? 'Adding…' : 'Add'}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-3 py-1.5 text-xs font-medium rounded border border-border-muted text-text-secondary hover:bg-bg-muted transition"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function PipelineView() {
   const activeProjectId = useProjectsStore((s) => s.activeProjectId);
   const { data: pipelines, isLoading: pipelinesLoading, error: pipelinesError } = usePipelines(activeProjectId);
+  const [showAddStage, setShowAddStage] = useState(false);
 
   // Use the first pipeline for the active project
   const activePipeline = pipelines?.[0] ?? null;
@@ -191,6 +253,17 @@ export function PipelineView() {
         stages.map((stage) => <StageRow key={stage.id} stage={stage} />)
       ) : (
         <div className="text-xs text-text-muted">No stages in this pipeline.</div>
+      )}
+      {/* Add Stage */}
+      {showAddStage ? (
+        <AddStageForm pipelineId={activePipeline.id} projectId={activeProjectId!} onClose={() => setShowAddStage(false)} />
+      ) : (
+        <button
+          onClick={() => setShowAddStage(true)}
+          className="w-full rounded-lg border border-dashed border-border-muted px-4 py-2.5 text-xs text-text-muted hover:border-accent-primary hover:text-accent-primary transition"
+        >
+          + Add Stage
+        </button>
       )}
       {/* Steering input */}
       <SteeringInput pipelineId={activePipeline.id} projectId={activeProjectId!} />
