@@ -1,0 +1,128 @@
+# Ralph Progress Log
+Started: Sun Mar 22 15:42:51 UTC 2026
+
+## Codebase Patterns
+- Server typechecks with `npx tsc --noEmit -p tsconfig.server.json` (separate from frontend tsconfig)
+- Server code uses `.js` extensions in imports despite being `.ts` files (ESM convention)
+- Server runs via `tsx` — no compilation step needed
+- DB schema uses drizzle-orm with SQLite (better-sqlite3)
+- Existing agent DB schema in `server/db/schema/agents.ts` has status enum: idle, working, paused, error
+- Pipeline stages have status enum: queued, running, done, needs-you, error
+- WebSocket broadcast utility in `server/ws/handler.ts` — use `broadcast(event, data)`
+- Agent adapters use lazy process init — constructor takes config, process spawns on first `sendMessage()`
+- Agent adapters use a pending message queue + resolver pattern for async response consumption
+- MCP adapter uses JSON-RPC 2.0 protocol — requests have `id` (get response), notifications have no `id`
+- MCP handshake: initialize → initialized notification → ready for tool calls
+- Factory `createAgent()` is async — returns `Promise<AgentAdapter>` because 'auto' mode probes MCP
+- Settings table is workspace-scoped: query with `and(eq(workspaceId), eq(key))` pattern
+- Use `getTransportSetting(workspaceId)` to read transport preference from DB, defaults to 'auto'
+- PipelineEngine: instantiate with `new PipelineEngine(pipelineId)`, then call `await engine.run()`
+- Use `asc()` / `desc()` from `drizzle-orm` for orderBy clauses
+- Use `typeof table.$inferSelect` to get the row type from a drizzle schema table
+- Adding enum values to drizzle SQLite text columns only changes TS types — no DB migration needed
+- Parallel stages: `groupStagesBySortOrder()` groups by sortOrder, `executeStageGroup()` runs groups via `Promise.allSettled`
+- Checkpointing is at group level (in `executeStageGroup`), not individual stage level
+
+---
+
+## 2026-03-22 - US-001
+- Created `server/agents/types.ts` with AgentAdapter interface, AgentMessage, AgentStatus, AgentConfig types
+- Created `server/agents/index.ts` as barrel file re-exporting all types
+- Files changed: server/agents/types.ts, server/agents/index.ts
+- **Learnings for future iterations:**
+  - AgentStatus type uses 'disconnected' while DB agent schema uses 'paused' — these are different enums for different purposes (runtime adapter vs persisted state)
+  - Transport-agnostic interface: all adapters must implement sendMessage, getResponse, abort, and expose status
+  - Frontend tsconfig only covers `src/` — pre-existing type errors there don't affect server work
+---
+
+## 2026-03-22 - US-002
+- Created `server/agents/stdio-adapter.ts` implementing AgentAdapter interface
+- Spawns `claude` as child process with `--dangerously-skip-permissions` flag
+- JSON lines protocol over stdin/stdout with line-buffered parsing
+- Handles process exit, error events, and abort (SIGTERM)
+- Exported `StdioAdapter` from barrel file `server/agents/index.ts`
+- Files changed: server/agents/stdio-adapter.ts, server/agents/index.ts
+- **Learnings for future iterations:**
+  - Use `node:child_process` spawn with `stdio: ["pipe", "pipe", "pipe"]` for full control
+  - JSON line parsing needs a buffer to handle partial reads — split on `\n`, keep last fragment
+  - Non-JSON stdout lines are wrapped as plain text messages (graceful degradation)
+  - Pending message queue + resolver pattern allows both sync and async consumption of responses
+  - StdioAdapter constructor takes AgentConfig but does NOT spawn the process until first `sendMessage()` call (lazy init)
+---
+
+## 2026-03-22 - US-003
+- Created `server/agents/mcp-adapter.ts` implementing AgentAdapter via MCP protocol (JSON-RPC 2.0)
+- Spawns `claude --mcp-server` as child process, communicates via JSON-RPC over stdin/stdout
+- MCP handshake: initialize request → initialized notification → ready
+- tool_call messages sent as `tools/call` RPC, responses mapped to AgentMessage tool_result
+- Handles connection errors with exponential backoff reconnection (max 3 attempts)
+- Exported `McpAdapter` from barrel file `server/agents/index.ts`
+- Files changed: server/agents/mcp-adapter.ts, server/agents/index.ts
+- **Learnings for future iterations:**
+  - MCP protocol uses JSON-RPC 2.0: requests have `id` field, notifications don't
+  - McpAdapter uses `ensureConnection()` which spawns + handshakes (lazy init like StdioAdapter)
+  - pendingRpcs map tracks in-flight JSON-RPC requests by id, separate from the AgentMessage queue
+  - Reconnection uses exponential backoff: 1s, 2s, 4s, 8s max with 3 retries
+  - Server-initiated notifications (no `id`) are mapped to AgentMessage type 'message'
+---
+
+## 2026-03-22 - US-004
+- Created `server/agents/factory.ts` with `createAgent()` and `getTransportSetting()` functions
+- Factory routes 'stdio' → StdioAdapter, 'mcp' → McpAdapter, 'auto' → probe MCP then fallback to stdio
+- `getTransportSetting(workspaceId)` reads `claude_code.transport` key from settings table, defaults to 'auto'
+- MCP probe spawns short-lived `claude --mcp-server` process with 2s timeout to check availability
+- Exported `createAgent` and `getTransportSetting` from barrel file `server/agents/index.ts`
+- Files changed: server/agents/factory.ts, server/agents/index.ts
+- **Learnings for future iterations:**
+  - Settings table uses key/value pattern with JSON value column — query with `eq(key, "dotted.key.name")`
+  - MCP probe needs a settle guard to prevent double-resolve (process can emit both error and exit)
+  - `createAgent` is async because 'auto' mode requires probing — callers must await
+  - For 'auto', probe is done at creation time, not deferred to first sendMessage — keeps the adapter interface simple
+---
+
+## 2026-03-22 - US-005
+- Created `server/pipeline/engine.ts` with PipelineEngine class
+- Constructor takes pipeline ID, `load()` fetches pipeline and stages from DB
+- `run()` executes stages sequentially in sortOrder (ascending)
+- Each stage: sets status to 'running', builds AgentConfig from agents table + stage overrides, spawns agent via factory, sends prompt, waits for response, sets status to 'done' or 'error'
+- Pipeline status transitions: idle → running → completed (or error)
+- Broadcasts WebSocket events: `pipeline:status` and `stage:status`
+- Agent cleanup in `finally` block to prevent orphaned processes
+- Files changed: server/pipeline/engine.ts
+- **Learnings for future iterations:**
+  - `asc()` from drizzle-orm is used for orderBy — import `{ asc }` from `"drizzle-orm"`
+  - Stage's `agentId` is optional — build a default AgentConfig from stage name/model when no agent record exists
+  - Pipeline's `workspaceId` is needed to resolve transport setting — always load the pipeline row first
+  - Stage `description` is used as the agent prompt, falling back to `name` if description is null
+  - PipelineEngine is a stateful class — instantiate per-pipeline, not a singleton
+  - After `getResponse()`, always `abort()` the agent in a finally block to clean up child processes
+---
+
+## 2026-03-22 - US-006
+- Added checkpoint tracking: `updateCheckpoint(stageId)` called after each successful stage, persists `checkpointStageId` to pipelines table
+- Added `resume()` method that finds the stage after `checkpointStageId` and skips stages with status 'done'
+- Added 'paused' to pipeline status enum in `server/db/schema/pipelines.ts`
+- Updated `updatePipelineStatus()` type to accept 'paused'
+- Files changed: server/pipeline/engine.ts, server/db/schema/pipelines.ts
+- **Learnings for future iterations:**
+  - Pipeline schema already had `checkpointStageId` column — just needed to write to it
+  - `getResumeIndex()` uses `findIndex` on sorted stages array — returns index after checkpoint, or 0 if no checkpoint
+  - `resume()` both skips via index (start after checkpoint) AND checks `stage.status === 'done'` for safety
+  - When adding new enum values to drizzle schema, it only affects TypeScript types — no migration needed for SQLite text columns
+---
+
+## 2026-03-22 - US-007
+- Added `groupStagesBySortOrder()` to group stages by their `sortOrder` value into arrays
+- Added `executeStageGroup()` that runs single stages directly or multiple stages in parallel via `Promise.allSettled`
+- Parallel stages all complete even if some fail; partial failure stops the pipeline but doesn't kill running siblings
+- Moved checkpoint logic from `executeStage()` to `executeStageGroup()` — checkpoint only after full group success
+- Updated `run()` and `resume()` to iterate over groups instead of individual stages
+- `resume()` now slices remaining stages, re-groups them, and filters out 'done' stages per group
+- Files changed: server/pipeline/engine.ts
+- **Learnings for future iterations:**
+  - `Promise.allSettled` is key for parallel stages — unlike `Promise.all`, it lets all promises settle before reporting
+  - Checkpoint moved to group level: individual `executeStage()` no longer checkpoints, `executeStageGroup()` does
+  - For single-stage groups, the fast path avoids `Promise.allSettled` overhead
+  - Resume with parallel groups: need to re-group remaining stages and filter 'done' within each group, not just skip by index
+  - `Map` preserves insertion order in JS, but we sort explicitly anyway for clarity
+---

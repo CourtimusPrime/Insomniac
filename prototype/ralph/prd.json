@@ -1,0 +1,275 @@
+{
+    "project": "Insomniac",
+    "branchName": "ralph/m1-pipeline-engine",
+    "description": "M1 Pipeline Engine — Pipeline execution, stage sequencing, MCP agent spawning, Claude Code integration, stdio fallback, checkpoint/resume",
+    "userStories": [
+        {
+            "id": "US-001",
+            "title": "Create AgentAdapter interface and types",
+            "description": "As a developer, I need a transport-agnostic interface for communicating with AI agents.",
+            "acceptanceCriteria": [
+                "Create server/agents/types.ts with AgentAdapter interface: sendMessage(prompt), getResponse(), abort(), status",
+                "Define AgentMessage type: { id: string, type: 'tool_call' | 'tool_result' | 'message', payload: unknown }",
+                "Define AgentStatus type: 'idle' | 'working' | 'error' | 'disconnected'",
+                "Define AgentConfig type: { name: string, model: string, provider: string, systemPrompt: string, transport: 'mcp' | 'stdio' | 'auto' }",
+                "Export all types from barrel file server/agents/index.ts",
+                "Typecheck passes"
+            ],
+            "priority": 1,
+            "passes": true,
+            "notes": ""
+        },
+        {
+            "id": "US-002",
+            "title": "Implement stdio agent adapter for Claude Code",
+            "description": "As a developer, I need to spawn Claude Code as a child process and communicate via JSON lines over stdin/stdout.",
+            "acceptanceCriteria": [
+                "Create server/agents/stdio-adapter.ts implementing AgentAdapter",
+                "Spawns `claude` as child process with `--dangerously-skip-permissions` flag",
+                "Sends structured JSON lines over stdin",
+                "Reads structured JSON lines from stdout",
+                "Handles process exit and error events",
+                "abort() kills the child process",
+                "Export from server/agents/index.ts",
+                "Typecheck passes"
+            ],
+            "priority": 2,
+            "passes": true,
+            "notes": "This is the primary transport for Claude Code integration. MCP adapter is the alternative."
+        },
+        {
+            "id": "US-003",
+            "title": "Implement MCP agent adapter",
+            "description": "As a developer, I need an MCP-based transport for agents that expose MCP servers.",
+            "acceptanceCriteria": [
+                "Create server/agents/mcp-adapter.ts implementing AgentAdapter",
+                "Connects to an MCP server via `claude --mcp-server` or a custom MCP endpoint",
+                "Sends tool_call messages and receives tool_result responses",
+                "Implements the same AgentAdapter interface as stdio-adapter",
+                "Handles connection errors and reconnection",
+                "Export from server/agents/index.ts",
+                "Typecheck passes"
+            ],
+            "priority": 3,
+            "passes": true,
+            "notes": ""
+        },
+        {
+            "id": "US-004",
+            "title": "Add transport auto-detection and factory",
+            "description": "As a developer, I need a factory that creates the right adapter based on config.",
+            "acceptanceCriteria": [
+                "Create server/agents/factory.ts with createAgent(config: AgentConfig): AgentAdapter",
+                "When transport is 'stdio', returns StdioAdapter",
+                "When transport is 'mcp', returns McpAdapter",
+                "When transport is 'auto', tries MCP first, falls back to stdio on failure",
+                "Config flag `claude_code.transport` is read from settings table or defaults to 'auto'",
+                "Export from server/agents/index.ts",
+                "Typecheck passes"
+            ],
+            "priority": 4,
+            "passes": true,
+            "notes": ""
+        },
+        {
+            "id": "US-005",
+            "title": "Create pipeline execution engine core",
+            "description": "As a developer, I need a core engine that reads a pipeline definition and executes stages in order.",
+            "acceptanceCriteria": [
+                "Create server/pipeline/engine.ts with PipelineEngine class",
+                "Constructor takes a pipeline ID and loads stages from the database",
+                "run() method executes stages sequentially in sortOrder",
+                "Each stage: sets status to 'running', spawns agent via factory, waits for completion, sets status to 'done' or 'error'",
+                "Updates pipeline status in database as it progresses",
+                "Emits WebSocket events on stage status changes via broadcast()",
+                "Typecheck passes"
+            ],
+            "priority": 5,
+            "passes": true,
+            "notes": ""
+        },
+        {
+            "id": "US-006",
+            "title": "Add checkpoint and resume to pipeline engine",
+            "description": "As a developer, I need pipelines to checkpoint after each stage so they can resume from the last completed stage.",
+            "acceptanceCriteria": [
+                "After each stage completes successfully, update pipeline.checkpointStageId to the completed stage ID",
+                "Add resume() method to PipelineEngine that starts from the stage after checkpointStageId",
+                "Skips stages with status 'done' when resuming",
+                "Pipeline status set to 'paused' when interrupted, 'running' when resumed",
+                "Typecheck passes"
+            ],
+            "priority": 6,
+            "passes": true,
+            "notes": ""
+        },
+        {
+            "id": "US-007",
+            "title": "Add parallel stage execution support",
+            "description": "As a developer, I need stages with the same sortOrder to execute concurrently.",
+            "acceptanceCriteria": [
+                "Stages with the same sortOrder value are grouped and executed in parallel via Promise.all",
+                "Each parallel stage gets its own agent instance",
+                "All parallel stages must complete before the next sortOrder group begins",
+                "If any parallel stage fails, remaining stages in the group continue but the pipeline reports partial failure",
+                "WebSocket events emitted for each parallel stage independently",
+                "Typecheck passes"
+            ],
+            "priority": 7,
+            "passes": true,
+            "notes": ""
+        },
+        {
+            "id": "US-008",
+            "title": "Add pause, resume, and cancel controls to pipeline engine",
+            "description": "As a developer, I need to pause, resume, and cancel pipelines at runtime.",
+            "acceptanceCriteria": [
+                "Add pause() method: sets pipeline status to 'paused', waits for current stage to complete, stops execution",
+                "Add cancel() method: sets pipeline status to 'cancelled', aborts current agent, stops execution",
+                "resume() continues from checkpoint (already implemented in US-006)",
+                "All state changes persisted to database and broadcast via WebSocket",
+                "Typecheck passes"
+            ],
+            "priority": 8,
+            "passes": false,
+            "notes": ""
+        },
+        {
+            "id": "US-009",
+            "title": "Create pipelines REST API endpoints",
+            "description": "As a developer, I need API endpoints to create, list, and control pipelines.",
+            "acceptanceCriteria": [
+                "Create server/routes/pipelines.ts as a Fastify plugin",
+                "GET /api/pipelines?projectId=X returns pipelines for a project",
+                "POST /api/pipelines creates a new pipeline with stages",
+                "POST /api/pipelines/:id/run starts pipeline execution",
+                "POST /api/pipelines/:id/pause pauses a running pipeline",
+                "POST /api/pipelines/:id/resume resumes a paused pipeline",
+                "POST /api/pipelines/:id/cancel cancels a pipeline",
+                "Register routes in server/index.ts",
+                "Input validation on all POST bodies",
+                "Typecheck passes"
+            ],
+            "priority": 9,
+            "passes": false,
+            "notes": ""
+        },
+        {
+            "id": "US-010",
+            "title": "Create pipeline stages REST API endpoints",
+            "description": "As a developer, I need API endpoints to manage individual stages within a pipeline.",
+            "acceptanceCriteria": [
+                "Add to server/routes/pipelines.ts or create server/routes/stages.ts",
+                "GET /api/pipelines/:id/stages returns all stages for a pipeline in sortOrder",
+                "POST /api/pipelines/:id/stages adds a new stage to a pipeline",
+                "PUT /api/pipelines/:pipelineId/stages/:stageId updates a stage (name, agent, model, sortOrder)",
+                "DELETE /api/pipelines/:pipelineId/stages/:stageId removes a stage",
+                "POST /api/pipelines/:pipelineId/stages/:stageId/skip marks a stage as skipped",
+                "Input validation on all POST/PUT bodies",
+                "Typecheck passes"
+            ],
+            "priority": 10,
+            "passes": false,
+            "notes": ""
+        },
+        {
+            "id": "US-011",
+            "title": "Create decisions REST API and WebSocket integration",
+            "description": "As a developer, I need an API for the decision queue so agents can ask questions and developers can respond.",
+            "acceptanceCriteria": [
+                "Create server/routes/decisions.ts as a Fastify plugin",
+                "GET /api/decisions?projectId=X returns pending decisions",
+                "POST /api/decisions creates a new decision (called by pipeline engine when stage status is 'needs-you')",
+                "PUT /api/decisions/:id resolves a decision with the chosen option or free-text override",
+                "Resolving a decision broadcasts a WebSocket event to unblock the waiting agent",
+                "Register routes in server/index.ts",
+                "Typecheck passes"
+            ],
+            "priority": 11,
+            "passes": false,
+            "notes": ""
+        },
+        {
+            "id": "US-012",
+            "title": "Connect Pipeline View to backend API",
+            "description": "As a user, I want the Pipeline View to show real pipeline data from the backend.",
+            "acceptanceCriteria": [
+                "Create src/api/pipelines.ts with usePipelines(projectId) and usePipelineStages(pipelineId) hooks",
+                "Update PipelineView.tsx to use API hooks instead of hardcoded PIPELINE_STAGES",
+                "Show loading and error states",
+                "Remove hardcoded PIPELINE_STAGES array",
+                "Typecheck passes",
+                "Verify in browser using dev-browser skill"
+            ],
+            "priority": 12,
+            "passes": false,
+            "notes": ""
+        },
+        {
+            "id": "US-013",
+            "title": "Add pipeline control buttons to Pipeline View",
+            "description": "As a user, I want pause/resume/cancel buttons on the pipeline view.",
+            "acceptanceCriteria": [
+                "Add a toolbar above pipeline stages with Pause, Resume, Cancel buttons",
+                "Buttons call the respective API endpoints (POST /api/pipelines/:id/pause etc.)",
+                "Buttons are conditionally enabled based on pipeline status (e.g., Pause only when running)",
+                "Status changes reflected in real-time via WebSocket subscription",
+                "Typecheck passes",
+                "Verify in browser using dev-browser skill"
+            ],
+            "priority": 13,
+            "passes": false,
+            "notes": ""
+        },
+        {
+            "id": "US-014",
+            "title": "Connect Decision Queue in right sidebar to backend API",
+            "description": "As a user, I want the decision queue to show real decisions and let me resolve them.",
+            "acceptanceCriteria": [
+                "Create src/api/decisions.ts with useDecisions(projectId) and useResolveDecision() hooks",
+                "Update RightSidebar decision section to use API hooks instead of hardcoded data",
+                "Option buttons call PUT /api/decisions/:id with the selected option",
+                "'Let agent decide' button resolves with a special auto-decide flag",
+                "Decision queue updates in real-time via WebSocket",
+                "Typecheck passes",
+                "Verify in browser using dev-browser skill"
+            ],
+            "priority": 14,
+            "passes": false,
+            "notes": ""
+        },
+        {
+            "id": "US-015",
+            "title": "Add natural language steering bar functionality",
+            "description": "As a user, I want to type natural language commands to steer the pipeline.",
+            "acceptanceCriteria": [
+                "Steering input in PipelineView sends text to POST /api/pipelines/:id/steer endpoint",
+                "Create the /steer endpoint in server/routes/pipelines.ts",
+                "Endpoint accepts { message: string } body",
+                "For now, the endpoint parses simple commands: 'skip [stage]', 'add [stage name]', 'pause', 'resume', 'cancel'",
+                "Returns { action: string, result: string } response",
+                "Input clears after submission",
+                "Typecheck passes",
+                "Verify in browser using dev-browser skill"
+            ],
+            "priority": 15,
+            "passes": false,
+            "notes": "Full NLP steering will come later with AI provider integration (M2). For now, simple keyword parsing."
+        },
+        {
+            "id": "US-016",
+            "title": "Add WebSocket subscription for real-time pipeline updates",
+            "description": "As a developer, I need the frontend to receive and display real-time pipeline and stage updates.",
+            "acceptanceCriteria": [
+                "Create src/hooks/useWebSocket.ts that connects to ws://localhost:4321/ws",
+                "Hook reconnects automatically on disconnect with exponential backoff",
+                "Pipeline-related events ('pipeline:status', 'stage:status', 'decision:created') trigger TanStack Query cache invalidation",
+                "Active pipeline stages update in real-time without polling",
+                "Typecheck passes"
+            ],
+            "priority": 16,
+            "passes": false,
+            "notes": ""
+        }
+    ]
+}
