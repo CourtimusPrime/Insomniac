@@ -41,6 +41,8 @@ Started: Sun Mar 22 15:42:51 UTC 2026
 - WebSocket events for decisions: `decision:created`, `decision:resolved` — broadcast via `broadcast()` from `server/ws/handler.ts`
 - Frontend mutation hooks: `useMutation` with `mutationFn` + `onSuccess` that invalidates related query keys via `useQueryClient`
 - Button enable/disable: use `isPending` from `useMutation` to prevent double-click during in-flight requests
+- Decision query key: `["decisions", projectId]` — invalidate after resolving a decision
+- When a component needs its own mutation state (e.g., each decision card), extract it as a separate component with its own hooks
 
 ---
 
@@ -246,5 +248,23 @@ Started: Sun Mar 22 15:42:51 UTC 2026
   - WebSocket-driven real-time updates are deferred to US-016 — for now, query invalidation on mutation success refreshes the UI
   - `Pipeline` type was already exported from `src/api/pipelines.ts` — import it with `import type` for the toolbar props
   - Toolbar uses `activeProjectId!` non-null assertion because it's only rendered when `activePipeline` exists, which requires a non-null projectId
+  - Manual browser verification needed — no dev-browser tools configured in this session
+---
+
+## 2026-03-22 - US-014
+- Created `src/api/decisions.ts` with `Decision` interface, `useDecisions(projectId)` query hook, and `useResolveDecision(projectId)` mutation hook
+- Rewrote decision queue section of `RightSidebar.tsx` to fetch real data via API hooks instead of hardcoded content
+- Extracted `DecisionCard` component for rendering individual decisions with option buttons and "Let agent decide"
+- Option buttons call `PUT /api/decisions/:id` with the selected option text as resolution
+- "Let agent decide" button calls the same endpoint with `autoDecide: true` flag
+- Added loading, error, and empty states for the decision queue
+- All buttons disabled while mutation is pending to prevent double-clicks
+- Mutation success invalidates `["decisions", projectId]` query to refresh the list
+- Files changed: src/api/decisions.ts (new), src/components/shell/RightSidebar.tsx
+- **Learnings for future iterations:**
+  - Decision `options` column is JSON but typed as `string[] | null` on the frontend — cast with `as string[] | null`
+  - "Let agent decide" uses the first option as fallback resolution text, prefixed with `[auto-decide]` by the server
+  - `DecisionCard` is a separate component (not inline) because each card needs its own `useResolveDecision` mutation state
+  - Real-time WebSocket updates for decisions deferred to US-016 — for now, query invalidation on mutation success refreshes the UI
   - Manual browser verification needed — no dev-browser tools configured in this session
 ---
