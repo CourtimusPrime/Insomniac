@@ -9,6 +9,7 @@ Started: Sun Mar 22 19:11:30 UTC 2026
 - Pre-existing typecheck error in `server/marketplace/client.ts:142` — not introduced by us
 - `getRunnerForProject(projectId)` is exported from `server/routes/localhost.ts` to access dev server state from other modules
 - Fastify wildcard routes use `server.get<{ Params: { "*": string } }>("/path/*", ...)` — access via `request.params["*"]`
+- Frontend API hooks live in `src/api/*.ts` — use `apiFetch` from `./client`, TanStack Query `useQuery`/`useMutation`, and `queryClient.invalidateQueries` on success
 ---
 
 ## 2026-03-22 - US-001
@@ -79,4 +80,17 @@ Started: Sun Mar 22 19:11:30 UTC 2026
   - Node's `http.request` callback receives an `IncomingMessage` (readable stream) — Fastify's `reply.send()` accepts streams directly
   - Avoid unused parameters in Promise constructors — TypeScript's `noUnusedParameters` will catch them
   - The proxy streams responses (no buffering), making it suitable for HTML, CSS, JS, and assets
+---
+
+## 2026-03-22 - US-006
+- Created `src/api/browser.ts` with 5 TanStack Query hooks: `useBrowserStatus()`, `useLaunchBrowser()`, `useNavigate()`, `useScreenshot()`, `useCloseBrowser()`
+- `useBrowserStatus` polls every 5s via `refetchInterval`, matching the pattern in `localhost.ts`
+- All mutations invalidate `browser-status` query key on success
+- `useScreenshot` returns `ScreenshotResult` with `image` (base64 string)
+- Files changed: `src/api/browser.ts`
+- **Learnings for future iterations:**
+  - Frontend API hooks live in `src/api/` as plain `.ts` files (not `.tsx`) — they only use hooks, no JSX
+  - Follow the pattern in `src/api/localhost.ts` for mutations: `useMutation` + `queryClient.invalidateQueries` on success
+  - `apiFetch` already sets `Content-Type: application/json` header, so mutations just need `body: JSON.stringify(params)`
+  - The `browser-status` query key is the central invalidation target for all browser mutations
 ---
