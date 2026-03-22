@@ -37,6 +37,8 @@ Started: Sun Mar 22 18:31:48 UTC 2026
 - Export types from layout store when other components need them (e.g., `MarketplaceCategory`)
 - Overlay/modal pattern: centered absolute overlay with bg-black/40 backdrop, click-outside + Escape close, same styling as AddNodeMenu (#111827 bg, #1e2a3a borders)
 - Apply template pattern (UI): call mutation for server persistence + deserialize chainDefinition locally via setNodes/setEdges to avoid network round-trip
+- Toast pattern: `useState(false)` + `setTimeout(() => set(false), 2500)` for auto-dismissing success messages
+- workspaceId on frontend: `useProjects()?.[0]?.workspaceId` (same pattern used in SettingsView and ChainEditor)
 ---
 
 ## 2026-03-22 - US-001
@@ -185,5 +187,21 @@ Started: Sun Mar 22 18:31:48 UTC 2026
   - When applying a template, set nodes/edges locally AND call the mutation for server persistence — avoids waiting for network round-trip
   - The auto-save mechanism (1s debounce) will fire after local state update, saving the same chain data — harmless duplicate
   - Hide empty state when template picker is open (`!showTemplatePicker` condition) to avoid visual overlap
+  - Browser verification needed — no dev-browser available in this session
+---
+
+## 2026-03-22 - US-011
+- Added 'Save as template' button (with Save icon) to ChainToolbar, positioned to the left of Export JSON
+- Created SaveTemplateForm overlay component with name input, description textarea, and category dropdown
+- Form submits via useCreateTemplate() mutation with current chain serialized via serializeChain()
+- Success shows a green confirmation toast ("Template saved successfully") for 2.5 seconds
+- Loading state disables submit button and shows "Saving…" text
+- Click-outside and Escape key close the form (same pattern as TemplatePicker/AddNodeMenu)
+- Files changed: src/components/graph/ChainToolbar.tsx, src/components/graph/ChainEditor.tsx
+- **Learnings for future iterations:**
+  - workspaceId for creating templates comes from `useProjects()?.[0]?.workspaceId` — same pattern as SettingsView
+  - SaveTemplateForm follows the same overlay/modal pattern as TemplatePicker (bg-black/40 backdrop, #111827 bg, #1e2a3a borders)
+  - Confirmation toast pattern: useState(false) + setTimeout(2500) to auto-dismiss, positioned absolute top-3 center
+  - Per-mutation callbacks: pass `{ onSuccess }` as second arg to `mutation.mutate()` for scoped side effects
   - Browser verification needed — no dev-browser available in this session
 ---
