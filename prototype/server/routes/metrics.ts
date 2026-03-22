@@ -1,5 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { cpus } from "node:os";
+import { sql } from "drizzle-orm";
+import { db } from "../db/connection.js";
+import { usageRecords } from "../db/schema/index.js";
 
 let prevCpuUsage = process.cpuUsage();
 let prevTime = Date.now();
@@ -36,11 +39,19 @@ export async function metricsRoutes(server: FastifyInstance): Promise<void> {
     };
   });
 
-  // Session usage: tokens and cost (placeholder until usage tracking table exists)
+  // Session usage: tokens and cost from usage_records table
   server.get("/api/usage/session", async () => {
+    const result = db
+      .select({
+        totalTokens: sql<number>`coalesce(sum(${usageRecords.inputTokens} + ${usageRecords.outputTokens}), 0)`,
+        estimatedCost: sql<number>`coalesce(sum(${usageRecords.estimatedCost}), 0)`,
+      })
+      .from(usageRecords)
+      .get();
+
     return {
-      totalTokens: 0,
-      estimatedCost: 0,
+      totalTokens: result?.totalTokens ?? 0,
+      estimatedCost: result?.estimatedCost ?? 0,
     };
   });
 }
