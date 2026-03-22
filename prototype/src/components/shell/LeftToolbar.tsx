@@ -1,6 +1,8 @@
 import { Layers, Github, Zap, Store, Settings } from 'lucide-react';
 import { ThemeSwitcher } from '../ThemeSwitcher';
 import { useLayoutStore } from '../../stores/layout';
+import { useTheme } from '../../hooks/useTheme';
+import { getThemeById, mapVSCodeColors } from '../../themes';
 
 const toolbarItems = [
   { id: 'projects' as const, icon: <Layers size={18} />, label: 'Projects' },
@@ -17,6 +19,8 @@ export function LeftToolbar() {
   const togglePanel = useLayoutStore((s) => s.togglePanel);
   const leftSidebarCollapsed = useLayoutStore((s) => s.collapsedPanels.leftSidebar);
   const setCollapsedPanel = useLayoutStore((s) => s.setCollapsedPanel);
+  const pinnedThemes = useLayoutStore((s) => s.pinnedThemes);
+  const { themeId, setThemeId } = useTheme();
 
   return (
     <aside className="w-14 flex flex-col items-center py-4 gap-1 bg-bg-base border-r border-border-default shrink-0">
@@ -48,6 +52,29 @@ export function LeftToolbar() {
         </button>
       ))}
       <div className="mt-auto flex flex-col items-center gap-1">
+        {pinnedThemes.length > 0 && (
+          <div className="flex flex-col items-center gap-1.5 mb-2 pb-2 border-b border-border-default">
+            {pinnedThemes.map(id => {
+              const theme = getThemeById(id);
+              if (!theme) return null;
+              const mapped = mapVSCodeColors(theme.colors);
+              const isActive = id === themeId;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setThemeId(id)}
+                  title={theme.name}
+                  className={`w-7 h-7 rounded-full border-2 transition-all ${
+                    isActive ? 'border-accent-primary scale-110' : 'border-transparent hover:scale-110'
+                  }`}
+                  style={{
+                    background: `linear-gradient(135deg, ${mapped['bg-base']} 50%, ${mapped['accent-primary']} 50%)`,
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
         <ThemeSwitcher />
         <button
           onClick={() => setActiveMain('settings')}

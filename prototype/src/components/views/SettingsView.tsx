@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Loader2, AlertCircle, Shield, Cpu, CheckCircle2, XCircle, Plus, X, Bell, Send, Webhook, Trash2, KeyRound } from 'lucide-react';
+import { Loader2, AlertCircle, Shield, Cpu, CheckCircle2, XCircle, Plus, X, Bell, Send, Webhook, Trash2, KeyRound, Pin, PinOff, Check } from 'lucide-react';
 import { useProviders, useAddProvider, useProviderModels, type Provider, type ProviderName } from '../../api/providers';
 import { useProjects } from '../../api/projects';
 import { useSetting, useSaveSetting, useTestSlackWebhook } from '../../api/settings';
 import { useHooks, useCreateHook, useUpdateHook, useDeleteHook, type Hook } from '../../api/hooks';
 import { useCredentials, useCreateCredential, useDeleteCredential, type Credential } from '../../api/credentials';
+import { useTheme } from '../../hooks/useTheme';
+import { useLayoutStore } from '../../stores/layout';
+import { getThemeById, mapVSCodeColors } from '../../themes';
 
-type SettingsTab = 'providers' | 'notifications' | 'hooks' | 'credentials';
+type SettingsTab = 'providers' | 'notifications' | 'hooks' | 'credentials' | 'themes';
 
 const PROVIDER_OPTIONS: { value: ProviderName; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' },
@@ -836,8 +839,95 @@ function CredentialsTab() {
   );
 }
 
+function ThemesTab() {
+  const { themeId, setThemeId, themes } = useTheme();
+  const pinnedThemes = useLayoutStore((s) => s.pinnedThemes);
+  const pinTheme = useLayoutStore((s) => s.pinTheme);
+  const unpinTheme = useLayoutStore((s) => s.unpinTheme);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-xs font-bold font-heading text-text-primary">Themes</h3>
+        <p className="text-[11px] text-text-muted mt-0.5">
+          Choose your theme and pin up to 4 favorites to the toolbar for quick switching.
+        </p>
+      </div>
+
+      <div className="space-y-1">
+        {themes.map(theme => {
+          const isActive = theme.id === themeId;
+          const isPinned = pinnedThemes.includes(theme.id);
+          const canPin = pinnedThemes.length < 4;
+          const colors = getThemeById(theme.id);
+          const mapped = colors ? mapVSCodeColors(colors.colors) : null;
+
+          return (
+            <div
+              key={theme.id}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition ${
+                isActive ? 'bg-accent-primary/10 border border-accent-primary/30' : 'border border-transparent hover:bg-bg-hover'
+              }`}
+            >
+              {/* Color swatches */}
+              {mapped && (
+                <div className="flex gap-1 shrink-0">
+                  {(['bg-base', 'bg-default', 'accent-primary', 'text-default'] as const).map(key => (
+                    <div
+                      key={key}
+                      className="w-4 h-4 rounded-full border border-border-subtle"
+                      style={{ backgroundColor: mapped[key] }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Theme name + type */}
+              <button
+                onClick={() => setThemeId(theme.id)}
+                className="flex-1 text-left"
+              >
+                <span className="text-sm font-medium text-text-primary">{theme.name}</span>
+                <span className="text-[10px] text-text-muted ml-2">{theme.type}</span>
+              </button>
+
+              {/* Active indicator */}
+              {isActive && <Check size={14} className="text-accent-primary shrink-0" />}
+
+              {/* Pin/Unpin button */}
+              <button
+                onClick={() => isPinned ? unpinTheme(theme.id) : pinTheme(theme.id)}
+                disabled={!isPinned && !canPin}
+                title={isPinned ? 'Unpin from toolbar' : canPin ? 'Pin to toolbar' : 'Max 4 pinned themes'}
+                className={`p-1.5 rounded transition shrink-0 ${
+                  isPinned
+                    ? 'text-accent-primary hover:bg-accent-primary/10'
+                    : canPin
+                      ? 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+                      : 'text-text-faint cursor-not-allowed opacity-40'
+                }`}
+              >
+                {isPinned ? <PinOff size={14} /> : <Pin size={14} />}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {pinnedThemes.length > 0 && (
+        <div className="pt-2 border-t border-border-default">
+          <p className="text-[11px] text-text-muted">
+            {pinnedThemes.length}/4 themes pinned to toolbar
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'providers', label: 'Providers' },
+  { id: 'themes', label: 'Themes' },
   { id: 'hooks', label: 'Hooks' },
   { id: 'credentials', label: 'Credentials' },
   { id: 'notifications', label: 'Notifications' },
@@ -871,6 +961,7 @@ export function SettingsView() {
 
       {/* Tab content */}
       {activeTab === 'providers' && <ProvidersTab />}
+      {activeTab === 'themes' && <ThemesTab />}
       {activeTab === 'hooks' && <HooksTab />}
       {activeTab === 'credentials' && <CredentialsTab />}
       {activeTab === 'notifications' && <NotificationsTab />}
