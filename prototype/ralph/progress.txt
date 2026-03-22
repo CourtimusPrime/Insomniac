@@ -84,3 +84,19 @@ Started: Sun Mar 22 17:15:36 UTC 2026
   - `refetchInterval: 5000` on status queries provides a polling baseline; WS events give instant updates on top
   - BottomPanel health tab needs both `activeProjectId` and the dev server hooks — no project selected = show placeholder
 ---
+
+## 2026-03-22 ~19:00 - US-006
+- Created `server/integrations/slack.ts` with `SlackNotifier` class
+- `sendMessage(webhookUrl, message)` sends POST to Slack incoming webhook with JSON body
+- Supports formatted messages via `buildFormattedMessage(title, body, status)` using Slack attachments with color + Block Kit sections
+- Helper methods: `notifyPipelineComplete`, `notifyDecisionNeeded`, `notifyError` — each maps to a status color (green, yellow, red)
+- Returns `{ success: boolean, error?: string }`
+- Uses native `fetch` (no extra dependencies needed)
+- Files changed: `server/integrations/slack.ts` (new)
+- **Learnings for future iterations:**
+  - Slack incoming webhooks accept `{ text, blocks?, attachments? }` — use `attachments` with `color` field for colored sidebar indicators
+  - Block Kit `mrkdwn` type supports Slack markdown (`*bold*`, `_italic_`, `~strike~`, `<url|label>`)
+  - Native `fetch` is available in Node 18+ (this project's target), no need for `node-fetch`
+  - The `SlackNotifier` class is stateless — it can be instantiated once and reused across routes
+  - Status colors: success=#36a64f, warning=#f2c744, error=#e01e5a, info=#1264a3
+---
