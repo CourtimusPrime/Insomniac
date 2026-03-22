@@ -4,6 +4,13 @@ export interface BrowserConfig {
   headless: boolean;
 }
 
+/** A single browser console entry. */
+export interface ConsoleEntry {
+  level: "info" | "warn" | "error";
+  timestamp: string;
+  message: string;
+}
+
 /** Abstraction over browser engines so we can swap between implementations. */
 export interface BrowserEngine {
   /** Launch a new browser instance. */
@@ -29,4 +36,7 @@ export interface BrowserEngine {
 
   /** Close the browser instance and release resources. */
   close(): Promise<void>;
+
+  /** Register a callback for browser console messages. */
+  onConsole(callback: (entry: ConsoleEntry) => void): void;
 }

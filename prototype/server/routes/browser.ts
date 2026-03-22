@@ -3,6 +3,7 @@ import { request as httpRequest } from "node:http";
 import { PlaywrightAdapter } from "../browser/index.js";
 import type { BrowserEngine } from "../browser/index.js";
 import { getRunnerForProject } from "./localhost.js";
+import { broadcast } from "../ws/handler.js";
 
 /** Singleton browser instance shared across all routes. */
 let engine: BrowserEngine | null = null;
@@ -22,6 +23,9 @@ export async function browserRoutes(server: FastifyInstance): Promise<void> {
       }
 
       engine = new PlaywrightAdapter();
+      engine.onConsole((entry) => {
+        broadcast("browser:console", entry);
+      });
       await engine.launch({ headless: true });
 
       return { success: true };

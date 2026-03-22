@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square, RefreshCw, X, Camera, Copy, Download
+  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square, RefreshCw, X, Camera, Copy, Download, Info, AlertTriangle, AlertCircle, Trash2
 } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
@@ -60,6 +60,40 @@ export function BottomPanel() {
     link.download = `screenshot-${Date.now()}.png`;
     link.click();
   }, [screenshotPreview]);
+
+  // Browser console entries from WebSocket
+  const [consoleEntries, setConsoleEntries] = useState<{ level: 'info' | 'warn' | 'error'; timestamp: string; message: string }[]>([]);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
+
+  // Listen for browser:console WebSocket events
+  useEffect(() => {
+    function onConsoleMessage(evt: MessageEvent) {
+      try {
+        const msg = JSON.parse(evt.data) as { event: string; data?: { level?: string; timestamp?: string; message?: string } };
+        if (msg.event === 'browser:console' && msg.data) {
+          const level = msg.data.level === 'warn' ? 'warn' : msg.data.level === 'error' ? 'error' : 'info';
+          setConsoleEntries((prev) => [...prev.slice(-199), {
+            level: level as 'info' | 'warn' | 'error',
+            timestamp: msg.data!.timestamp ?? new Date().toISOString(),
+            message: msg.data!.message ?? '',
+          }]);
+        }
+      } catch { /* ignore */ }
+    }
+
+    const ws = new WebSocket('ws://localhost:4321/ws');
+    ws.addEventListener('message', onConsoleMessage);
+    return () => { ws.close(); };
+  }, []);
+
+  // Auto-scroll console
+  useEffect(() => {
+    consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [consoleEntries]);
+
+  const handleClearConsole = useCallback(() => {
+    setConsoleEntries([]);
+  }, []);
 
   const [logs, setLogs] = useState<string[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -270,48 +304,82 @@ export function BottomPanel() {
                     </button>
                   )}
                 </div>
-                {/* iframe preview */}
-                <div className="flex-1 min-h-0 border border-border-default rounded overflow-hidden bg-white relative">
-                  <iframe
-                    key={iframeKey}
-                    src={`http://localhost:4321/api/browser/proxy/?projectId=${activeProjectId}`}
-                    className="w-full h-full border-0"
-                    title="Dev Browser Preview"
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                  />
-                  {/* Screenshot preview overlay */}
-                  {screenshotPreview && (
-                    <div className="absolute inset-0 bg-bg-base/95 flex flex-col items-center justify-center gap-3 z-10">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleCopyScreenshot}
-                          className="flex items-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition"
-                          title="Copy to clipboard"
-                        >
-                          <Copy size={10} /> Copy
-                        </button>
-                        <button
-                          onClick={handleSaveScreenshot}
-                          className="flex items-center gap-1 text-[10px] px-2 py-1 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition"
-                          title="Save as PNG"
-                        >
-                          <Download size={10} /> Save
-                        </button>
-                        <button
-                          onClick={() => setScreenshotPreview(null)}
-                          className="flex items-center gap-1 text-[10px] px-2 py-1 bg-bg-hover text-text-muted border border-border-default rounded hover:bg-bg-base transition"
-                          title="Close preview"
-                        >
-                          <X size={10} /> Close
-                        </button>
+                {/* iframe preview + console split */}
+                <div className="flex-1 min-h-0 flex flex-col">
+                  {/* iframe preview */}
+                  <div className="flex-[2] min-h-0 border border-border-default rounded overflow-hidden bg-white relative">
+                    <iframe
+                      key={iframeKey}
+                      src={`http://localhost:4321/api/browser/proxy/?projectId=${activeProjectId}`}
+                      className="w-full h-full border-0"
+                      title="Dev Browser Preview"
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    />
+                    {/* Screenshot preview overlay */}
+                    {screenshotPreview && (
+                      <div className="absolute inset-0 bg-bg-base/95 flex flex-col items-center justify-center gap-3 z-10">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleCopyScreenshot}
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition"
+                            title="Copy to clipboard"
+                          >
+                            <Copy size={10} /> Copy
+                          </button>
+                          <button
+                            onClick={handleSaveScreenshot}
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition"
+                            title="Save as PNG"
+                          >
+                            <Download size={10} /> Save
+                          </button>
+                          <button
+                            onClick={() => setScreenshotPreview(null)}
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 bg-bg-hover text-text-muted border border-border-default rounded hover:bg-bg-base transition"
+                            title="Close preview"
+                          >
+                            <X size={10} /> Close
+                          </button>
+                        </div>
+                        <img
+                          src={`data:image/png;base64,${screenshotPreview}`}
+                          alt="Screenshot"
+                          className="max-w-full max-h-[calc(100%-40px)] object-contain rounded border border-border-default"
+                        />
                       </div>
-                      <img
-                        src={`data:image/png;base64,${screenshotPreview}`}
-                        alt="Screenshot"
-                        className="max-w-full max-h-[calc(100%-40px)] object-contain rounded border border-border-default"
-                      />
+                    )}
+                  </div>
+                  {/* Console sub-panel */}
+                  <div className="flex-1 min-h-0 border border-border-default rounded mt-1 flex flex-col bg-bg-base">
+                    <div className="flex items-center justify-between px-2 py-1 border-b border-border-default shrink-0">
+                      <span className="text-[10px] text-text-muted font-medium">Console</span>
+                      <button
+                        onClick={handleClearConsole}
+                        className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
+                        title="Clear console"
+                      >
+                        <Trash2 size={10} />
+                      </button>
                     </div>
-                  )}
+                    <div className="flex-1 overflow-y-auto px-2 py-1 font-mono text-[10px] space-y-0.5">
+                      {consoleEntries.length === 0 ? (
+                        <div className="text-text-faint italic py-1">No console output</div>
+                      ) : (
+                        consoleEntries.map((entry, i) => (
+                          <div key={i} className={`flex items-start gap-1.5 ${
+                            entry.level === 'error' ? 'text-status-error' : entry.level === 'warn' ? 'text-amber-400' : 'text-text-muted'
+                          }`}>
+                            {entry.level === 'error' ? <AlertCircle size={10} className="shrink-0 mt-px" /> :
+                             entry.level === 'warn' ? <AlertTriangle size={10} className="shrink-0 mt-px" /> :
+                             <Info size={10} className="shrink-0 mt-px" />}
+                            <span className="text-text-faint shrink-0">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                            <span className="whitespace-pre-wrap break-all">{entry.message}</span>
+                          </div>
+                        ))
+                      )}
+                      <div ref={consoleEndRef} />
+                    </div>
+                  </div>
                 </div>
               </>
             )}
