@@ -10,6 +10,9 @@ Started: Sun Mar 22 17:46:01 UTC 2026
 - Return 201 for creates, 204 for deletes, 404 for not found
 - Default workspace pattern: `getOrCreateDefaultWorkspace()` returns the "Default" workspace ID
 - Abilities schema already has: id, workspaceId, name, type (skill|plugin|mcp), active, config (JSON), version, createdAt
+- Junction tables use composite primary keys via `primaryKey({ columns: [...] })` in drizzle
+- Stage-ability routes live in pipelines.ts since they're nested under `/api/pipelines/...`
+- Use `innerJoin` on junction tables to return related entity data in GET endpoints
 
 ---
 
@@ -22,4 +25,17 @@ Started: Sun Mar 22 17:46:01 UTC 2026
   - The abilities schema already exists in server/db/schema/abilities.ts — no migration needed for this story
   - Follow the projects.ts route pattern for default workspace handling
   - `config` column uses `{ mode: "json" }` in drizzle schema — pass objects directly
+---
+
+## 2026-03-22 - US-002
+- Created stage_abilities junction table (stageId FK, abilityId FK, composite PK)
+- Added GET /api/pipelines/:pipelineId/stages/:stageId/abilities — returns abilities with full data via innerJoin
+- Added POST /api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId — assign with 409 on duplicate
+- Added DELETE /api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId — unassign
+- Files changed: server/db/schema/stage-abilities.ts (created), server/db/schema/index.ts, server/routes/pipelines.ts, migration 0005
+- **Learnings for future iterations:**
+  - drizzle-kit `generate` auto-detects new schema exports from the barrel — just add to index.ts
+  - drizzle-kit `migrate` applies pending migrations to the SQLite DB
+  - Composite primary keys need `primaryKey` imported from `drizzle-orm/sqlite-core`
+  - Stage routes validate stage belongs to pipeline before any operation (pipelineId + stageId AND check)
 ---
