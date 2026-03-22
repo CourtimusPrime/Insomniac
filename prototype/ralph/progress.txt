@@ -21,6 +21,9 @@ Started: Sun Mar 22 17:15:36 UTC 2026
 - Settings stored in `settings` table as key-value pairs (key: text, value: JSON) scoped to workspaceId
 - Settings API: GET `/api/settings/:key` and PUT `/api/settings/:key` with `{ value, category? }` body
 - Settings hooks in `src/api/settings.ts`: `useSetting(key)`, `useSaveSetting()`, `useTestSlackWebhook()`
+- Context menus: use `fixed` positioning with `onContextMenu` handler; dismiss on outside click via `mousedown` listener on `document`
+- Inline editing: use `renamingId` state + `ref` focus pattern; commit on Enter/blur, cancel on Escape
+- API mutation hooks: `useDeleteProject()`, `useUpdateProject()`, `useOpenInVSCode()` in `src/api/projects.ts`
 
 ---
 
@@ -179,4 +182,19 @@ Started: Sun Mar 22 17:15:36 UTC 2026
   - `spawn` with `detached: true` + `stdio: "ignore"` + `child.unref()` is the pattern for fire-and-forget child processes that outlive the request
   - The `getVSCodeCommand()` import from `../utils/index.js` works — ESM requires the `.js` extension
   - US-012 will need to call this endpoint from the frontend context menu
+---
+
+## 2026-03-22 ~22:00 - US-012
+- Added right-click context menu to project items in LeftSidebar with Rename, Remove from list, Open in VS Code
+- Rename enables inline editing via input field (commit on Enter/blur, cancel on Escape)
+- Remove calls DELETE /api/projects/:id, Open in VS Code calls POST /api/projects/:id/open-vscode
+- Context menu positioned at cursor location, dismissed on outside click
+- Added `useDeleteProject`, `useUpdateProject`, `useOpenInVSCode` hooks to `src/api/projects.ts`
+- Files changed: `src/components/shell/LeftSidebar.tsx`, `src/api/projects.ts`
+- **Learnings for future iterations:**
+  - Context menu pattern: `fixed` z-50 div positioned at `e.clientX/Y`, dismissed via `mousedown` listener on `document`
+  - Inline rename pattern: `renamingId` + `renameValue` state, `ref` for auto-focus/select, commit on blur/Enter, cancel on Escape
+  - `onClick={(e) => e.stopPropagation()}` on the rename input prevents the parent button's click (project selection) from firing
+  - The existing server PUT /api/projects/:id already supports partial updates including `name` — no server changes needed
+  - Import `type { Project }` separately from value imports when used only for type annotations (e.g., callback params)
 ---
