@@ -1,5 +1,6 @@
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
+import { useProjects } from '../../api/projects';
 import { PipelineView } from '../views/PipelineView';
 import { GraphView } from '../views/GraphView';
 import { BackseatView } from '../views/BackseatView';
@@ -9,7 +10,7 @@ export function MainView() {
   const activeMain = useLayoutStore((s) => s.activeMain);
   const setActiveMain = useLayoutStore((s) => s.setActiveMain);
   const activeProject = useProjectsStore((s) => s.activeProject);
-  const projects = useProjectsStore((s) => s.projects);
+  const { data: projects } = useProjects();
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -19,7 +20,7 @@ export function MainView() {
           <div className="flex items-center gap-2">
             <h1 className="text-sm font-bold text-text-primary font-heading">{activeProject}</h1>
             <span className="text-[10px] px-2 py-0.5 rounded-full border border-accent-primary/30 bg-accent-primary/5 text-accent-primary">
-              {projects.find(p => p.name === activeProject)?.status}
+              {projects?.find(p => p.name === activeProject)?.status ?? 'loading'}
             </span>
           </div>
           <p className="text-[11px] text-text-muted mt-0.5">Decentralized OS kernel · Rust · 3 agents running</p>

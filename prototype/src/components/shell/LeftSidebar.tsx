@@ -1,8 +1,9 @@
 import {
-  Plus, GitMerge, CheckCircle2,
+  Plus, GitMerge, CheckCircle2, Loader2, AlertCircle,
 } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
+import { useProjects } from '../../api/projects';
 
 const ABILITIES = [
   { name: 'Playwright Tests', type: 'skill', active: true },
@@ -30,9 +31,9 @@ export function LeftSidebar() {
   const activeToolbar = useLayoutStore((s) => s.activeToolbar);
   const setActiveMain = useLayoutStore((s) => s.setActiveMain);
   const collapsed = useLayoutStore((s) => s.collapsedPanels.leftSidebar);
-  const projects = useProjectsStore((s) => s.projects);
   const activeProject = useProjectsStore((s) => s.activeProject);
   const setActiveProject = useProjectsStore((s) => s.setActiveProject);
+  const { data: projects, isLoading, isError, refetch } = useProjects();
 
   return (
     <aside className={`flex flex-col bg-bg-default shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out ${
@@ -47,9 +48,25 @@ export function LeftSidebar() {
             <button className="text-text-faint hover:text-accent-primary transition"><Plus size={13} /></button>
           </div>
           <div className="flex-1 overflow-y-auto py-1">
-            {projects.map(p => (
+            {isLoading && (
+              <div className="flex items-center justify-center py-8 text-text-faint">
+                <Loader2 size={16} className="animate-spin" />
+              </div>
+            )}
+            {isError && (
+              <div className="flex flex-col items-center gap-2 py-8 text-text-faint">
+                <AlertCircle size={16} className="text-status-error" />
+                <span className="text-[10px]">Failed to load projects</span>
+                <button
+                  onClick={() => refetch()}
+                  className="text-[10px] text-accent-primary hover:underline">
+                  Retry
+                </button>
+              </div>
+            )}
+            {projects?.map(p => (
               <button
-                key={p.name}
+                key={p.id}
                 onClick={() => setActiveProject(p.name)}
                 className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition border-l-2 ${
                   activeProject === p.name
@@ -59,7 +76,7 @@ export function LeftSidebar() {
                 <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(p.status)}`} />
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium truncate">{p.name}</div>
-                  <div className="text-[10px] text-text-faint mt-0.5">{p.lang} · {p.agents > 0 ? `${p.agents} agents` : 'idle'}</div>
+                  <div className="text-[10px] text-text-faint mt-0.5">{p.language ?? 'Unknown'} · idle</div>
                 </div>
               </button>
             ))}
