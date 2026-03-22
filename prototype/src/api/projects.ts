@@ -62,6 +62,21 @@ export function useDeleteProject() {
   });
 }
 
+export function useCloneProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: { repoUrl: string; name?: string }) =>
+      apiFetch<Project>("/api/projects/clone", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
 export function useOpenInVSCode() {
   return useMutation({
     mutationFn: (id: string) =>
