@@ -28,6 +28,9 @@ Started: Sun Mar 22 17:46:01 UTC 2026
 - ChainEditor uses `ReactFlowProvider` wrapper; hooks like `useReactFlow()` / `screenToFlowPosition` must be called inside an inner component
 - AddNodeMenu tracks both screen coords (for CSS popup placement) and flow coords (for `node.position`) — two coordinate systems
 - Node type definitions (color, label, description) are in `AddNodeMenu.tsx` as `nodeTypeEntries`
+- Inject callback props (onOpen, onDelete) into nodes via a `useMemo` wrapper — keeps refs fresh without re-creating nodes
+- `useNodesState<Node>([])` returns generic `Node`; cast to `Node<AgentNodeData>` when passing to typed components
+- NodeInspector lives in `src/components/graph/NodeInspector.tsx`; opens via `inspectedNodeId` state in ChainEditor
 
 ---
 
@@ -172,4 +175,23 @@ Started: Sun Mar 22 17:46:01 UTC 2026
   - `onDoubleClick` on `<ReactFlow>` fires for double-click on the pane; use `event.target.closest('.react-flow')?.getBoundingClientRect()` to get relative screen position
   - Node IDs use `crypto.randomUUID()` matching the backend pattern
   - Node labels are auto-numbered: `${label} ${nodes.length + 1}`
+---
+
+## 2026-03-22 - US-011
+- Created `src/components/graph/NodeInspector.tsx` — 340px slide-in panel from the right
+- Opens when clicking 'Open' (ExternalLink) button on a node via `onOpen` callback
+- Editable fields: node name (text input), model dropdown (ModelSelector), system prompt textarea
+- Abilities section: tag list of assigned abilities with remove (X) button, '+ Add ability' button opens inline picker from API data
+- Outgoing edge conditions: dropdown per edge to change condition (always/on-success/on-failure/on-decision) with color dot indicator
+- Save button persists changes to node data, Delete button removes node with confirmation
+- Panel renders inside the canvas wrapper so nodes remain visible alongside it
+- Added `AgentNodeAbility` type and `abilities` field to `AgentNodeData`
+- Updated `ChainEditor.tsx`: `inspectedNodeId` state, `nodesWithCallbacks` memo to inject onOpen/onDelete, inspector callbacks (save/delete/updateEdge)
+- Files changed: src/components/graph/NodeInspector.tsx (created), src/components/graph/AgentNode.tsx, src/components/graph/ChainEditor.tsx
+- **Learnings for future iterations:**
+  - `useNodesState<Node>([])` returns generic `Node` with `Record<string, unknown>` data — cast to `Node<AgentNodeData>` when passing to typed components
+  - Inject callback props (onOpen, onDelete) via a `useMemo` wrapper over the nodes array rather than setting them at node creation time — keeps callbacks always up-to-date
+  - NodeInspector syncs local form state from props via `useEffect` keyed on `node.id` — handles switching between nodes
+  - Edge condition updates use `setEdges` map to modify `data.condition` on the matching edge
+  - `useAbilities()` hook provides the full list for the ability picker; filter out already-assigned and inactive abilities
 ---
