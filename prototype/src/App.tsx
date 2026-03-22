@@ -4,8 +4,11 @@ import { MainView } from './components/shell/MainView';
 import { RightSidebar } from './components/shell/RightSidebar';
 import { BottomPanel } from './components/shell/BottomPanel';
 import { StatusBar } from './components/shell/StatusBar';
+import { useWebSocket } from './hooks/useWebSocket';
 
 export default function InsomniacApp() {
+  useWebSocket();
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-bg-default text-text-default font-sans">
 
