@@ -14,6 +14,9 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Plus } from 'lucide-react';
+import { AgentNode } from './AgentNode';
+
+const nodeTypes = { agent: AgentNode };
 
 const defaultViewport = { x: 0, y: 0, zoom: 1 };
 
@@ -38,6 +41,7 @@ export function ChainEditor() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        nodeTypes={nodeTypes}
         defaultViewport={defaultViewport}
         proOptions={proOptions}
         fitView={!isEmpty}
