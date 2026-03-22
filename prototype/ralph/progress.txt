@@ -15,6 +15,8 @@ Started: Sun Mar 22 18:31:48 UTC 2026
 - Seed pattern: define data array + `seedIfEmpty()` function that checks `.all().length > 0`, called at route plugin registration time
 - Route plugins call seed functions at top of the exported function (e.g., `await seedBuiltInTemplates()`)
 - Apply template pattern: copy `chainDefinition` from template to project, increment `installCount`
+- Marketplace client uses a mock store index (array of MarketplaceItem) — will be replaced by GitHub fetch later
+- MarketplaceClient class pattern: constructor takes optional storeUrl, async methods return typed data
 - `getOrCreateDefaultWorkspace()` helper returns the default workspace ID (duplicated across routes — consider extracting)
 - ChainDefinition format: `{ version: 1, nodes: [{id, type, label, model, systemPrompt, status, abilities, position}], edges: [{id, source, target, condition}] }`
 - Node types: trigger, prototyper, builder, tester, reviewer, auditor
@@ -60,4 +62,18 @@ Started: Sun Mar 22 18:31:48 UTC 2026
   - Built-in templates are protected from deletion with a 403 response
   - Fastify generic types: `<{ Params: {...}; Body: {...} }>` for combined param + body routes
   - POST schema validation uses `additionalProperties: false` to reject unexpected fields
+---
+
+## 2026-03-22 - US-004
+- Created `server/marketplace/types.ts` with MarketplaceItem, MarketplaceItemType, TrustTier, and MarketplaceFilters types
+- Created `server/marketplace/client.ts` with MarketplaceClient class and 8 mock marketplace items
+- MarketplaceClient methods: fetchItems(filters?), getItem(id), downloadItem(id)
+- Mock store index covers all 4 item types (workflow, agent-config, template, mcp-adapter) and all 3 trust tiers (community, verified, official)
+- Files changed: server/marketplace/types.ts (new), server/marketplace/client.ts (new)
+- **Learnings for future iterations:**
+  - MarketplaceClient is stateless — instantiate with optional storeUrl, defaults to insomniac-dev/store GitHub raw URL
+  - fetchItems supports filtering by type, trustTier, and search (name + description match)
+  - downloadItem returns a generic Record<string, unknown> since different item types have different payloads
+  - The mock index has 8 items which is enough to test pagination, filtering, and search in the marketplace UI
+  - When switching to real GitHub fetch, replace the MOCK_STORE_INDEX usage in each method with a fetch() call
 ---

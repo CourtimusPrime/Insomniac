@@ -64,7 +64,7 @@
                 "Typecheck passes"
             ],
             "priority": 4,
-            "passes": false,
+            "passes": true,
             "notes": "Store is backed by insomniac-dev/store GitHub repo. For now, use a mock/local index."
         },
         {
