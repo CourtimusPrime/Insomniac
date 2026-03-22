@@ -12,6 +12,9 @@ export class PipelineEngine {
   private pipelineId: string;
   private pipeline: PipelineRow | null = null;
   private stages: StageRow[] = [];
+  private pauseRequested = false;
+  private cancelRequested = false;
+  private activeAgents: AgentAdapter[] = [];
 
   constructor(pipelineId: string) {
     this.pipelineId = pipelineId;
@@ -63,14 +66,49 @@ export class PipelineEngine {
     try {
       const groups = this.groupStagesBySortOrder(this.stages);
       for (const group of groups) {
+        if (this.shouldStop()) break;
         await this.executeStageGroup(group);
       }
-      // All stages complete
-      this.updatePipelineStatus("completed");
+      // Only mark completed if we weren't interrupted
+      if (!this.shouldStop()) {
+        this.updatePipelineStatus("completed");
+      }
     } catch (err) {
-      this.updatePipelineStatus("error");
+      if (!this.cancelRequested) {
+        this.updatePipelineStatus("error");
+      }
       throw err;
     }
+  }
+
+  /**
+   * Pauses the pipeline after the current stage group completes.
+   * Sets status to 'paused' and stops the execution loop.
+   */
+  pause(): void {
+    if (this.cancelRequested) return;
+    this.pauseRequested = true;
+    this.updatePipelineStatus("paused");
+  }
+
+  /**
+   * Cancels the pipeline immediately, aborting any active agents.
+   */
+  async cancel(): Promise<void> {
+    this.cancelRequested = true;
+    this.pauseRequested = false;
+    this.updatePipelineStatus("cancelled");
+
+    // Abort all active agents
+    const abortPromises = this.activeAgents.map(async (agent) => {
+      try {
+        await agent.abort();
+      } catch {
+        // Ignore abort errors during cancellation
+      }
+    });
+    await Promise.all(abortPromises);
+    this.activeAgents = [];
   }
 
   /**
@@ -95,18 +133,27 @@ export class PipelineEngine {
     // Set pipeline status to running
     this.updatePipelineStatus("running");
 
+    // Reset interrupt flags on resume
+    this.pauseRequested = false;
+    this.cancelRequested = false;
+
     try {
       const groups = this.groupStagesBySortOrder(remainingStages);
       for (const group of groups) {
+        if (this.shouldStop()) break;
         // Filter out already-done stages within the group
         const pending = group.filter((s) => s.status !== "done");
         if (pending.length === 0) continue;
         await this.executeStageGroup(pending);
       }
-      // All stages complete
-      this.updatePipelineStatus("completed");
+      // Only mark completed if we weren't interrupted
+      if (!this.shouldStop()) {
+        this.updatePipelineStatus("completed");
+      }
     } catch (err) {
-      this.updatePipelineStatus("error");
+      if (!this.cancelRequested) {
+        this.updatePipelineStatus("error");
+      }
       throw err;
     }
   }
@@ -198,6 +245,7 @@ export class PipelineEngine {
     try {
       const config = this.buildAgentConfig(stage);
       agent = await createAgent(config);
+      this.activeAgents.push(agent);
 
       // Send the stage description (or name) as the prompt
       const prompt = stage.description ?? stage.name;
@@ -213,8 +261,9 @@ export class PipelineEngine {
       this.updateStageStatus(stage.id, "error");
       throw err;
     } finally {
-      // Clean up the agent
+      // Remove from active agents and clean up
       if (agent) {
+        this.activeAgents = this.activeAgents.filter((a) => a !== agent);
         try {
           await agent.abort();
         } catch {
@@ -250,10 +299,17 @@ export class PipelineEngine {
   }
 
   /**
+   * Returns true if the engine should stop executing further groups.
+   */
+  private shouldStop(): boolean {
+    return this.pauseRequested || this.cancelRequested;
+  }
+
+  /**
    * Updates the pipeline status in the database and broadcasts a WebSocket event.
    */
   private updatePipelineStatus(
-    status: "idle" | "running" | "completed" | "error" | "paused",
+    status: "idle" | "running" | "completed" | "error" | "paused" | "cancelled",
   ): void {
     db.update(pipelines)
       .set({ status, updatedAt: new Date() })
