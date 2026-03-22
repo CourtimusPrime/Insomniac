@@ -6,6 +6,7 @@ import { GraphView } from '../views/GraphView';
 import { BackseatView } from '../views/BackseatView';
 import { AbilityDetailView } from '../views/AbilityDetailView';
 import { SettingsView } from '../views/SettingsView';
+import { MarketplaceView } from '../views/MarketplaceView';
 
 export function MainView() {
   const activeMain = useLayoutStore((s) => s.activeMain);
@@ -50,6 +51,7 @@ export function MainView() {
         {activeMain === 'backseat' && <BackseatView />}
         {activeMain === 'ability-detail' && <AbilityDetailView />}
         {activeMain === 'settings' && <SettingsView />}
+        {activeMain === 'marketplace' && <MarketplaceView />}
       </div>
     </div>
   );
