@@ -46,3 +46,18 @@ Started: Sun Mar 22 19:11:30 UTC 2026
   - `waitForSelector` uses an in-page polling evaluate script since BrowserEngine doesn't expose native waitFor
   - Tool input schemas follow MCP JSON Schema format: `{ type: "object", properties, required }`
 ---
+
+## 2026-03-22 - US-004
+- Created `server/routes/browser.ts` as a Fastify plugin with 6 endpoints
+- Endpoints: POST launch, POST navigate, POST screenshot, POST evaluate, POST close, GET status
+- Singleton `BrowserEngine` instance shared across routes
+- Input validation via Fastify JSON Schema on navigate (url) and evaluate (script) POST bodies
+- All mutation endpoints check browser state and return 400 if preconditions not met
+- Registered `browserRoutes` in `server/index.ts`
+- Files changed: `server/routes/browser.ts`, `server/index.ts`
+- **Learnings for future iterations:**
+  - Browser routes use a module-level singleton engine (not per-request) — same pattern as `runners` Map in localhost.ts
+  - Fastify input validation uses JSON Schema in the `schema.body` option (see settings.ts for examples with pattern validation)
+  - The launch endpoint hardcodes `headless: true` — future stories may want to make this configurable
+  - US-005 (proxy endpoint) will need to be added to this same routes file or a separate one
+---
