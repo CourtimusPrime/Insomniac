@@ -6,6 +6,7 @@ import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
 import { useDevServerStatus, useStartDevServer, useStopDevServer } from '../../api/localhost';
 import { useBrowserStatus, useLaunchBrowser, useNavigate, useScreenshot, useCloseBrowser, useInspectInAgent } from '../../api/browser';
+import { useUsageSummary, useUsageBreakdown } from '../../api/usage';
 
 export function BottomPanel() {
   const activeTab = useLayoutStore((s) => s.activeTab);
@@ -25,6 +26,10 @@ export function BottomPanel() {
   const closeBrowser = useCloseBrowser();
 
   const inspectInAgent = useInspectInAgent();
+
+  const { data: usageSummary } = useUsageSummary();
+  const [breakdownGroup, setBreakdownGroup] = useState<'provider' | 'model' | 'agent' | 'project'>('provider');
+  const { data: usageBreakdown } = useUsageBreakdown(breakdownGroup);
 
   const [browserUrl, setBrowserUrl] = useState('');
   const [iframeKey, setIframeKey] = useState(0);
@@ -196,8 +201,12 @@ export function BottomPanel() {
         ))}
         <div className="ml-auto flex items-center gap-3 px-4">
           <span className="text-[10px] text-text-faint">Session:</span>
-          <span className="text-[10px] text-text-secondary">128k tokens</span>
-          <span className="text-[10px] text-accent-primary">~$0.42</span>
+          <span className="text-[10px] text-text-secondary">
+            {usageSummary ? `${(usageSummary.totalTokens / 1000).toFixed(1)}k tokens` : '—'}
+          </span>
+          <span className="text-[10px] text-accent-primary">
+            {usageSummary ? `~$${usageSummary.estimatedCost.toFixed(2)}` : '—'}
+          </span>
           <button
             onClick={() => togglePanel('bottomPanel')}
             className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
@@ -229,10 +238,10 @@ export function BottomPanel() {
           <div className="space-y-3">
             <div className="grid grid-cols-4 gap-3">
               {[
-                { label: 'Total tokens', value: '128,441' },
-                { label: 'Est. cost', value: '$0.42' },
-                { label: 'Tool calls', value: '89' },
-                { label: 'Top agent', value: 'Claude Code' },
+                { label: 'Total tokens', value: usageSummary ? usageSummary.totalTokens.toLocaleString() : '—' },
+                { label: 'Est. cost', value: usageSummary ? `$${usageSummary.estimatedCost.toFixed(2)}` : '—' },
+                { label: 'Top agent', value: usageSummary?.mostActiveAgent ?? '—' },
+                { label: 'Top model', value: usageSummary?.mostUsedModel ?? '—' },
               ].map(s => (
                 <div key={s.label} className="bg-bg-base border border-border-default rounded-lg p-3">
                   <div className="text-[10px] text-text-faint mb-1">{s.label}</div>
@@ -240,7 +249,60 @@ export function BottomPanel() {
                 </div>
               ))}
             </div>
-            <div className="text-[10px] text-text-faint italic">Timeline and bar chart views — component renders here</div>
+            {/* Breakdown table */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-text-faint">Group by:</span>
+              {(['provider', 'model', 'agent', 'project'] as const).map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setBreakdownGroup(g)}
+                  className={`text-[10px] px-2 py-0.5 rounded border transition ${
+                    breakdownGroup === g
+                      ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/30'
+                      : 'text-text-muted border-border-default hover:bg-bg-hover'
+                  }`}
+                >
+                  {g.charAt(0).toUpperCase() + g.slice(1)}
+                </button>
+              ))}
+              <a
+                href="http://localhost:4321/api/usage/export?format=csv"
+                download
+                className="ml-auto flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border border-border-default text-text-muted hover:bg-bg-hover transition"
+              >
+                <Download size={10} /> Export CSV
+              </a>
+            </div>
+            {usageBreakdown && usageBreakdown.length > 0 ? (
+              <div className="bg-bg-base border border-border-default rounded overflow-hidden">
+                <table className="w-full text-[10px]">
+                  <thead>
+                    <tr className="border-b border-border-default text-text-faint">
+                      <th className="text-left px-3 py-1.5 font-medium">{breakdownGroup.charAt(0).toUpperCase() + breakdownGroup.slice(1)}</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Input</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Output</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Tool Calls</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Cost</th>
+                      <th className="text-right px-3 py-1.5 font-medium">Requests</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usageBreakdown.map((row, i) => (
+                      <tr key={i} className="border-b border-border-default last:border-0 hover:bg-bg-hover transition">
+                        <td className="px-3 py-1.5 text-text-primary">{row.group ?? '(none)'}</td>
+                        <td className="px-3 py-1.5 text-right text-text-secondary">{row.inputTokens.toLocaleString()}</td>
+                        <td className="px-3 py-1.5 text-right text-text-secondary">{row.outputTokens.toLocaleString()}</td>
+                        <td className="px-3 py-1.5 text-right text-text-secondary">{row.toolCalls.toLocaleString()}</td>
+                        <td className="px-3 py-1.5 text-right text-accent-primary">${row.estimatedCost.toFixed(4)}</td>
+                        <td className="px-3 py-1.5 text-right text-text-muted">{row.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-[10px] text-text-faint italic">No usage data recorded yet.</div>
+            )}
           </div>
         )}
         {activeTab === 'health' && (
