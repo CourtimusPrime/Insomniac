@@ -6,3 +6,4 @@ export {
   type SandboxInstance,
   defaultSandboxConfig,
 } from "./firecracker-types.js";
+export { SandboxManager } from "./sandbox-manager.js";
