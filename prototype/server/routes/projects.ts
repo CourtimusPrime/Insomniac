@@ -122,16 +122,27 @@ export async function projectRoutes(server: FastifyInstance) {
       const { repoUrl, name } = request.body;
 
       // Derive project name from URL if not provided
-      const repoName =
+      const repoName = (
         name ||
         repoUrl
           .replace(/\.git$/, "")
           .split("/")
           .pop()
-          ?.replace(/[^a-zA-Z0-9._-]/g, "") ||
-        "project";
+          ?.replace(/[^a-zA-Z0-9_-]/g, "") ||
+        "project"
+      ).replace(/^\.+/, ""); // Strip leading dots to prevent path traversal
+
+      if (!repoName || repoName === "." || repoName === "..") {
+        reply.code(400);
+        return { error: "Invalid project name" };
+      }
 
       const targetPath = resolve(PROJECTS_DIR, repoName);
+      // Security: verify resolved path is inside PROJECTS_DIR
+      if (!targetPath.startsWith(PROJECTS_DIR + "/")) {
+        reply.code(400);
+        return { error: "Invalid project path" };
+      }
 
       // Ensure projects directory exists
       await mkdir(PROJECTS_DIR, { recursive: true });
