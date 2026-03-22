@@ -1,16 +1,16 @@
 {
     "project": "Insomniac",
-    "branchName": "ralph/m5-templates-marketplace",
-    "description": "M5 Templates + Marketplace — Template schema, 6 built-in templates, GitHub-backed store, install/publish",
+    "branchName": "ralph/m6-dev-browser",
+    "description": "M6 Dev Browser — Lightpanda integration, agent browser tools, developer visual editor, Inspect in agent",
     "userStories": [
         {
             "id": "US-001",
-            "title": "Create templates database table",
-            "description": "As a developer, I need a table to store pipeline templates.",
+            "title": "Create browser engine abstraction layer",
+            "description": "As a developer, I need an abstraction over browser engines so we can swap between Lightpanda and Playwright.",
             "acceptanceCriteria": [
-                "Create server/db/schema/templates.ts with id, workspaceId, name, description, category ('workflow'|'agent-config'|'template'|'mcp-adapter'), chainDefinition (JSON), author, version, isBuiltIn (boolean), installCount (integer default 0), createdAt, updatedAt",
-                "Update barrel export in schema/index.ts",
-                "Migration generates and runs successfully",
+                "Create server/browser/types.ts with BrowserEngine interface: launch(), navigate(url), click(selector), fill(selector, value), screenshot(), getText(selector), evaluate(script), close()",
+                "Define BrowserConfig type: { engine: 'lightpanda' | 'playwright', headless: boolean }",
+                "Export types from server/browser/index.ts",
                 "Typecheck passes"
             ],
             "priority": 1,
@@ -19,32 +19,31 @@
         },
         {
             "id": "US-002",
-            "title": "Create 6 built-in pipeline templates",
-            "description": "As a user, I want starter templates to quickly set up common pipeline patterns.",
+            "title": "Implement Playwright browser adapter",
+            "description": "As a developer, I need a Playwright-based browser adapter as the initial implementation.",
             "acceptanceCriteria": [
-                "Create server/templates/built-in.ts with 6 template definitions",
-                "Templates: 'Full Stack Build' (trigger→builder→tester→reviewer), 'Security Audit' (trigger→auditor), 'Code Review' (trigger→reviewer), 'Rapid Prototype' (trigger→prototyper→builder), 'Test Suite' (trigger→tester), 'Full Pipeline' (trigger→prototyper→builder→tester→reviewer→auditor)",
-                "Each template includes complete chainDefinition JSON with nodes and edges",
-                "Seed function inserts templates on first run if templates table is empty",
+                "Create server/browser/playwright-adapter.ts implementing BrowserEngine",
+                "launch() starts a Chromium browser instance via Playwright",
+                "All interface methods delegate to Playwright's Page API",
+                "screenshot() returns a base64 PNG string",
+                "evaluate(script) runs arbitrary JS in the page context and returns the result",
+                "close() shuts down the browser instance",
+                "Export from server/browser/index.ts",
                 "Typecheck passes"
             ],
             "priority": 2,
             "passes": true,
-            "notes": ""
+            "notes": "Lightpanda adapter will be added when Lightpanda reaches stability gate. Playwright is the initial default."
         },
         {
             "id": "US-003",
-            "title": "Create templates REST API endpoints",
-            "description": "As a developer, I need endpoints to list, create, and apply templates.",
+            "title": "Create browser-test Ability with MCP tools",
+            "description": "As a developer, I need MCP tools that agents can use for browser automation (PRD US-8).",
             "acceptanceCriteria": [
-                "Create server/routes/templates.ts as a Fastify plugin",
-                "GET /api/templates returns all templates (built-in + user-created)",
-                "GET /api/templates/:id returns a single template",
-                "POST /api/templates creates a user template from current chain definition",
-                "POST /api/templates/:id/apply applies a template to a project (copies chainDefinition to project)",
-                "DELETE /api/templates/:id deletes a user template (cannot delete built-in)",
-                "Input validation on POST bodies",
-                "Register routes in server/index.ts",
+                "Create server/browser/browser-tools.ts with tool definitions",
+                "Tools: navigate(url), click(selector), fill(selector, value), screenshot(), assertText(selector, expected), assertElement(selector), getConsoleErrors(), evaluateScript(code), waitForSelector(selector, timeout)",
+                "Each tool uses the BrowserEngine abstraction",
+                "Create a 'browser-test' Ability record that wraps these tools",
                 "Typecheck passes"
             ],
             "priority": 3,
@@ -53,31 +52,34 @@
         },
         {
             "id": "US-004",
-            "title": "Create marketplace store schema and types",
-            "description": "As a developer, I need types and schema for marketplace items from the GitHub-backed store.",
+            "title": "Create browser REST API endpoints",
+            "description": "As a developer, I need API endpoints to control the dev browser.",
             "acceptanceCriteria": [
-                "Create server/marketplace/types.ts with MarketplaceItem type: id, name, description, type (workflow|agent-config|template|mcp-adapter), author, version, trustTier (community|verified|official), installCount, lastUpdated, repoUrl, downloadUrl",
-                "Create server/marketplace/client.ts with MarketplaceClient class",
-                "fetchItems(filters?) fetches the store index from a configurable GitHub repo URL",
-                "getItem(id) fetches a single item's metadata",
-                "downloadItem(id) downloads the item's package (JSON file)",
+                "Create server/routes/browser.ts as a Fastify plugin",
+                "POST /api/browser/launch launches a browser instance",
+                "POST /api/browser/navigate accepts { url: string } and navigates",
+                "POST /api/browser/screenshot returns a base64 screenshot",
+                "POST /api/browser/evaluate accepts { script: string } and returns result",
+                "POST /api/browser/close shuts down the browser",
+                "GET /api/browser/status returns whether browser is running",
+                "Input validation on all POST bodies",
+                "Register routes in server/index.ts",
                 "Typecheck passes"
             ],
             "priority": 4,
             "passes": true,
-            "notes": "Store is backed by insomniac-dev/store GitHub repo. For now, use a mock/local index."
+            "notes": ""
         },
         {
             "id": "US-005",
-            "title": "Create marketplace REST API endpoints",
-            "description": "As a developer, I need endpoints to browse and install marketplace items.",
+            "title": "Create dev server proxy endpoint",
+            "description": "As a developer, I need to proxy the running dev server through the backend for the browser preview.",
             "acceptanceCriteria": [
-                "Create server/routes/marketplace.ts as a Fastify plugin",
-                "GET /api/marketplace returns paginated marketplace items with optional filters (type, trustTier, search)",
-                "GET /api/marketplace/:id returns a single item detail",
-                "POST /api/marketplace/:id/install downloads and installs an item (creates template or ability)",
-                "Input validation on query params and POST body",
-                "Register routes in server/index.ts",
+                "Add GET /api/browser/proxy/* route that proxies requests to the project's running dev server",
+                "Reads the dev server port from the localhost runner status",
+                "Proxies HTML, CSS, JS, and asset requests",
+                "Adds CORS headers for the Insomniac frontend origin",
+                "Returns 502 if dev server is not running",
                 "Typecheck passes"
             ],
             "priority": 5,
@@ -86,12 +88,12 @@
         },
         {
             "id": "US-006",
-            "title": "Create marketplace API hooks for frontend",
-            "description": "As a developer, I need TanStack Query hooks for marketplace and templates.",
+            "title": "Create browser API hooks for frontend",
+            "description": "As a developer, I need TanStack Query hooks for browser control from the frontend.",
             "acceptanceCriteria": [
-                "Create src/api/templates.ts with useTemplates(), useApplyTemplate(), useCreateTemplate() hooks",
-                "Create src/api/marketplace.ts with useMarketplace(filters), useMarketplaceItem(id), useInstallItem() hooks",
-                "All mutations invalidate relevant query keys",
+                "Create src/api/browser.ts with useBrowserStatus(), useLaunchBrowser(), useNavigate(), useScreenshot(), useCloseBrowser() hooks",
+                "Screenshot hook returns base64 image data",
+                "All mutations invalidate 'browser-status' query key",
                 "Typecheck passes"
             ],
             "priority": 6,
@@ -100,15 +102,15 @@
         },
         {
             "id": "US-007",
-            "title": "Create Marketplace main view",
-            "description": "As a user, I want to browse the marketplace from the main view (PRD US-6).",
+            "title": "Create Dev Browser view in bottom panel",
+            "description": "As a user, I want to see a live preview of my dev server in the Browser tab.",
             "acceptanceCriteria": [
-                "Create src/components/views/MarketplaceView.tsx",
-                "Grid layout showing marketplace items as cards",
-                "Each card shows: name, type badge, trust tier badge, author, install count, description preview",
-                "Search input for filtering by name/description",
-                "Category filter tabs: All, Workflows, Agent Configs, Templates, MCP Adapters",
-                "Add 'marketplace' to MainView routing",
+                "Update BottomPanel Browser tab with real browser integration",
+                "Shows iframe pointing to the proxy endpoint when dev server is running",
+                "Launch button starts the browser if not running",
+                "URL bar shows current URL and allows navigation",
+                "Refresh button reloads the iframe",
+                "Shows 'Dev server not running' message with start button when no server is active",
                 "Typecheck passes",
                 "Verify in browser using dev-browser skill"
             ],
@@ -118,14 +120,14 @@
         },
         {
             "id": "US-008",
-            "title": "Add one-click install button to marketplace items",
-            "description": "As a user, I want to install marketplace items with a single click (PRD US-6).",
+            "title": "Add screenshot capture to Dev Browser",
+            "description": "As a user, I want to capture screenshots of the current browser viewport.",
             "acceptanceCriteria": [
-                "Each marketplace card has an 'Install' button",
-                "Clicking calls useInstallItem() mutation",
-                "Button shows loading state during install",
-                "Success shows a check icon and 'Installed' text",
-                "Error shows error message inline",
+                "Add Screenshot button to the Browser tab toolbar",
+                "Clicking captures a screenshot via the API",
+                "Shows the screenshot in a preview overlay",
+                "Copy to clipboard button copies the base64 image",
+                "Save button downloads as PNG file",
                 "Typecheck passes",
                 "Verify in browser using dev-browser skill"
             ],
@@ -135,12 +137,14 @@
         },
         {
             "id": "US-009",
-            "title": "Update Marketplace sidebar panel with real data",
-            "description": "As a user, I want the marketplace sidebar to show real categories and navigate to the marketplace view.",
+            "title": "Add console panel to Dev Browser",
+            "description": "As a user, I want to see browser console output in real time.",
             "acceptanceCriteria": [
-                "Update LeftSidebar marketplace panel to show category buttons that set filters and navigate to marketplace view",
-                "Show featured/popular items preview (top 3 by install count)",
-                "Clicking a category opens MarketplaceView with that filter active",
+                "Add a Console sub-panel below the browser preview in the Browser tab",
+                "WebSocket events ('browser:console') stream console.log/warn/error from the browser",
+                "Each entry shows: level icon (info/warn/error), timestamp, message text",
+                "Color-coded by level: info=default, warn=amber, error=red",
+                "Clear button to reset the console log",
                 "Typecheck passes",
                 "Verify in browser using dev-browser skill"
             ],
@@ -150,13 +154,13 @@
         },
         {
             "id": "US-010",
-            "title": "Add template picker to chain editor",
-            "description": "As a user, I want to start a new pipeline from a template in the chain editor.",
+            "title": "Add agent activity feed to Dev Browser",
+            "description": "As a user, I want to see what the agent is doing in the browser in real time.",
             "acceptanceCriteria": [
-                "Add 'Start from template' option to the chain editor empty state",
-                "Shows a list of available templates (built-in + user-created)",
-                "Clicking a template calls useApplyTemplate() and loads the chain",
-                "Also accessible from ChainToolbar as 'Load template' button",
+                "Add an Agent Activity section to the Browser tab",
+                "WebSocket events ('browser:agent-action') show agent actions: 'clicking #submit-btn', 'asserting text matches Welcome'",
+                "Each entry shows: timestamp, action description, status (pending/done/error)",
+                "Scrolls to latest entry automatically",
                 "Typecheck passes",
                 "Verify in browser using dev-browser skill"
             ],
@@ -166,19 +170,20 @@
         },
         {
             "id": "US-011",
-            "title": "Add 'Save as template' to chain editor toolbar",
-            "description": "As a user, I want to save my current chain as a reusable template.",
+            "title": "Add 'Inspect in agent' context menu action",
+            "description": "As a user, I want to right-click an element in the Dev Browser and send it to the agent for fixing (PRD US-25).",
             "acceptanceCriteria": [
-                "Add 'Save as template' button to ChainToolbar",
-                "Clicking opens a form: template name, description, category dropdown",
-                "Submit calls useCreateTemplate() with current chain definition",
-                "Success shows confirmation toast/message",
+                "Add POST /api/browser/inspect-in-agent endpoint accepting { selector: string, description: string, projectId: string }",
+                "Endpoint creates a single pipeline stage with the prompt: 'Fix this element: [selector] — [description]'",
+                "Returns the created stage ID",
+                "Frontend: add a button/action in the Browser tab that opens a dialog for selector and description input",
+                "Submit sends the request and shows confirmation",
                 "Typecheck passes",
                 "Verify in browser using dev-browser skill"
             ],
             "priority": 11,
             "passes": true,
-            "notes": ""
+            "notes": "Full visual editor overlay with click-to-select is deferred to a polish pass. This story implements the API and a simple form-based interface."
         }
     ]
 }

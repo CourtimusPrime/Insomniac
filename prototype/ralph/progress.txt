@@ -1,207 +1,184 @@
 # Ralph Progress Log
-Started: Sun Mar 22 18:31:48 UTC 2026
----
+Started: Sun Mar 22 19:11:30 UTC 2026
 
 ## Codebase Patterns
-- Schema files use `sqliteTable` from drizzle-orm/sqlite-core with `.js` extension in imports
-- Frontend API hooks pattern: `useQuery` for GET, `useMutation` with `useQueryClient().invalidateQueries` for mutations
-- API hooks import `apiFetch` from `./client` (base URL http://localhost:4321)
-- Query keys follow `["resource"]` for lists, `["resource", id]` for single items
-- Mutations invalidate all related query keys on success (e.g., install invalidates both marketplace + templates)
-- Primary keys use `text("id").$defaultFn(() => crypto.randomUUID())`
-- Timestamps use `integer("created_at", { mode: "timestamp" }).default(sql\`(unixepoch())\`)`
-- Booleans use `integer("col", { mode: "boolean" })`
-- JSON columns use `text("col", { mode: "json" })`
-- Barrel exports in schema/index.ts use `.js` extensions
-- Migration workflow: `npx drizzle-kit generate` then `npx drizzle-kit migrate`
-- Typecheck: `npx tsc --noEmit`
-- Fastify routes are registered as plugins in server/index.ts
-- Seed pattern: define data array + `seedIfEmpty()` function that checks `.all().length > 0`, called at route plugin registration time
-- Route plugins call seed functions at top of the exported function (e.g., `await seedBuiltInTemplates()`)
-- Apply template pattern: copy `chainDefinition` from template to project, increment `installCount`
-- Marketplace client uses a mock store index (array of MarketplaceItem) — will be replaced by GitHub fetch later
-- Marketplace routes use `getOrCreateDefaultWorkspace()` helper (duplicated — consider extracting to shared util)
-- Pagination pattern: parse page/limit from querystring, slice results, return `{ items, total, page, limit, totalPages }`
-- MarketplaceClient class pattern: constructor takes optional storeUrl, async methods return typed data
-- `getOrCreateDefaultWorkspace()` helper returns the default workspace ID (duplicated across routes — consider extracting)
-- ChainDefinition format: `{ version: 1, nodes: [{id, type, label, model, systemPrompt, status, abilities, position}], edges: [{id, source, target, condition}] }`
-- Node types: trigger, prototyper, builder, tester, reviewer, auditor
-- Edge conditions: always, on-success, on-failure, on-decision
-- MainView routing: add view name to `MainView` type in stores/layout.ts, import + render in MainView.tsx
-- Category tab filter pattern: local state CategoryTab, map over CATEGORIES array, conditionally include in filters object
-- Grid card pattern: `grid grid-cols-2 gap-3` with `rounded-lg border border-border-default bg-bg-base p-4`
-- Badge color maps: define as `Record<string, string>` constants (TYPE_COLORS, TIER_CONFIG)
-- MarketplaceView uses max-w-4xl (wider than other views) since it has a 2-column grid
-- Per-item mutation state: track with `installedIds` Set + `errorIds` Record, use `mutation.variables?.id` for loading state
-- Sidebar-to-view state sharing: use layout store for cross-component filter state (e.g., `marketplaceCategory`)
-- Export types from layout store when other components need them (e.g., `MarketplaceCategory`)
-- Overlay/modal pattern: centered absolute overlay with bg-black/40 backdrop, click-outside + Escape close, same styling as AddNodeMenu (#111827 bg, #1e2a3a borders)
-- Apply template pattern (UI): call mutation for server persistence + deserialize chainDefinition locally via setNodes/setEdges to avoid network round-trip
-- Toast pattern: `useState(false)` + `setTimeout(() => set(false), 2500)` for auto-dismissing success messages
-- workspaceId on frontend: `useProjects()?.[0]?.workspaceId` (same pattern used in SettingsView and ChainEditor)
+- Server code lives in `server/` and is typechecked with `tsconfig.server.json` (`npx tsc --project tsconfig.server.json --noEmit`)
+- Routes are Fastify plugins exported as `async function xyzRoutes(server: FastifyInstance)`
+- Routes are registered in `server/index.ts` via `await server.register(xyzRoutes)`
+- Use `.js` extensions in imports (ESM module resolution)
+- Pre-existing typecheck error in `server/marketplace/client.ts:142` — not introduced by us
+- `getRunnerForProject(projectId)` is exported from `server/routes/localhost.ts` to access dev server state from other modules
+- Fastify wildcard routes use `server.get<{ Params: { "*": string } }>("/path/*", ...)` — access via `request.params["*"]`
+- Frontend API hooks live in `src/api/*.ts` — use `apiFetch` from `./client`, TanStack Query `useQuery`/`useMutation`, and `queryClient.invalidateQueries` on success
+- WebSocket broadcast pattern: import `broadcast` from `server/ws/handler.js`, call `broadcast(eventName, data)` to push events to all connected clients
+- Playwright `ConsoleMessage.type()` returns `'warning'` not `'warn'` — map accordingly when normalizing levels
 ---
 
 ## 2026-03-22 - US-001
-- Created `server/db/schema/templates.ts` with 12 columns: id, workspaceId, name, description, category (enum), chainDefinition (JSON), author, version, isBuiltIn (boolean), installCount, createdAt, updatedAt
-- Updated `server/db/schema/index.ts` barrel export
-- Generated migration `0007_abnormal_callisto.sql` and ran it successfully
-- Files changed: server/db/schema/templates.ts, server/db/schema/index.ts, server/db/migrations/0007_abnormal_callisto.sql
+- Created `server/browser/types.ts` with `BrowserEngine` interface and `BrowserConfig` type
+- Created `server/browser/index.ts` re-exporting types
+- Files changed: `server/browser/types.ts`, `server/browser/index.ts`
 - **Learnings for future iterations:**
-  - Category enum values: 'workflow', 'agent-config', 'template', 'mcp-adapter'
-  - workspaceId references workspaces.id (same FK pattern as all other tables)
-  - The drizzle config at drizzle.config.ts points to `./data/insomniac.db` for SQLite
+  - The `server/` directory has its own tsconfig (`tsconfig.server.json`) separate from the frontend
+  - There's a pre-existing unused variable error in marketplace code — don't try to fix it
+  - Abilities live in `server/abilities/` — this is where browser tools will go (US-003)
 ---
 
 ## 2026-03-22 - US-002
-- Created `server/templates/built-in.ts` with 6 built-in pipeline template definitions
-- Templates: Full Stack Build, Security Audit, Code Review, Rapid Prototype, Test Suite, Full Pipeline
-- Each template has a complete chainDefinition with nodes and edges using `buildChain()` helper
-- Exported `seedBuiltInTemplates()` function that inserts templates on first run if table is empty
-- Files changed: server/templates/built-in.ts
+- Created `server/browser/playwright-adapter.ts` implementing `BrowserEngine` with Playwright's Chromium
+- All interface methods (launch, navigate, click, fill, screenshot, getText, evaluate, close) delegate to Playwright's Page API
+- `screenshot()` returns base64 PNG string via `buffer.toString("base64")`
+- Added `playwright` to package.json dependencies
+- Exported `PlaywrightAdapter` from `server/browser/index.ts`
+- Files changed: `server/browser/playwright-adapter.ts`, `server/browser/index.ts`, `package.json`, `package-lock.json`
 - **Learnings for future iterations:**
-  - `buildChain()` helper generates linear chains from a list of node types with consistent positioning (x+280 per node, y=180)
-  - The seed function follows the same pattern as projects/providers: check `.all().length > 0`, skip if data exists
-  - `seedBuiltInTemplates()` needs to be called from somewhere at startup (e.g., from the templates route plugin when it's created in US-003)
-  - Template `chainDefinition` is stored as JSON in a `text` column with `{ mode: "json" }`
+  - Playwright requires `npx playwright install chromium` to download browser binaries before first use
+  - The adapter holds a single Page instance — future stories may need multi-page support
+  - `evaluate()` accepts a string script (not a function) per the BrowserEngine interface
 ---
 
 ## 2026-03-22 - US-003
-- Created `server/routes/templates.ts` as a Fastify plugin with 5 endpoints:
-  - GET /api/templates — list all templates
-  - GET /api/templates/:id — get single template
-  - POST /api/templates — create user template with JSON Schema validation
-  - POST /api/templates/:id/apply — apply template to project (copies chainDefinition, increments installCount)
-  - DELETE /api/templates/:id — delete user template (403 for built-in)
-- Calls `seedBuiltInTemplates()` at plugin registration time
-- Registered routes in server/index.ts
-- Files changed: server/routes/templates.ts (new), server/index.ts
+- Created `server/browser/browser-tools.ts` with 9 MCP-compatible tool definitions
+- Tools: navigate, click, fill, screenshot, assertText, assertElement, getConsoleErrors, evaluateScript, waitForSelector
+- Each tool handler delegates to the `BrowserEngine` abstraction
+- `executeBrowserTool()` function dispatches tool calls by name
+- `browserTestAbility` defines the 'browser-test' Ability record (type: "plugin")
+- Exported all public types and functions from `server/browser/index.ts`
+- Files changed: `server/browser/browser-tools.ts`, `server/browser/index.ts`
 - **Learnings for future iterations:**
-  - Apply endpoint needs both template ID (from params) and projectId (from body)
-  - Built-in templates are protected from deletion with a 403 response
-  - Fastify generic types: `<{ Params: {...}; Body: {...} }>` for combined param + body routes
-  - POST schema validation uses `additionalProperties: false` to reject unexpected fields
+  - Abilities use type `"plugin"` for internal tool-providing abilities (vs `"skill"` for SKILL.md imports and `"mcp"` for external MCP servers)
+  - `getConsoleErrors` relies on `__insomniac_console_errors` global — a console.error override must be injected after page navigation for this to work
+  - `waitForSelector` uses an in-page polling evaluate script since BrowserEngine doesn't expose native waitFor
+  - Tool input schemas follow MCP JSON Schema format: `{ type: "object", properties, required }`
 ---
 
 ## 2026-03-22 - US-004
-- Created `server/marketplace/types.ts` with MarketplaceItem, MarketplaceItemType, TrustTier, and MarketplaceFilters types
-- Created `server/marketplace/client.ts` with MarketplaceClient class and 8 mock marketplace items
-- MarketplaceClient methods: fetchItems(filters?), getItem(id), downloadItem(id)
-- Mock store index covers all 4 item types (workflow, agent-config, template, mcp-adapter) and all 3 trust tiers (community, verified, official)
-- Files changed: server/marketplace/types.ts (new), server/marketplace/client.ts (new)
+- Created `server/routes/browser.ts` as a Fastify plugin with 6 endpoints
+- Endpoints: POST launch, POST navigate, POST screenshot, POST evaluate, POST close, GET status
+- Singleton `BrowserEngine` instance shared across routes
+- Input validation via Fastify JSON Schema on navigate (url) and evaluate (script) POST bodies
+- All mutation endpoints check browser state and return 400 if preconditions not met
+- Registered `browserRoutes` in `server/index.ts`
+- Files changed: `server/routes/browser.ts`, `server/index.ts`
 - **Learnings for future iterations:**
-  - MarketplaceClient is stateless — instantiate with optional storeUrl, defaults to insomniac-dev/store GitHub raw URL
-  - fetchItems supports filtering by type, trustTier, and search (name + description match)
-  - downloadItem returns a generic Record<string, unknown> since different item types have different payloads
-  - The mock index has 8 items which is enough to test pagination, filtering, and search in the marketplace UI
-  - When switching to real GitHub fetch, replace the MOCK_STORE_INDEX usage in each method with a fetch() call
+  - Browser routes use a module-level singleton engine (not per-request) — same pattern as `runners` Map in localhost.ts
+  - Fastify input validation uses JSON Schema in the `schema.body` option (see settings.ts for examples with pattern validation)
+  - The launch endpoint hardcodes `headless: true` — future stories may want to make this configurable
+  - US-005 (proxy endpoint) will need to be added to this same routes file or a separate one
 ---
 
 ## 2026-03-22 - US-005
-- Created `server/routes/marketplace.ts` as a Fastify plugin with 3 endpoints:
-  - GET /api/marketplace — paginated list with optional filters (type, trustTier, search, page, limit)
-  - GET /api/marketplace/:id — single item detail
-  - POST /api/marketplace/:id/install — downloads item payload, creates a template in local DB
-- Input validation via JSON Schema on querystring (enum constraints) and body
-- Pagination: page/limit params, returns `{ items, total, page, limit, totalPages }`
-- Install creates a template record from the marketplace item's chainDefinition
-- Registered routes in server/index.ts
-- Files changed: server/routes/marketplace.ts (new), server/index.ts
+- Added `GET /api/browser/proxy/*` route to `server/routes/browser.ts`
+- Proxy requires `?projectId=xxx` query parameter to identify which dev server to proxy to
+- Uses `getRunnerForProject()` exported from `localhost.ts` to discover the dev server port
+- Proxies requests via Node's native `http.request` to `http://127.0.0.1:{port}/{path}`
+- Streams response back including content-type, content-length, and cache-control headers
+- Returns 502 if dev server is not running or not reachable
+- Adds CORS headers (Access-Control-Allow-Origin for localhost:5173)
+- Files changed: `server/routes/browser.ts`, `server/routes/localhost.ts`
 - **Learnings for future iterations:**
-  - `getOrCreateDefaultWorkspace()` is now duplicated in 3 files — should be extracted to a shared util
-  - Querystring params come as strings in Fastify, need parseInt for page/limit
-  - Install endpoint uses optional workspaceId from body, falls back to default workspace
-  - The marketplace client's `downloadItem()` returns a `Record<string, unknown>` — cast `payload.chainDefinition` carefully
-  - Pagination limits clamped: page >= 1, 1 <= limit <= 50
+  - Fastify wildcard routes: use `{ Params: { "*": string } }` generic and `request.params["*"]` to access the captured path
+  - Fastify querystring validation uses `schema.querystring` (not `schema.query`)
+  - Node's `http.request` callback receives an `IncomingMessage` (readable stream) — Fastify's `reply.send()` accepts streams directly
+  - Avoid unused parameters in Promise constructors — TypeScript's `noUnusedParameters` will catch them
+  - The proxy streams responses (no buffering), making it suitable for HTML, CSS, JS, and assets
 ---
 
 ## 2026-03-22 - US-006
-- Created `src/api/templates.ts` with 5 hooks: useTemplates(), useTemplate(id), useApplyTemplate(), useCreateTemplate(), useDeleteTemplate()
-- Created `src/api/marketplace.ts` with 3 hooks: useMarketplace(filters), useMarketplaceItem(id), useInstallItem()
-- All mutations invalidate relevant query keys (templates, marketplace, projects)
-- Marketplace hook builds URLSearchParams from filters object for query string
-- Files changed: src/api/templates.ts (new), src/api/marketplace.ts (new)
+- Created `src/api/browser.ts` with 5 TanStack Query hooks: `useBrowserStatus()`, `useLaunchBrowser()`, `useNavigate()`, `useScreenshot()`, `useCloseBrowser()`
+- `useBrowserStatus` polls every 5s via `refetchInterval`, matching the pattern in `localhost.ts`
+- All mutations invalidate `browser-status` query key on success
+- `useScreenshot` returns `ScreenshotResult` with `image` (base64 string)
+- Files changed: `src/api/browser.ts`
 - **Learnings for future iterations:**
-  - Template type mirrors DB schema but uses `string` for timestamps (JSON serialization)
-  - MarketplaceFilters includes pagination (page/limit) since the server paginates
-  - useMarketplace uses the full filters object as the query key for automatic refetch on filter changes
-  - useInstallItem invalidates both `["marketplace"]` and `["templates"]` since installing creates a template
-  - The marketplace.ts imports Template type from templates.ts for the install response typing
+  - Frontend API hooks live in `src/api/` as plain `.ts` files (not `.tsx`) — they only use hooks, no JSX
+  - Follow the pattern in `src/api/localhost.ts` for mutations: `useMutation` + `queryClient.invalidateQueries` on success
+  - `apiFetch` already sets `Content-Type: application/json` header, so mutations just need `body: JSON.stringify(params)`
+  - The `browser-status` query key is the central invalidation target for all browser mutations
 ---
 
 ## 2026-03-22 - US-007
-- Created `src/components/views/MarketplaceView.tsx` with grid layout, search, category filters, and item cards
-- Added 'marketplace' to MainView type in `src/stores/layout.ts`
-- Added MarketplaceView route in `src/components/shell/MainView.tsx`
-- Each card shows: name, type badge (color-coded), trust tier icon, author, install count, description preview
-- Category filter tabs: All, Workflows, Agent Configs, Templates, MCP Adapters
-- Search input filters by name/description via the marketplace API
-- Files changed: src/components/views/MarketplaceView.tsx (new), src/components/shell/MainView.tsx, src/stores/layout.ts
+- Replaced placeholder Browser tab in BottomPanel with real browser integration
+- Shows iframe pointing to proxy endpoint (`/api/browser/proxy/?projectId=...`) when dev server is running
+- URL bar with form submission for navigation via `useNavigate` hook
+- Refresh button increments iframe key to force reload
+- Launch/Close browser buttons toggle Playwright engine via `useLaunchBrowser`/`useCloseBrowser`
+- "Dev server not running" state with Start button when no server active
+- "Select a project" state when no project selected
+- Browser status indicator (green/gray dot) in toolbar
+- Files changed: `src/components/shell/BottomPanel.tsx`
 - **Learnings for future iterations:**
-  - Adding a new view: (1) add to MainView type in layout.ts, (2) import + render conditionally in MainView.tsx
-  - useMarketplace hook accepts optional filters — pass `undefined` when no filters active (avoids empty object query key issues)
-  - `line-clamp-2` Tailwind utility works for truncating multi-line text
-  - Trust tier badges use different lucide icons: Shield (community), ShieldCheck (verified), ShieldAlert (official)
-  - MarketplaceView uses max-w-4xl to accommodate the 2-column grid layout
-  - Browser verification needed — no dev-browser available in this session
+  - The iframe uses `sandbox="allow-scripts allow-same-origin allow-forms allow-popups"` for security isolation
+  - Incrementing an iframe `key` prop is the React-idiomatic way to force a full iframe reload
+  - The browser tab reuses `devStatus` and `startServer` from the health tab — they're already declared at component top level
+  - Use `min-h-0` on flex children with `flex-1` to allow them to shrink properly in nested flex layouts
+  - The proxy endpoint requires `?projectId=` query param to identify which dev server to proxy to
 ---
 
 ## 2026-03-22 - US-008
-- Added one-click Install button to each marketplace item card in MarketplaceView.tsx
-- Button shows loading spinner + "Installing…" during mutation via `useInstallItem()`
-- Success state: green check icon + "Installed" text replaces the button
-- Error state: inline red error message below the card footer
-- Tracks installed IDs and per-item errors via local state (Set and Record)
-- Files changed: src/components/views/MarketplaceView.tsx
+- Added Screenshot button to Browser tab toolbar (Camera icon, accent-primary styled)
+- Button triggers `useScreenshot` mutation; on success shows screenshot in preview overlay
+- Overlay appears over the iframe with Copy, Save, and Close buttons
+- Copy to clipboard uses `navigator.clipboard.write` with `ClipboardItem` for image/png
+- Save downloads as PNG via a temporary anchor element with `data:` URI
+- Screenshot preview state (`screenshotPreview`) holds the base64 string, null when closed
+- Files changed: `src/components/shell/BottomPanel.tsx`
 - **Learnings for future iterations:**
-  - `useMutation` from TanStack Query exposes `isPending` and `variables` — use `variables?.id` to match which item is loading
-  - Per-item callbacks: pass `onSuccess`/`onError` as the second arg to `mutation.mutate()` for item-scoped side effects
-  - Install button pattern: `installedIds` Set for success tracking, `errorIds` Record<string, string> for per-item errors
-  - Browser verification needed — no dev-browser available in this session
+  - `navigator.clipboard.write` with `ClipboardItem({ 'image/png': blob })` is the way to copy images to clipboard in modern browsers
+  - Converting base64 to blob: `fetch('data:image/png;base64,...').then(r => r.blob())` is clean and avoids manual ArrayBuffer conversion
+  - Overlay pattern: use `absolute inset-0` on a parent with `relative` class to create a full-coverage overlay within a container
+  - The screenshot preview uses the iframe container as its positioning context (added `relative` to the iframe wrapper div)
 ---
 
 ## 2026-03-22 - US-009
-- Updated marketplace sidebar panel in LeftSidebar.tsx with real data from useMarketplace hook
-- Added category buttons (All, Workflows, Agent Configs, Templates, MCP Adapters) that navigate to MarketplaceView with filter active
-- Added "Popular" section showing top 3 items sorted by installCount
-- Added `marketplaceCategory` state and `setMarketplaceCategory` action to layout store for sidebar-to-view communication
-- Updated MarketplaceView to sync its local category state with the store via useEffect
-- Extracted MarketplaceSidebar as a separate component within LeftSidebar.tsx
-- Files changed: src/stores/layout.ts, src/components/shell/LeftSidebar.tsx, src/components/views/MarketplaceView.tsx
+- Added Console sub-panel below the browser preview in the Browser tab
+- Server-side: Added `ConsoleEntry` type and `onConsole(callback)` to `BrowserEngine` interface
+- PlaywrightAdapter captures Playwright `page.on('console')` events and forwards them via callback
+- Browser routes wire up `onConsole` to `broadcast('browser:console', entry)` via WebSocket
+- Frontend: WebSocket listener for `browser:console` events populates console entries state
+- Each entry shows: level icon (Info/AlertTriangle/AlertCircle), timestamp, message text
+- Color-coded: info=text-muted, warn=amber-400, error=status-error
+- Clear button (Trash2 icon) resets the console log
+- Layout splits iframe (flex-[2]) and console (flex-1) vertically within the browser tab
+- Files changed: `server/browser/types.ts`, `server/browser/playwright-adapter.ts`, `server/browser/index.ts`, `server/routes/browser.ts`, `src/components/shell/BottomPanel.tsx`
 - **Learnings for future iterations:**
-  - To share filter state between sidebar and main view, add state to the layout store rather than prop drilling
-  - Export types from stores when needed by other components (`export type MarketplaceCategory`)
-  - Use `useEffect` to sync local component state with store state for bidirectional updates
-  - The MarketplaceSidebar fetches all items (limit: 50) and sorts client-side for the "popular" section
-  - Browser verification needed — no dev-browser available in this session
+  - Playwright `ConsoleMessage.type()` returns `'warning'` (not `'warn'`) — must map to our `'warn'` level
+  - Register `onConsole` callback BEFORE `launch()` to avoid missing early console messages during page load
+  - Use `flex-[2]` vs `flex-1` to create a 2:1 split in flex containers without hardcoded heights
+  - The BottomPanel Browser tab now opens a second WebSocket for `browser:console` events, separate from the `devserver:log` listener
+  - Browser console state is not project-scoped (unlike dev server logs) since there's only one browser singleton
+- Creating a pipeline requires `workspaceId` — look it up from the `projects` table via the `projectId`
 ---
 
 ## 2026-03-22 - US-010
-- Added TemplatePicker overlay component to ChainEditor.tsx — shows all templates (built-in + user-created) in a centered modal with category badges
-- Modified empty state to include "Start from template" button with "or" divider below existing "Add your first agent node" prompt
-- Added "Load template" button to ChainToolbar (accessible from toolbar even when chain has nodes)
-- Clicking a template calls useApplyTemplate() for server persistence and directly deserializes the chainDefinition into local ReactFlow nodes/edges
-- Files changed: src/components/graph/ChainEditor.tsx, src/components/graph/ChainToolbar.tsx
+- Added agent activity broadcasting to `executeBrowserTool` in `server/browser/browser-tools.ts`
+- Each tool execution broadcasts `browser:agent-action` WebSocket events with pending → done/error lifecycle
+- Actions have unique IDs, human-readable descriptions (e.g., "clicking #submit-btn"), and status
+- Frontend: Added Agent Activity sub-panel side-by-side with Console in the Browser tab
+- Status icons: Loader2 (spinning) for pending, CheckCircle for done, XCircle for error
+- Entries update in-place when status changes from pending → done/error (matched by action ID)
+- Auto-scrolls to latest entry
+- Clear button to reset activity feed
+- Files changed: `server/browser/browser-tools.ts`, `src/components/shell/BottomPanel.tsx`
 - **Learnings for future iterations:**
-  - TemplatePicker uses the same click-outside + Escape close pattern as AddNodeMenu
-  - Template's `chainDefinition` is typed as `unknown` in the Template interface — cast to `ChainDefinition` when deserializing
-  - When applying a template, set nodes/edges locally AND call the mutation for server persistence — avoids waiting for network round-trip
-  - The auto-save mechanism (1s debounce) will fire after local state update, saving the same chain data — harmless duplicate
-  - Hide empty state when template picker is open (`!showTemplatePicker` condition) to avoid visual overlap
-  - Browser verification needed — no dev-browser available in this session
+  - Consolidated `browser:console` and `browser:agent-action` WebSocket listeners into one connection to avoid excessive WS connections (BottomPanel already had 2 separate WS connections)
+  - For state updates that modify existing entries by ID, use `findIndex` + spread to update in-place rather than just appending
+  - Side-by-side layout (flex-row) for sub-panels is more space-efficient than stacking vertically when the bottom panel has limited height
+  - The `describeAction` helper maps tool names to human-readable strings — keep this in sync when adding new browser tools
 ---
 
 ## 2026-03-22 - US-011
-- Added 'Save as template' button (with Save icon) to ChainToolbar, positioned to the left of Export JSON
-- Created SaveTemplateForm overlay component with name input, description textarea, and category dropdown
-- Form submits via useCreateTemplate() mutation with current chain serialized via serializeChain()
-- Success shows a green confirmation toast ("Template saved successfully") for 2.5 seconds
-- Loading state disables submit button and shows "Saving…" text
-- Click-outside and Escape key close the form (same pattern as TemplatePicker/AddNodeMenu)
-- Files changed: src/components/graph/ChainToolbar.tsx, src/components/graph/ChainEditor.tsx
+- Added `POST /api/browser/inspect-in-agent` endpoint to `server/routes/browser.ts`
+- Endpoint accepts `{ selector, description, projectId }`, looks up the project's workspaceId, creates a pipeline with a single stage whose description is `Fix this element: [selector] — [description]`
+- Returns `{ stageId, pipelineId }`
+- Added `useInspectInAgent` hook to `src/api/browser.ts`
+- Added "Inspect" button (Crosshair icon) to Browser tab toolbar
+- Clicking opens an overlay dialog with selector and description inputs
+- Submit sends the request; on success shows a confirmation message that auto-dismisses after 2 seconds
+- Files changed: `server/routes/browser.ts`, `src/api/browser.ts`, `src/components/shell/BottomPanel.tsx`
 - **Learnings for future iterations:**
-  - workspaceId for creating templates comes from `useProjects()?.[0]?.workspaceId` — same pattern as SettingsView
-  - SaveTemplateForm follows the same overlay/modal pattern as TemplatePicker (bg-black/40 backdrop, #111827 bg, #1e2a3a borders)
-  - Confirmation toast pattern: useState(false) + setTimeout(2500) to auto-dismiss, positioned absolute top-3 center
-  - Per-mutation callbacks: pass `{ onSuccess }` as second arg to `mutation.mutate()` for scoped side effects
-  - Browser verification needed — no dev-browser available in this session
+  - Pipeline creation requires a `workspaceId` — look it up from the project record via `db.select().from(projects).where(eq(projects.id, projectId)).get()`
+  - Import `pipelines` and `pipelineStages` from `server/db/schema/index.js` (not individual files) for consistency
+  - The overlay dialog pattern reuses the same `absolute inset-0 z-10` approach as the screenshot preview
+  - For temporary confirmation UIs, `setTimeout` to auto-dismiss works well — just remember to clear both the dialog state and the confirmation state
 ---

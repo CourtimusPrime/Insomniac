@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square
+  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square, RefreshCw, X, Camera, Copy, Download, Info, AlertTriangle, AlertCircle, Trash2, Loader2, CheckCircle, XCircle, Crosshair
 } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
 import { useDevServerStatus, useStartDevServer, useStopDevServer } from '../../api/localhost';
+import { useBrowserStatus, useLaunchBrowser, useNavigate, useScreenshot, useCloseBrowser, useInspectInAgent } from '../../api/browser';
 
 export function BottomPanel() {
   const activeTab = useLayoutStore((s) => s.activeTab);
@@ -16,6 +17,133 @@ export function BottomPanel() {
   const { data: devStatus } = useDevServerStatus(activeProjectId);
   const startServer = useStartDevServer();
   const stopServer = useStopDevServer();
+
+  const { data: browserStatus } = useBrowserStatus();
+  const launchBrowser = useLaunchBrowser();
+  const navigateBrowser = useNavigate();
+  const screenshot = useScreenshot();
+  const closeBrowser = useCloseBrowser();
+
+  const inspectInAgent = useInspectInAgent();
+
+  const [browserUrl, setBrowserUrl] = useState('');
+  const [iframeKey, setIframeKey] = useState(0);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [showInspectDialog, setShowInspectDialog] = useState(false);
+  const [inspectSelector, setInspectSelector] = useState('');
+  const [inspectDescription, setInspectDescription] = useState('');
+  const [inspectConfirmation, setInspectConfirmation] = useState<string | null>(null);
+
+  const handleNavigate = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (browserUrl.trim()) {
+      navigateBrowser.mutate({ url: browserUrl.trim() });
+    }
+  }, [browserUrl, navigateBrowser]);
+
+  const handleRefresh = useCallback(() => {
+    setIframeKey((k) => k + 1);
+  }, []);
+
+  const handleScreenshot = useCallback(() => {
+    screenshot.mutate(undefined, {
+      onSuccess: (data) => {
+        if (data.image) setScreenshotPreview(data.image);
+      },
+    });
+  }, [screenshot]);
+
+  const handleCopyScreenshot = useCallback(async () => {
+    if (!screenshotPreview) return;
+    const blob = await fetch(`data:image/png;base64,${screenshotPreview}`).then((r) => r.blob());
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+  }, [screenshotPreview]);
+
+  const handleSaveScreenshot = useCallback(() => {
+    if (!screenshotPreview) return;
+    const link = document.createElement('a');
+    link.href = `data:image/png;base64,${screenshotPreview}`;
+    link.download = `screenshot-${Date.now()}.png`;
+    link.click();
+  }, [screenshotPreview]);
+
+  const handleInspectSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inspectSelector.trim() || !inspectDescription.trim() || !activeProjectId) return;
+    inspectInAgent.mutate(
+      { selector: inspectSelector.trim(), description: inspectDescription.trim(), projectId: activeProjectId },
+      {
+        onSuccess: (data) => {
+          setInspectConfirmation(`Stage created (${data.stageId.slice(0, 8)}…)`);
+          setInspectSelector('');
+          setInspectDescription('');
+          setTimeout(() => {
+            setShowInspectDialog(false);
+            setInspectConfirmation(null);
+          }, 2000);
+        },
+      },
+    );
+  }, [inspectSelector, inspectDescription, activeProjectId, inspectInAgent]);
+
+  // Browser console entries from WebSocket
+  const [consoleEntries, setConsoleEntries] = useState<{ level: 'info' | 'warn' | 'error'; timestamp: string; message: string }[]>([]);
+  const consoleEndRef = useRef<HTMLDivElement>(null);
+
+  // Agent activity entries from WebSocket
+  const [agentActions, setAgentActions] = useState<{ id: string; action: string; status: 'pending' | 'done' | 'error'; timestamp: string; error?: string }[]>([]);
+  const actionsEndRef = useRef<HTMLDivElement>(null);
+
+  // Listen for browser:console and browser:agent-action WebSocket events
+  useEffect(() => {
+    function onBrowserMessage(evt: MessageEvent) {
+      try {
+        const msg = JSON.parse(evt.data) as { event: string; data?: Record<string, unknown> };
+        if (msg.event === 'browser:console' && msg.data) {
+          const level = msg.data.level === 'warn' ? 'warn' : msg.data.level === 'error' ? 'error' : 'info';
+          setConsoleEntries((prev) => [...prev.slice(-199), {
+            level: level as 'info' | 'warn' | 'error',
+            timestamp: (msg.data!.timestamp as string) ?? new Date().toISOString(),
+            message: (msg.data!.message as string) ?? '',
+          }]);
+        }
+        if (msg.event === 'browser:agent-action' && msg.data) {
+          const { id, action, status, timestamp, error } = msg.data as { id: string; action: string; status: 'pending' | 'done' | 'error'; timestamp: string; error?: string };
+          setAgentActions((prev) => {
+            const idx = prev.findIndex((a) => a.id === id);
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], status, error };
+              return updated;
+            }
+            return [...prev.slice(-99), { id, action, status, timestamp, error }];
+          });
+        }
+      } catch { /* ignore */ }
+    }
+
+    const ws = new WebSocket('ws://localhost:4321/ws');
+    ws.addEventListener('message', onBrowserMessage);
+    return () => { ws.close(); };
+  }, []);
+
+  // Auto-scroll console
+  useEffect(() => {
+    consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [consoleEntries]);
+
+  const handleClearConsole = useCallback(() => {
+    setConsoleEntries([]);
+  }, []);
+
+  // Auto-scroll agent activity
+  useEffect(() => {
+    actionsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [agentActions]);
+
+  const handleClearActions = useCallback(() => {
+    setAgentActions([]);
+  }, []);
 
   const [logs, setLogs] = useState<string[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -165,15 +293,234 @@ export function BottomPanel() {
           </div>
         )}
         {activeTab === 'browser' && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <Globe size={11} className="text-accent-primary" />
-              <span className="text-text-secondary">localhost:3000 · Playwright Chromium</span>
-              <button className="ml-auto text-[10px] px-2 py-1 bg-status-success/15 text-status-success border border-status-success/30 rounded">
-                Launch
-              </button>
-            </div>
-            <div className="text-text-faint italic">Live screenshot feed from autonomous browser agent renders here.</div>
+          <div className="flex flex-col h-full gap-2">
+            {!activeProjectId ? (
+              <div className="text-text-faint italic">Select a project to use the dev browser.</div>
+            ) : !devStatus?.running ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <Globe size={24} className="text-text-faint" />
+                <div className="text-text-faint text-sm">Dev server not running</div>
+                <button
+                  onClick={() => startServer.mutate(activeProjectId)}
+                  disabled={startServer.isPending}
+                  className="flex items-center gap-1 text-[10px] px-3 py-1.5 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition disabled:opacity-50"
+                >
+                  <Play size={9} /> Start Dev Server
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Toolbar: URL bar + actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${browserStatus?.running ? 'bg-status-success' : 'bg-text-faint'}`} />
+                  <form onSubmit={handleNavigate} className="flex-1 flex items-center gap-1">
+                    <input
+                      value={browserUrl}
+                      onChange={(e) => setBrowserUrl(e.target.value)}
+                      placeholder={`http://localhost:${devStatus.port ?? 3000}`}
+                      className="flex-1 bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
+                    />
+                  </form>
+                  <button
+                    onClick={handleRefresh}
+                    className="p-1 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
+                    title="Refresh"
+                  >
+                    <RefreshCw size={12} />
+                  </button>
+                  <button
+                    onClick={handleScreenshot}
+                    disabled={screenshot.isPending || !browserStatus?.running}
+                    className="flex items-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition disabled:opacity-50"
+                    title="Capture screenshot"
+                  >
+                    <Camera size={10} /> {screenshot.isPending ? 'Capturing…' : 'Screenshot'}
+                  </button>
+                  <button
+                    onClick={() => setShowInspectDialog(true)}
+                    disabled={!browserStatus?.running}
+                    className="flex items-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition disabled:opacity-50"
+                    title="Inspect in agent"
+                  >
+                    <Crosshair size={10} /> Inspect
+                  </button>
+                  {!browserStatus?.running ? (
+                    <button
+                      onClick={() => launchBrowser.mutate()}
+                      disabled={launchBrowser.isPending}
+                      className="flex items-center gap-1 text-[10px] px-2 py-1 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition disabled:opacity-50"
+                    >
+                      <Play size={9} /> Launch
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => closeBrowser.mutate()}
+                      disabled={closeBrowser.isPending}
+                      className="flex items-center gap-1 text-[10px] px-2 py-1 bg-status-error/15 text-status-error border border-status-error/30 rounded hover:bg-status-error/25 transition disabled:opacity-50"
+                    >
+                      <X size={9} /> Close
+                    </button>
+                  )}
+                </div>
+                {/* iframe preview + console split */}
+                <div className="flex-1 min-h-0 flex flex-col">
+                  {/* iframe preview */}
+                  <div className="flex-[2] min-h-0 border border-border-default rounded overflow-hidden bg-white relative">
+                    <iframe
+                      key={iframeKey}
+                      src={`http://localhost:4321/api/browser/proxy/?projectId=${activeProjectId}`}
+                      className="w-full h-full border-0"
+                      title="Dev Browser Preview"
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    />
+                    {/* Inspect in agent dialog overlay */}
+                    {showInspectDialog && (
+                      <div className="absolute inset-0 bg-bg-base/95 flex flex-col items-center justify-center gap-3 z-10">
+                        <div className="text-xs text-text-primary font-medium">Inspect in Agent</div>
+                        {inspectConfirmation ? (
+                          <div className="flex items-center gap-1.5 text-status-success text-[11px]">
+                            <CheckCircle size={12} /> {inspectConfirmation}
+                          </div>
+                        ) : (
+                          <form onSubmit={handleInspectSubmit} className="flex flex-col gap-2 w-64">
+                            <input
+                              value={inspectSelector}
+                              onChange={(e) => setInspectSelector(e.target.value)}
+                              placeholder="CSS selector (e.g. #submit-btn)"
+                              className="bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
+                            />
+                            <input
+                              value={inspectDescription}
+                              onChange={(e) => setInspectDescription(e.target.value)}
+                              placeholder="What's wrong? (e.g. button is misaligned)"
+                              className="bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="submit"
+                                disabled={!inspectSelector.trim() || !inspectDescription.trim() || inspectInAgent.isPending}
+                                className="flex-1 flex items-center justify-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition disabled:opacity-50"
+                              >
+                                {inspectInAgent.isPending ? <Loader2 size={10} className="animate-spin" /> : <Crosshair size={10} />}
+                                {inspectInAgent.isPending ? 'Sending…' : 'Send to Agent'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setShowInspectDialog(false); setInspectConfirmation(null); }}
+                                className="flex items-center gap-1 text-[10px] px-2 py-1 bg-bg-hover text-text-muted border border-border-default rounded hover:bg-bg-base transition"
+                              >
+                                <X size={10} /> Cancel
+                              </button>
+                            </div>
+                            {inspectInAgent.isError && (
+                              <div className="text-status-error text-[10px]">{inspectInAgent.error?.message}</div>
+                            )}
+                          </form>
+                        )}
+                      </div>
+                    )}
+                    {/* Screenshot preview overlay */}
+                    {screenshotPreview && (
+                      <div className="absolute inset-0 bg-bg-base/95 flex flex-col items-center justify-center gap-3 z-10">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleCopyScreenshot}
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition"
+                            title="Copy to clipboard"
+                          >
+                            <Copy size={10} /> Copy
+                          </button>
+                          <button
+                            onClick={handleSaveScreenshot}
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition"
+                            title="Save as PNG"
+                          >
+                            <Download size={10} /> Save
+                          </button>
+                          <button
+                            onClick={() => setScreenshotPreview(null)}
+                            className="flex items-center gap-1 text-[10px] px-2 py-1 bg-bg-hover text-text-muted border border-border-default rounded hover:bg-bg-base transition"
+                            title="Close preview"
+                          >
+                            <X size={10} /> Close
+                          </button>
+                        </div>
+                        <img
+                          src={`data:image/png;base64,${screenshotPreview}`}
+                          alt="Screenshot"
+                          className="max-w-full max-h-[calc(100%-40px)] object-contain rounded border border-border-default"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {/* Console + Agent Activity side by side */}
+                  <div className="flex-1 min-h-0 flex flex-row gap-1 mt-1">
+                    {/* Console sub-panel */}
+                    <div className="flex-1 min-h-0 border border-border-default rounded flex flex-col bg-bg-base">
+                      <div className="flex items-center justify-between px-2 py-1 border-b border-border-default shrink-0">
+                        <span className="text-[10px] text-text-muted font-medium">Console</span>
+                        <button
+                          onClick={handleClearConsole}
+                          className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
+                          title="Clear console"
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto px-2 py-1 font-mono text-[10px] space-y-0.5">
+                        {consoleEntries.length === 0 ? (
+                          <div className="text-text-faint italic py-1">No console output</div>
+                        ) : (
+                          consoleEntries.map((entry, i) => (
+                            <div key={i} className={`flex items-start gap-1.5 ${
+                              entry.level === 'error' ? 'text-status-error' : entry.level === 'warn' ? 'text-amber-400' : 'text-text-muted'
+                            }`}>
+                              {entry.level === 'error' ? <AlertCircle size={10} className="shrink-0 mt-px" /> :
+                               entry.level === 'warn' ? <AlertTriangle size={10} className="shrink-0 mt-px" /> :
+                               <Info size={10} className="shrink-0 mt-px" />}
+                              <span className="text-text-faint shrink-0">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                              <span className="whitespace-pre-wrap break-all">{entry.message}</span>
+                            </div>
+                          ))
+                        )}
+                        <div ref={consoleEndRef} />
+                      </div>
+                    </div>
+                    {/* Agent Activity sub-panel */}
+                    <div className="flex-1 min-h-0 border border-border-default rounded flex flex-col bg-bg-base">
+                      <div className="flex items-center justify-between px-2 py-1 border-b border-border-default shrink-0">
+                        <span className="text-[10px] text-text-muted font-medium">Agent Activity</span>
+                        <button
+                          onClick={handleClearActions}
+                          className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
+                          title="Clear activity"
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto px-2 py-1 font-mono text-[10px] space-y-0.5">
+                        {agentActions.length === 0 ? (
+                          <div className="text-text-faint italic py-1">No agent activity</div>
+                        ) : (
+                          agentActions.map((entry) => (
+                            <div key={entry.id} className="flex items-start gap-1.5">
+                              {entry.status === 'pending' ? <Loader2 size={10} className="shrink-0 mt-px animate-spin text-accent-primary" /> :
+                               entry.status === 'done' ? <CheckCircle size={10} className="shrink-0 mt-px text-status-success" /> :
+                               <XCircle size={10} className="shrink-0 mt-px text-status-error" />}
+                              <span className="text-text-faint shrink-0">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                              <span className={`whitespace-pre-wrap break-all ${entry.status === 'error' ? 'text-status-error' : 'text-text-muted'}`}>
+                                {entry.action}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                        <div ref={actionsEndRef} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

@@ -16,6 +16,7 @@ import { mcpRoutes } from "./routes/mcp.js";
 import { abilityRoutes } from "./routes/abilities.js";
 import { templateRoutes } from "./routes/templates.js";
 import { marketplaceRoutes } from "./routes/marketplace.js";
+import { browserRoutes } from "./routes/browser.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -52,6 +53,7 @@ await server.register(mcpRoutes);
 await server.register(abilityRoutes);
 await server.register(templateRoutes);
 await server.register(marketplaceRoutes);
+await server.register(browserRoutes);
 
 // Health check
 server.get("/api/health", async () => {

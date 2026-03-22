@@ -17,6 +17,14 @@ function getOrCreateRunner(projectId: string): LocalhostRunner {
   return runner;
 }
 
+/**
+ * Get the LocalhostRunner for a project (if one exists).
+ * Used by the browser proxy route to discover the dev server port.
+ */
+export function getRunnerForProject(projectId: string): LocalhostRunner | undefined {
+  return runners.get(projectId);
+}
+
 export async function localhostRoutes(server: FastifyInstance): Promise<void> {
   // POST /api/projects/:id/dev-server/start
   server.post<{ Params: { id: string } }>(
