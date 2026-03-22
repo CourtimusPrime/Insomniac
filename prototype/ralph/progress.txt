@@ -16,6 +16,8 @@ Started: Sun Mar 22 18:31:48 UTC 2026
 - Route plugins call seed functions at top of the exported function (e.g., `await seedBuiltInTemplates()`)
 - Apply template pattern: copy `chainDefinition` from template to project, increment `installCount`
 - Marketplace client uses a mock store index (array of MarketplaceItem) — will be replaced by GitHub fetch later
+- Marketplace routes use `getOrCreateDefaultWorkspace()` helper (duplicated — consider extracting to shared util)
+- Pagination pattern: parse page/limit from querystring, slice results, return `{ items, total, page, limit, totalPages }`
 - MarketplaceClient class pattern: constructor takes optional storeUrl, async methods return typed data
 - `getOrCreateDefaultWorkspace()` helper returns the default workspace ID (duplicated across routes — consider extracting)
 - ChainDefinition format: `{ version: 1, nodes: [{id, type, label, model, systemPrompt, status, abilities, position}], edges: [{id, source, target, condition}] }`
@@ -76,4 +78,22 @@ Started: Sun Mar 22 18:31:48 UTC 2026
   - downloadItem returns a generic Record<string, unknown> since different item types have different payloads
   - The mock index has 8 items which is enough to test pagination, filtering, and search in the marketplace UI
   - When switching to real GitHub fetch, replace the MOCK_STORE_INDEX usage in each method with a fetch() call
+---
+
+## 2026-03-22 - US-005
+- Created `server/routes/marketplace.ts` as a Fastify plugin with 3 endpoints:
+  - GET /api/marketplace — paginated list with optional filters (type, trustTier, search, page, limit)
+  - GET /api/marketplace/:id — single item detail
+  - POST /api/marketplace/:id/install — downloads item payload, creates a template in local DB
+- Input validation via JSON Schema on querystring (enum constraints) and body
+- Pagination: page/limit params, returns `{ items, total, page, limit, totalPages }`
+- Install creates a template record from the marketplace item's chainDefinition
+- Registered routes in server/index.ts
+- Files changed: server/routes/marketplace.ts (new), server/index.ts
+- **Learnings for future iterations:**
+  - `getOrCreateDefaultWorkspace()` is now duplicated in 3 files — should be extracted to a shared util
+  - Querystring params come as strings in Fastify, need parseInt for page/limit
+  - Install endpoint uses optional workspaceId from body, falls back to default workspace
+  - The marketplace client's `downloadItem()` returns a `Record<string, unknown>` — cast `payload.chainDefinition` carefully
+  - Pagination limits clamped: page >= 1, 1 <= limit <= 50
 ---
