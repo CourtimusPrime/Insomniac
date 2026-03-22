@@ -1,7 +1,10 @@
 import {
-  CheckCircle2, AlertCircle, Circle, ChevronLeft, ChevronRight
+  CheckCircle2, AlertCircle, Circle, ChevronLeft, ChevronRight, Loader2
 } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout';
+import { useProjectsStore } from '../../stores/projects';
+import { useDecisions, useResolveDecision } from '../../api/decisions';
+import type { Decision } from '../../api/decisions';
 
 const TIMELINE = [
   { label: 'Initialize repo', done: true },
@@ -16,9 +19,51 @@ const AGENTS = [
   { name: 'Auditor', task: 'Awaiting decision', pct: 0, model: 'Sonnet 4', blocked: true },
 ];
 
+function DecisionCard({ decision, projectId }: { decision: Decision; projectId: string }) {
+  const resolveDecision = useResolveDecision(projectId);
+  const options = (decision.options as string[] | null) ?? [];
+
+  const handleResolve = (resolution: string, autoDecide?: boolean) => {
+    resolveDecision.mutate({ decisionId: decision.id, resolution, autoDecide });
+  };
+
+  return (
+    <div className="p-4 border-b border-border-default">
+      <div className="flex items-center gap-2 mb-3">
+        <AlertCircle size={12} className="text-status-warning" />
+        <span className="text-[10px] font-bold uppercase tracking-widest text-status-warning/80">Decision needed</span>
+      </div>
+      <p className="text-[11px] text-text-default leading-relaxed mb-3">
+        {decision.question}
+      </p>
+      <div className="space-y-1.5">
+        {options.map((opt: string) => (
+          <button
+            key={opt}
+            disabled={resolveDecision.isPending}
+            onClick={() => handleResolve(opt)}
+            className="w-full text-left text-[11px] px-3 py-2 rounded border border-border-muted hover:border-accent-primary/50 hover:bg-accent-primary/5 text-text-default transition disabled:opacity-50"
+          >
+            {opt}
+          </button>
+        ))}
+        <button
+          disabled={resolveDecision.isPending}
+          onClick={() => handleResolve(options[0] ?? "auto", true)}
+          className="w-full text-left text-[11px] px-3 py-2 rounded border border-border-muted/50 hover:border-border-default text-text-faint hover:text-text-muted transition disabled:opacity-50"
+        >
+          Let agent decide
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function RightSidebar() {
   const collapsed = useLayoutStore((s) => s.collapsedPanels.rightSidebar);
   const togglePanel = useLayoutStore((s) => s.togglePanel);
+  const activeProjectId = useProjectsStore((s) => s.activeProjectId);
+  const { data: decisions, isLoading, isError } = useDecisions(activeProjectId);
 
   return (
     <aside className={`border-l border-border-default flex flex-col shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out ${
@@ -49,25 +94,29 @@ export function RightSidebar() {
       </div>
 
       {/* Decision queue */}
-      <div className="p-4 border-b border-border-default">
-        <div className="flex items-center gap-2 mb-3">
-          <AlertCircle size={12} className="text-status-warning" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-status-warning/80">Decision needed</span>
+      {isLoading && (
+        <div className="p-4 border-b border-border-default flex items-center justify-center">
+          <Loader2 size={16} className="animate-spin text-text-faint" />
         </div>
-        <p className="text-[11px] text-text-default leading-relaxed mb-3">
-          Hash collision detected in <span className="font-mono text-status-warning">aether_mem</span>. Switch algorithm to proceed with security audit.
-        </p>
-        <div className="space-y-1.5">
-          {['Switch to SHA-256', 'Use Argon2 + salt', 'Defer (low risk)'].map(opt => (
-            <button key={opt} className="w-full text-left text-[11px] px-3 py-2 rounded border border-border-muted hover:border-accent-primary/50 hover:bg-accent-primary/5 text-text-default transition">
-              {opt}
-            </button>
-          ))}
-          <button className="w-full text-left text-[11px] px-3 py-2 rounded border border-border-muted/50 hover:border-border-default text-text-faint hover:text-text-muted transition">
-            Let agent decide
-          </button>
+      )}
+      {isError && (
+        <div className="p-4 border-b border-border-default">
+          <p className="text-[11px] text-status-error">Failed to load decisions</p>
         </div>
-      </div>
+      )}
+      {!isLoading && !isError && decisions && decisions.length > 0 && activeProjectId && (
+        decisions.map((decision) => (
+          <DecisionCard key={decision.id} decision={decision} projectId={activeProjectId} />
+        ))
+      )}
+      {!isLoading && !isError && (!decisions || decisions.length === 0) && (
+        <div className="p-4 border-b border-border-default">
+          <div className="flex items-center gap-2 mb-1">
+            <CheckCircle2 size={12} className="text-status-success" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">No decisions pending</span>
+          </div>
+        </div>
+      )}
 
       {/* Timeline */}
       <div className="p-4 flex-1">
