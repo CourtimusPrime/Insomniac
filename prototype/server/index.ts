@@ -18,6 +18,7 @@ import { templateRoutes } from "./routes/templates.js";
 import { marketplaceRoutes } from "./routes/marketplace.js";
 import { browserRoutes } from "./routes/browser.js";
 import { hookRoutes } from "./routes/hooks.js";
+import { credentialRoutes } from "./routes/credentials.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -56,6 +57,7 @@ await server.register(templateRoutes);
 await server.register(marketplaceRoutes);
 await server.register(browserRoutes);
 await server.register(hookRoutes);
+await server.register(credentialRoutes);
 
 // Health check
 server.get("/api/health", async () => {
