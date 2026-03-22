@@ -12,6 +12,8 @@ const toolbarItems = [
 export function LeftToolbar() {
   const activeToolbar = useLayoutStore((s) => s.activeToolbar);
   const setActiveToolbar = useLayoutStore((s) => s.setActiveToolbar);
+  const setActiveMain = useLayoutStore((s) => s.setActiveMain);
+  const activeMain = useLayoutStore((s) => s.activeMain);
   const togglePanel = useLayoutStore((s) => s.togglePanel);
   const leftSidebarCollapsed = useLayoutStore((s) => s.collapsedPanels.leftSidebar);
   const setCollapsedPanel = useLayoutStore((s) => s.setCollapsedPanel);
@@ -47,7 +49,14 @@ export function LeftToolbar() {
       ))}
       <div className="mt-auto flex flex-col items-center gap-1">
         <ThemeSwitcher />
-        <button className="w-10 h-10 rounded-lg flex items-center justify-center text-text-faint hover:text-text-default hover:bg-bg-hover">
+        <button
+          onClick={() => setActiveMain('settings')}
+          title="Settings"
+          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+            activeMain === 'settings'
+              ? 'bg-accent-primary/15 text-accent-primary'
+              : 'text-text-faint hover:text-text-default hover:bg-bg-hover'
+          }`}>
           <Settings size={18} />
         </button>
       </div>

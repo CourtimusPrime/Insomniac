@@ -22,6 +22,20 @@
       "when": 1774191293465,
       "tag": "0002_sticky_terror",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1774197555259,
+      "tag": "0003_modern_calypso",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1774197661191,
+      "tag": "0004_absurd_fixer",
+      "breakpoints": true
     }
   ]
 }

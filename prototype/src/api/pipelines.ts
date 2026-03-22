@@ -92,3 +92,44 @@ export function useSteerPipeline(projectId: string | null) {
     },
   });
 }
+
+export function useAddStage(pipelineId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation<
+    PipelineStage,
+    Error,
+    { name: string; model?: string; description?: string }
+  >({
+    mutationFn: (body) =>
+      apiFetch<PipelineStage>(`/api/pipelines/${pipelineId}/stages`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pipelineStages", pipelineId] });
+    },
+  });
+}
+
+export interface ProjectPreferences {
+  id: string;
+  projectId: string;
+  providerId: string;
+  defaultModel: string | null;
+  taskTypeOverrides: Record<string, string> | null;
+  createdAt: string;
+}
+
+export function useProjectPreferences(projectId: string | null) {
+  return useQuery<ProjectPreferences | null>({
+    queryKey: ["projectPreferences", projectId],
+    queryFn: async () => {
+      try {
+        return await apiFetch<ProjectPreferences>(`/api/projects/${projectId}/preferences`);
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!projectId,
+  });
+}

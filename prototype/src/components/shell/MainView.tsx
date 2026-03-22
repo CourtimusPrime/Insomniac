@@ -5,6 +5,7 @@ import { PipelineView } from '../views/PipelineView';
 import { GraphView } from '../views/GraphView';
 import { BackseatView } from '../views/BackseatView';
 import { AbilityDetailView } from '../views/AbilityDetailView';
+import { SettingsView } from '../views/SettingsView';
 
 export function MainView() {
   const activeMain = useLayoutStore((s) => s.activeMain);
@@ -48,6 +49,7 @@ export function MainView() {
         {activeMain === 'graph' && <GraphView />}
         {activeMain === 'backseat' && <BackseatView />}
         {activeMain === 'ability-detail' && <AbilityDetailView />}
+        {activeMain === 'settings' && <SettingsView />}
       </div>
     </div>
   );
