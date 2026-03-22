@@ -1,8 +1,10 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
+import websocket from "@fastify/websocket";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { wsRoutes } from "./ws/handler.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -16,6 +18,10 @@ await server.register(cors, {
     "http://localhost:5173",
   ],
 });
+
+// WebSocket support
+await server.register(websocket);
+await server.register(wsRoutes);
 
 // Serve Vite build output
 await server.register(fastifyStatic, {
