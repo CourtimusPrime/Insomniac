@@ -1,0 +1,2 @@
+Windows 11: It works out of the box using WSLg. The window will appear on your Windows desktop automatically.
+Windows 10: You must have an X-Server (like GWSL or VcXsrv) installed and configured on Windows, or Tauri will fail to open the display.
