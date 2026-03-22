@@ -1,9 +1,12 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Plus, GitMerge, CheckCircle2, Loader2, AlertCircle,
+  Pencil, Trash2, Code2,
 } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
-import { useProjects } from '../../api/projects';
+import { useProjects, useDeleteProject, useUpdateProject, useOpenInVSCode } from '../../api/projects';
+import type { Project } from '../../api/projects';
 
 const ABILITIES = [
   { name: 'Playwright Tests', type: 'skill', active: true },
@@ -27,6 +30,12 @@ const typeBadge = (t: string) => ({
   workflow: 'bg-amber-500/20 text-amber-300',
 }[t]);
 
+interface ContextMenu {
+  projectId: string;
+  x: number;
+  y: number;
+}
+
 export function LeftSidebar() {
   const activeToolbar = useLayoutStore((s) => s.activeToolbar);
   const setActiveMain = useLayoutStore((s) => s.setActiveMain);
@@ -34,6 +43,64 @@ export function LeftSidebar() {
   const activeProjectId = useProjectsStore((s) => s.activeProjectId);
   const setActiveProjectId = useProjectsStore((s) => s.setActiveProjectId);
   const { data: projects, isLoading, isError, refetch } = useProjects();
+
+  const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const deleteProject = useDeleteProject();
+  const updateProject = useUpdateProject();
+  const openInVSCode = useOpenInVSCode();
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [contextMenu]);
+
+  // Focus rename input when it appears
+  useEffect(() => {
+    if (renamingId && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renamingId]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, project: Project) => {
+    e.preventDefault();
+    setContextMenu({ projectId: project.id, x: e.clientX, y: e.clientY });
+  }, []);
+
+  const handleRename = useCallback((project: Project) => {
+    setContextMenu(null);
+    setRenamingId(project.id);
+    setRenameValue(project.name);
+  }, []);
+
+  const commitRename = useCallback(() => {
+    if (renamingId && renameValue.trim()) {
+      updateProject.mutate({ id: renamingId, name: renameValue.trim() });
+    }
+    setRenamingId(null);
+  }, [renamingId, renameValue, updateProject]);
+
+  const handleRemove = useCallback((id: string) => {
+    setContextMenu(null);
+    deleteProject.mutate(id);
+  }, [deleteProject]);
+
+  const handleOpenVSCode = useCallback((id: string) => {
+    setContextMenu(null);
+    openInVSCode.mutate(id);
+  }, [openInVSCode]);
 
   return (
     <aside className={`flex flex-col bg-bg-default shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out ${
@@ -68,6 +135,7 @@ export function LeftSidebar() {
               <button
                 key={p.id}
                 onClick={() => setActiveProjectId(p.id)}
+                onContextMenu={(e) => handleContextMenu(e, p)}
                 className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition border-l-2 ${
                   activeProjectId === p.id
                     ? 'border-accent-primary bg-accent-primary/5 text-text-primary'
@@ -75,11 +143,60 @@ export function LeftSidebar() {
                 }`}>
                 <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(p.status)}`} />
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium truncate">{p.name}</div>
+                  {renamingId === p.id ? (
+                    <input
+                      ref={renameInputRef}
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={commitRename}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') commitRename();
+                        if (e.key === 'Escape') setRenamingId(null);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs font-medium w-full bg-bg-input border border-accent-primary rounded px-1 py-0.5 outline-none text-text-primary"
+                    />
+                  ) : (
+                    <div className="text-xs font-medium truncate">{p.name}</div>
+                  )}
                   <div className="text-[10px] text-text-faint mt-0.5">{p.language ?? 'Unknown'} · {p.status}</div>
                 </div>
               </button>
             ))}
+
+            {/* Context Menu */}
+            {contextMenu && (
+              <div
+                ref={menuRef}
+                className="fixed z-50 bg-bg-surface border border-border-default rounded-lg shadow-lg py-1 min-w-[160px]"
+                style={{ left: contextMenu.x, top: contextMenu.y }}
+              >
+                <button
+                  onClick={() => {
+                    const project = projects?.find(p => p.id === contextMenu.projectId);
+                    if (project) handleRename(project);
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary flex items-center gap-2 transition"
+                >
+                  <Pencil size={12} />
+                  Rename
+                </button>
+                <button
+                  onClick={() => handleRemove(contextMenu.projectId)}
+                  className="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary flex items-center gap-2 transition"
+                >
+                  <Trash2 size={12} />
+                  Remove from list
+                </button>
+                <button
+                  onClick={() => handleOpenVSCode(contextMenu.projectId)}
+                  className="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary flex items-center gap-2 transition"
+                >
+                  <Code2 size={12} />
+                  Open in VS Code
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}
