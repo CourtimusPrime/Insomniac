@@ -10,6 +10,8 @@ Started: Sun Mar 22 17:15:36 UTC 2026
 - Cloned projects live under `data/projects/` directory
 - Route handlers share `workspaceId` via closure from plugin load
 - LocalhostRunner is per-project; route layer uses a Map<projectId, LocalhostRunner> in server/routes/localhost.ts
+- McpConnectionManager is a singleton managing named connections; use `connect(config)` / `disconnect(name)` / `listConnections()` / `getConnection(name)`
+- MCP process auto-restart: on unexpected exit, retry up to 3 times (MAX_RETRIES), tracked via `restartCount`
 - WebSocket log streaming uses `broadcast("devserver:log", { projectId, line })` from ws/handler.ts
 - Client API hooks go in `src/api/<resource>.ts` using TanStack React Query (`useQuery`, `useMutation`)
 - `apiFetch` from `src/api/client.ts` is the fetch wrapper for all API calls
@@ -117,4 +119,20 @@ Started: Sun Mar 22 17:15:36 UTC 2026
   - Drizzle's `text("value", { mode: "json" })` stores JSON but you still need `JSON.stringify()` when writing via `.set()` / `.values()`
   - SettingsView uses a `SettingsTab` union type and `TABS` array for the tab bar — add new tabs by extending both
   - For upsert pattern in SQLite via Drizzle: check existing row with `.get()`, then update or insert accordingly
+---
+
+## 2026-03-22 ~20:00 - US-008
+- Created `server/integrations/mcp-manager.ts` with `McpConnectionManager` class
+- `connect(config)` spawns an MCP server as a child process with `{ name, command, args, env }` config
+- `disconnect(name)` kills the process and removes the connection from the map
+- `listConnections()` returns all connections with status, pid, and restart count
+- `getConnection(name)` returns a single connection's status or null
+- Auto-restart on crash: `close` and `error` events trigger `spawnProcess` up to MAX_RETRIES (3)
+- Removes all listeners before killing on disconnect to prevent auto-restart
+- Files changed: `server/integrations/mcp-manager.ts` (new)
+- **Learnings for future iterations:**
+  - MCP servers communicate via stdio (stdin/stdout/stderr pipes) — spawned with `stdio: ["pipe", "pipe", "pipe"]`
+  - `removeAllListeners("close")` before `.kill()` prevents the auto-restart handler from firing during intentional disconnect
+  - The singleton pattern (vs per-project like LocalhostRunner) works here because MCP connections are workspace-global
+  - `restartCount` resets are not needed — once a connection hits MAX_RETRIES, it stays disconnected until manually reconnected
 ---
