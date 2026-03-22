@@ -3,6 +3,7 @@ import { LeftSidebar } from './components/shell/LeftSidebar';
 import { MainView } from './components/shell/MainView';
 import { RightSidebar } from './components/shell/RightSidebar';
 import { BottomPanel } from './components/shell/BottomPanel';
+import { StatusBar } from './components/shell/StatusBar';
 
 export default function InsomniacApp() {
   return (
@@ -27,6 +28,9 @@ export default function InsomniacApp() {
 
         {/* BOTTOM PANEL */}
         <BottomPanel />
+
+        {/* STATUS BAR */}
+        <StatusBar />
       </main>
     </div>
   );
