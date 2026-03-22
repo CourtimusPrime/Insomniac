@@ -1,8 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import { cpus } from "node:os";
+import { cpus, platform } from "node:os";
 import { sql } from "drizzle-orm";
 import { db } from "../db/connection.js";
 import { usageRecords } from "../db/schema/index.js";
+import { getDeploymentConfig } from "../config/deployment.js";
 
 let prevCpuUsage = process.cpuUsage();
 let prevTime = Date.now();
@@ -36,6 +37,16 @@ export async function metricsRoutes(server: FastifyInstance): Promise<void> {
       cpu: getCpuPercent(),
       ram: Math.round(mem.rss / 1024 / 1024), // MB
       uptime: Math.floor(process.uptime()),
+    };
+  });
+
+  // System info: deployment mode, version, platform
+  server.get("/api/system/info", async () => {
+    const config = getDeploymentConfig();
+    return {
+      mode: config.mode,
+      version: "0.1.0",
+      platform: platform(),
     };
   });
 
