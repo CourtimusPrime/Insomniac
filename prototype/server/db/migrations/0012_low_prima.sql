@@ -1,0 +1,1 @@
+ALTER TABLE `agents` ADD `progress` integer DEFAULT 0 NOT NULL;

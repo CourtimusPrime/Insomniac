@@ -5,6 +5,7 @@ import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
 import { useDecisions, useResolveDecision } from '../../api/decisions';
 import type { Decision } from '../../api/decisions';
+import { useActiveAgents } from '../../api/agents';
 
 const TIMELINE = [
   { label: 'Initialize repo', done: true },
@@ -12,11 +13,6 @@ const TIMELINE = [
   { label: 'Core logic sync', current: true },
   { label: 'Load balancing', done: false },
   { label: 'Security audit', done: false },
-];
-
-const AGENTS = [
-  { name: 'Claude Code', task: 'Implementing gc.rs', pct: 67, model: 'Sonnet 4' },
-  { name: 'Auditor', task: 'Awaiting decision', pct: 0, model: 'Sonnet 4', blocked: true },
 ];
 
 function DecisionCard({ decision, projectId }: { decision: Decision; projectId: string }) {
@@ -64,6 +60,7 @@ export function RightSidebar() {
   const togglePanel = useLayoutStore((s) => s.togglePanel);
   const activeProjectId = useProjectsStore((s) => s.activeProjectId);
   const { data: decisions, isLoading, isError } = useDecisions(activeProjectId);
+  const { data: activeAgents } = useActiveAgents();
 
   return (
     <aside className={`border-l border-border-default flex flex-col shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out ${
@@ -141,22 +138,29 @@ export function RightSidebar() {
       {/* Agent status strip */}
       <div className="p-4 border-t border-border-default space-y-2">
         <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-2">Active agents</div>
-        {AGENTS.map(agent => (
-          <div key={agent.name} className="px-3 py-2 rounded-lg bg-bg-base border border-border-default">
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] font-medium text-text-primary">{agent.name}</span>
-              <span className={`text-[10px] ${agent.blocked ? 'text-status-warning' : 'text-status-success'}`}>
-                {agent.blocked ? 'blocked' : 'running'}
-              </span>
-            </div>
-            <div className="text-[10px] text-text-faint mt-0.5">{agent.task} · {agent.model}</div>
-            {agent.pct > 0 && (
-              <div className="mt-2 h-0.5 bg-bg-hover rounded-full overflow-hidden">
-                <div className="h-full bg-accent-primary rounded-full" style={{ width: `${agent.pct}%` }} />
+        {(!activeAgents || activeAgents.length === 0) && (
+          <div className="text-[10px] text-text-faint">No active agents</div>
+        )}
+        {activeAgents?.map(agent => {
+          const statusColor = agent.status === "error" ? "text-status-error" : agent.status === "paused" ? "text-status-warning" : "text-status-success";
+          const statusLabel = agent.status === "error" ? "error" : agent.status === "paused" ? "blocked" : "running";
+          return (
+            <div key={agent.id} className="px-3 py-2 rounded-lg bg-bg-base border border-border-default">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-medium text-text-primary">{agent.name}</span>
+                <span className={`text-[10px] ${statusColor}`}>
+                  {statusLabel}
+                </span>
               </div>
-            )}
-          </div>
-        ))}
+              <div className="text-[10px] text-text-faint mt-0.5">{agent.currentTask ?? 'No task'} · {agent.model ?? 'Unknown'}</div>
+              {agent.progress > 0 && (
+                <div className="mt-2 h-0.5 bg-bg-hover rounded-full overflow-hidden">
+                  <div className="h-full bg-accent-primary rounded-full" style={{ width: `${agent.progress}%` }} />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
       </div>
       )}

@@ -69,6 +69,9 @@ export function useWebSocket(): void {
         case "devserver:status":
           queryClient.invalidateQueries({ queryKey: ["devServerStatus"] });
           break;
+        case "agent:status":
+          queryClient.invalidateQueries({ queryKey: ["activeAgents"] });
+          break;
       }
     }
 
