@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { CheckCircle2, AlertCircle, Circle, ArrowRight, Loader2, SkipForward, Pause, Play, XCircle } from 'lucide-react';
-import { usePipelines, usePipelineStages, usePausePipeline, useResumePipeline, useCancelPipeline } from '../../api/pipelines';
+import { usePipelines, usePipelineStages, usePausePipeline, useResumePipeline, useCancelPipeline, useSteerPipeline } from '../../api/pipelines';
 import type { Pipeline, PipelineStage } from '../../api/pipelines';
 import { useProjectsStore } from '../../stores/projects';
 
@@ -110,6 +111,33 @@ function PipelineToolbar({ pipeline, projectId }: { pipeline: Pipeline; projectI
   );
 }
 
+function SteeringInput({ pipelineId, projectId }: { pipelineId: string; projectId: string }) {
+  const [text, setText] = useState('');
+  const steer = useSteerPipeline(projectId);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    steer.mutate({ pipelineId, message: trimmed });
+    setText('');
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg border border-border-muted bg-bg-base">
+      <ArrowRight size={13} className="text-accent-primary shrink-0" />
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        disabled={steer.isPending}
+        className="flex-1 bg-transparent text-xs text-text-default placeholder-text-faint outline-none"
+        placeholder="Steer the pipeline — 'skip Stripe for now', 'add dark mode first'…"
+      />
+      {steer.isPending && <Loader2 size={12} className="animate-spin text-text-muted shrink-0" />}
+    </form>
+  );
+}
+
 export function PipelineView() {
   const activeProjectId = useProjectsStore((s) => s.activeProjectId);
   const { data: pipelines, isLoading: pipelinesLoading, error: pipelinesError } = usePipelines(activeProjectId);
@@ -165,13 +193,7 @@ export function PipelineView() {
         <div className="text-xs text-text-muted">No stages in this pipeline.</div>
       )}
       {/* Steering input */}
-      <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg border border-border-muted bg-bg-base">
-        <ArrowRight size={13} className="text-accent-primary shrink-0" />
-        <input
-          className="flex-1 bg-transparent text-xs text-text-default placeholder-text-faint outline-none"
-          placeholder="Steer the pipeline — 'skip Stripe for now', 'add dark mode first'…"
-        />
-      </div>
+      <SteeringInput pipelineId={activePipeline.id} projectId={activeProjectId!} />
     </div>
   );
 }

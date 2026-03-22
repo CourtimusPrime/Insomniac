@@ -420,6 +420,133 @@ export async function pipelineRoutes(server: FastifyInstance) {
     },
   );
 
+  // POST /api/pipelines/:id/steer — natural language steering commands
+  server.post<{
+    Params: { id: string };
+    Body: { message: string };
+  }>(
+    "/api/pipelines/:id/steer",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["message"],
+          additionalProperties: false,
+          properties: {
+            message: { type: "string", minLength: 1, maxLength: 500 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { message } = request.body;
+
+      const pipeline = db
+        .select()
+        .from(pipelines)
+        .where(eq(pipelines.id, id))
+        .get();
+
+      if (!pipeline) {
+        reply.code(404);
+        return { error: "Pipeline not found" };
+      }
+
+      const lower = message.toLowerCase().trim();
+
+      // "pause"
+      if (/^pause$/i.test(lower)) {
+        const engine = runningEngines.get(id);
+        if (!engine) {
+          return { action: "pause", result: "Pipeline is not running" };
+        }
+        engine.pause();
+        return { action: "pause", result: "Pipeline paused" };
+      }
+
+      // "resume"
+      if (/^resume$/i.test(lower)) {
+        if (pipeline.status !== "paused") {
+          return { action: "resume", result: "Pipeline is not paused" };
+        }
+        const engine = new PipelineEngine(id);
+        runningEngines.set(id, engine);
+        engine.resume().finally(() => runningEngines.delete(id));
+        return { action: "resume", result: "Pipeline resumed" };
+      }
+
+      // "cancel"
+      if (/^cancel$/i.test(lower)) {
+        const engine = runningEngines.get(id);
+        if (!engine) {
+          return { action: "cancel", result: "Pipeline is not running" };
+        }
+        await engine.cancel();
+        runningEngines.delete(id);
+        return { action: "cancel", result: "Pipeline cancelled" };
+      }
+
+      // "skip [stage name]"
+      const skipMatch = lower.match(/^skip\s+(.+)$/);
+      if (skipMatch) {
+        const stageName = skipMatch[1];
+        const stages = db
+          .select()
+          .from(pipelineStages)
+          .where(eq(pipelineStages.pipelineId, id))
+          .orderBy(asc(pipelineStages.sortOrder))
+          .all();
+
+        const matched = stages.find(
+          (s) => s.name.toLowerCase().includes(stageName),
+        );
+
+        if (!matched) {
+          return { action: "skip", result: `No stage matching "${stageName}" found` };
+        }
+
+        db.update(pipelineStages)
+          .set({ status: "skipped" })
+          .where(eq(pipelineStages.id, matched.id))
+          .run();
+
+        return { action: "skip", result: `Skipped stage "${matched.name}"` };
+      }
+
+      // "add [stage name]"
+      const addMatch = lower.match(/^add\s+(.+)$/);
+      if (addMatch) {
+        const stageName = addMatch[1];
+        const existing = db
+          .select()
+          .from(pipelineStages)
+          .where(eq(pipelineStages.pipelineId, id))
+          .orderBy(asc(pipelineStages.sortOrder))
+          .all();
+
+        const nextOrder =
+          existing.length > 0
+            ? existing[existing.length - 1].sortOrder + 1
+            : 0;
+
+        const stageId = crypto.randomUUID();
+        db.insert(pipelineStages)
+          .values({
+            id: stageId,
+            pipelineId: id,
+            name: stageName,
+            sortOrder: nextOrder,
+          })
+          .run();
+
+        return { action: "add", result: `Added stage "${stageName}" at position ${nextOrder}` };
+      }
+
+      return { action: "unknown", result: `Unrecognised command. Try: skip [stage], add [stage], pause, resume, cancel` };
+    },
+  );
+
   // POST /api/pipelines/:pipelineId/stages/:stageId/skip — mark stage as skipped
   server.post<{ Params: { pipelineId: string; stageId: string } }>(
     "/api/pipelines/:pipelineId/stages/:stageId/skip",

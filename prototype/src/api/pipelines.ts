@@ -72,3 +72,23 @@ export function useCancelPipeline(projectId: string | null) {
     },
   });
 }
+
+export interface SteerResult {
+  action: string;
+  result: string;
+}
+
+export function useSteerPipeline(projectId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation<SteerResult, Error, { pipelineId: string; message: string }>({
+    mutationFn: ({ pipelineId, message }) =>
+      apiFetch<SteerResult>(`/api/pipelines/${pipelineId}/steer`, {
+        method: "POST",
+        body: JSON.stringify({ message }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pipelines", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["pipelineStages"] });
+    },
+  });
+}
