@@ -50,6 +50,13 @@
       "when": 1774203979974,
       "tag": "0006_rapid_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1774204404545,
+      "tag": "0007_abnormal_callisto",
+      "breakpoints": true
     }
   ]
 }

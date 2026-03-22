@@ -14,6 +14,8 @@ import { localhostRoutes } from "./routes/localhost.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { mcpRoutes } from "./routes/mcp.js";
 import { abilityRoutes } from "./routes/abilities.js";
+import { templateRoutes } from "./routes/templates.js";
+import { marketplaceRoutes } from "./routes/marketplace.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -48,6 +50,8 @@ await server.register(localhostRoutes);
 await server.register(settingsRoutes);
 await server.register(mcpRoutes);
 await server.register(abilityRoutes);
+await server.register(templateRoutes);
+await server.register(marketplaceRoutes);
 
 // Health check
 server.get("/api/health", async () => {

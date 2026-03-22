@@ -198,7 +198,7 @@ export async function abilityRoutes(server: FastifyInstance) {
     "/api/abilities/import-skill",
     {
       schema: {
-        body: { type: "string" },
+        body: { type: "string", maxLength: 50000 },
       },
     },
     async (request, reply) => {

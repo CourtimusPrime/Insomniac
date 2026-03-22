@@ -1,234 +1,207 @@
 # Ralph Progress Log
-Started: Sun Mar 22 17:46:01 UTC 2026
+Started: Sun Mar 22 18:31:48 UTC 2026
+---
 
 ## Codebase Patterns
-- Routes are Fastify plugins: `export async function xxxRoutes(server: FastifyInstance)` registered in `server/index.ts`
-- DB uses drizzle-orm with better-sqlite3, imported from `../db/connection.js`
-- Schema tables exported via barrel in `server/db/schema/index.ts`
-- IDs use `crypto.randomUUID()`, not auto-increment
-- JSON schema validation on Fastify request bodies (not Zod)
-- Return 201 for creates, 204 for deletes, 404 for not found
-- Default workspace pattern: `getOrCreateDefaultWorkspace()` returns the "Default" workspace ID
-- Abilities schema already has: id, workspaceId, name, type (skill|plugin|mcp), active, config (JSON), version, createdAt
-- Junction tables use composite primary keys via `primaryKey({ columns: [...] })` in drizzle
-- Stage-ability routes live in pipelines.ts since they're nested under `/api/pipelines/...`
-- Use `innerJoin` on junction tables to return related entity data in GET endpoints
-- Frontend API hooks live in `src/api/*.ts`, follow pattern: export interface + useX query + useMutateX with invalidateQueries
-- `apiFetch` defaults to `Content-Type: application/json`; override header for raw text endpoints
-- Layout store (`src/stores/layout.ts`) holds `activeAbilityId` for passing selected ability to detail views
-- ReactFlow: import `@xyflow/react` and its CSS (`@xyflow/react/dist/style.css`); container MUST have explicit height (use `h-full` with flex parent)
-- Graph components live in `src/components/graph/`; `GraphView.tsx` is the thin wrapper in views/
-- Custom ReactFlow nodes: wrap in `memo()`, define `nodeTypes` object outside component, register via `nodeTypes` prop on `<ReactFlow>`
-- AgentNode data type: `{ label, nodeType, model?, systemPrompt?, status?, onOpen?, onDelete? }` — pass callbacks via node data
-- Sidebar loading/error pattern: match the projects panel (Loader2 spinner, AlertCircle + retry button)
-- `typeBadge` helper in LeftSidebar maps ability types to color classes (skill=violet, plugin=emerald, mcp=cyan)
-- Custom ReactFlow edges: use `getBezierPath` + `BaseEdge`, define `edgeTypes` outside component, register via `edgeTypes` prop
-- Edge data type `CustomEdgeData` has `condition` field: always | on-success | on-failure | on-decision
-- `EdgeLabelRenderer` for floating UI elements (buttons) at edge midpoints; use `deleteElements` from `useReactFlow()` for programmatic edge removal
-- ChainEditor uses `ReactFlowProvider` wrapper; hooks like `useReactFlow()` / `screenToFlowPosition` must be called inside an inner component
-- AddNodeMenu tracks both screen coords (for CSS popup placement) and flow coords (for `node.position`) — two coordinate systems
-- Node type definitions (color, label, description) are in `AddNodeMenu.tsx` as `nodeTypeEntries`
-- Inject callback props (onOpen, onDelete) into nodes via a `useMemo` wrapper — keeps refs fresh without re-creating nodes
-- `useNodesState<Node>([])` returns generic `Node`; cast to `Node<AgentNodeData>` when passing to typed components
-- NodeInspector lives in `src/components/graph/NodeInspector.tsx`; opens via `inspectedNodeId` state in ChainEditor
-- ChainToolbar is a pure presentational component — action callbacks are passed as props from ChainEditorInner
-- Export JSON uses Blob + createObjectURL + anchor click pattern for file downloads
-- Chain persistence: `chainDefinition` column on projects table is `text({ mode: "json" })` — drizzle handles JSON serialize/deserialize
-- Chain API: GET/PUT `/api/projects/:id/chain` — returns `{ version, nodes[], edges[] }`, defaults to empty chain if null
-- Auto-save pattern: `useRef` timer + `setTimeout(1000)` debounce; `hasLoadedRef` flag prevents overwriting user edits with stale query data
-- Deserialize chain → ReactFlow: map saved nodes to `Node<AgentNodeData>` with `type: 'agent'`, map edges with `type: 'custom'`
-
+- Schema files use `sqliteTable` from drizzle-orm/sqlite-core with `.js` extension in imports
+- Frontend API hooks pattern: `useQuery` for GET, `useMutation` with `useQueryClient().invalidateQueries` for mutations
+- API hooks import `apiFetch` from `./client` (base URL http://localhost:4321)
+- Query keys follow `["resource"]` for lists, `["resource", id]` for single items
+- Mutations invalidate all related query keys on success (e.g., install invalidates both marketplace + templates)
+- Primary keys use `text("id").$defaultFn(() => crypto.randomUUID())`
+- Timestamps use `integer("created_at", { mode: "timestamp" }).default(sql\`(unixepoch())\`)`
+- Booleans use `integer("col", { mode: "boolean" })`
+- JSON columns use `text("col", { mode: "json" })`
+- Barrel exports in schema/index.ts use `.js` extensions
+- Migration workflow: `npx drizzle-kit generate` then `npx drizzle-kit migrate`
+- Typecheck: `npx tsc --noEmit`
+- Fastify routes are registered as plugins in server/index.ts
+- Seed pattern: define data array + `seedIfEmpty()` function that checks `.all().length > 0`, called at route plugin registration time
+- Route plugins call seed functions at top of the exported function (e.g., `await seedBuiltInTemplates()`)
+- Apply template pattern: copy `chainDefinition` from template to project, increment `installCount`
+- Marketplace client uses a mock store index (array of MarketplaceItem) — will be replaced by GitHub fetch later
+- Marketplace routes use `getOrCreateDefaultWorkspace()` helper (duplicated — consider extracting to shared util)
+- Pagination pattern: parse page/limit from querystring, slice results, return `{ items, total, page, limit, totalPages }`
+- MarketplaceClient class pattern: constructor takes optional storeUrl, async methods return typed data
+- `getOrCreateDefaultWorkspace()` helper returns the default workspace ID (duplicated across routes — consider extracting)
+- ChainDefinition format: `{ version: 1, nodes: [{id, type, label, model, systemPrompt, status, abilities, position}], edges: [{id, source, target, condition}] }`
+- Node types: trigger, prototyper, builder, tester, reviewer, auditor
+- Edge conditions: always, on-success, on-failure, on-decision
+- MainView routing: add view name to `MainView` type in stores/layout.ts, import + render in MainView.tsx
+- Category tab filter pattern: local state CategoryTab, map over CATEGORIES array, conditionally include in filters object
+- Grid card pattern: `grid grid-cols-2 gap-3` with `rounded-lg border border-border-default bg-bg-base p-4`
+- Badge color maps: define as `Record<string, string>` constants (TYPE_COLORS, TIER_CONFIG)
+- MarketplaceView uses max-w-4xl (wider than other views) since it has a 2-column grid
+- Per-item mutation state: track with `installedIds` Set + `errorIds` Record, use `mutation.variables?.id` for loading state
+- Sidebar-to-view state sharing: use layout store for cross-component filter state (e.g., `marketplaceCategory`)
+- Export types from layout store when other components need them (e.g., `MarketplaceCategory`)
+- Overlay/modal pattern: centered absolute overlay with bg-black/40 backdrop, click-outside + Escape close, same styling as AddNodeMenu (#111827 bg, #1e2a3a borders)
+- Apply template pattern (UI): call mutation for server persistence + deserialize chainDefinition locally via setNodes/setEdges to avoid network round-trip
+- Toast pattern: `useState(false)` + `setTimeout(() => set(false), 2500)` for auto-dismissing success messages
+- workspaceId on frontend: `useProjects()?.[0]?.workspaceId` (same pattern used in SettingsView and ChainEditor)
 ---
 
 ## 2026-03-22 - US-001
-- Implemented full CRUD REST API for Abilities
-- Endpoints: GET /api/abilities, GET /api/abilities/:id, POST /api/abilities, PUT /api/abilities/:id, DELETE /api/abilities/:id
-- Input validation on POST/PUT bodies (name, type enum, config object, version, active boolean)
-- Files changed: server/routes/abilities.ts (created), server/index.ts (registered route)
+- Created `server/db/schema/templates.ts` with 12 columns: id, workspaceId, name, description, category (enum), chainDefinition (JSON), author, version, isBuiltIn (boolean), installCount, createdAt, updatedAt
+- Updated `server/db/schema/index.ts` barrel export
+- Generated migration `0007_abnormal_callisto.sql` and ran it successfully
+- Files changed: server/db/schema/templates.ts, server/db/schema/index.ts, server/db/migrations/0007_abnormal_callisto.sql
 - **Learnings for future iterations:**
-  - The abilities schema already exists in server/db/schema/abilities.ts — no migration needed for this story
-  - Follow the projects.ts route pattern for default workspace handling
-  - `config` column uses `{ mode: "json" }` in drizzle schema — pass objects directly
+  - Category enum values: 'workflow', 'agent-config', 'template', 'mcp-adapter'
+  - workspaceId references workspaces.id (same FK pattern as all other tables)
+  - The drizzle config at drizzle.config.ts points to `./data/insomniac.db` for SQLite
 ---
 
 ## 2026-03-22 - US-002
-- Created stage_abilities junction table (stageId FK, abilityId FK, composite PK)
-- Added GET /api/pipelines/:pipelineId/stages/:stageId/abilities — returns abilities with full data via innerJoin
-- Added POST /api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId — assign with 409 on duplicate
-- Added DELETE /api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId — unassign
-- Files changed: server/db/schema/stage-abilities.ts (created), server/db/schema/index.ts, server/routes/pipelines.ts, migration 0005
+- Created `server/templates/built-in.ts` with 6 built-in pipeline template definitions
+- Templates: Full Stack Build, Security Audit, Code Review, Rapid Prototype, Test Suite, Full Pipeline
+- Each template has a complete chainDefinition with nodes and edges using `buildChain()` helper
+- Exported `seedBuiltInTemplates()` function that inserts templates on first run if table is empty
+- Files changed: server/templates/built-in.ts
 - **Learnings for future iterations:**
-  - drizzle-kit `generate` auto-detects new schema exports from the barrel — just add to index.ts
-  - drizzle-kit `migrate` applies pending migrations to the SQLite DB
-  - Composite primary keys need `primaryKey` imported from `drizzle-orm/sqlite-core`
-  - Stage routes validate stage belongs to pipeline before any operation (pipelineId + stageId AND check)
+  - `buildChain()` helper generates linear chains from a list of node types with consistent positioning (x+280 per node, y=180)
+  - The seed function follows the same pattern as projects/providers: check `.all().length > 0`, skip if data exists
+  - `seedBuiltInTemplates()` needs to be called from somewhere at startup (e.g., from the templates route plugin when it's created in US-003)
+  - Template `chainDefinition` is stored as JSON in a `text` column with `{ mode: "json" }`
 ---
 
 ## 2026-03-22 - US-003
-- Created `server/abilities/skill-parser.ts` with `parseSkillMd(content)` — parses YAML frontmatter (name, description, trigger) and body content
-- Added `POST /api/abilities/import-skill` endpoint to abilities routes, accepting raw markdown string body
-- Endpoint parses SKILL.md, creates an Ability record with type "skill" and config `{ trigger, content }`
-- Files changed: server/abilities/skill-parser.ts (created), server/routes/abilities.ts (added import + endpoint)
+- Created `server/routes/templates.ts` as a Fastify plugin with 5 endpoints:
+  - GET /api/templates — list all templates
+  - GET /api/templates/:id — get single template
+  - POST /api/templates — create user template with JSON Schema validation
+  - POST /api/templates/:id/apply — apply template to project (copies chainDefinition, increments installCount)
+  - DELETE /api/templates/:id — delete user template (403 for built-in)
+- Calls `seedBuiltInTemplates()` at plugin registration time
+- Registered routes in server/index.ts
+- Files changed: server/routes/templates.ts (new), server/index.ts
 - **Learnings for future iterations:**
-  - Fastify can accept `{ type: "string" }` body schema for raw text/markdown payloads
-  - No need for a YAML library — simple key:value frontmatter can be parsed with string splitting
-  - The import-skill endpoint reuses the existing `workspaceId` from the route plugin closure
+  - Apply endpoint needs both template ID (from params) and projectId (from body)
+  - Built-in templates are protected from deletion with a 403 response
+  - Fastify generic types: `<{ Params: {...}; Body: {...} }>` for combined param + body routes
+  - POST schema validation uses `additionalProperties: false` to reject unexpected fields
 ---
 
 ## 2026-03-22 - US-004
-- Created `src/api/abilities.ts` with TanStack Query hooks: useAbilities(), useAbility(id), useCreateAbility(), useUpdateAbility(), useDeleteAbility(), useImportSkill()
-- All mutations invalidate the `["abilities"]` query key on success
-- useImportSkill sends raw markdown with `Content-Type: text/plain` header
-- Files changed: src/api/abilities.ts (created)
+- Created `server/marketplace/types.ts` with MarketplaceItem, MarketplaceItemType, TrustTier, and MarketplaceFilters types
+- Created `server/marketplace/client.ts` with MarketplaceClient class and 8 mock marketplace items
+- MarketplaceClient methods: fetchItems(filters?), getItem(id), downloadItem(id)
+- Mock store index covers all 4 item types (workflow, agent-config, template, mcp-adapter) and all 3 trust tiers (community, verified, official)
+- Files changed: server/marketplace/types.ts (new), server/marketplace/client.ts (new)
 - **Learnings for future iterations:**
-  - Follow the `projects.ts` pattern: interface + query hooks + mutation hooks with queryClient.invalidateQueries
-  - `useAbility(id)` uses `enabled: !!id` pattern for conditional fetching (same as usePipelines)
-  - The import-skill endpoint expects `text/plain` Content-Type, not `application/json` — override the default header from apiFetch
-  - Ability interface mirrors the DB schema: id, workspaceId, name, type, active, config, version, createdAt
+  - MarketplaceClient is stateless — instantiate with optional storeUrl, defaults to insomniac-dev/store GitHub raw URL
+  - fetchItems supports filtering by type, trustTier, and search (name + description match)
+  - downloadItem returns a generic Record<string, unknown> since different item types have different payloads
+  - The mock index has 8 items which is enough to test pagination, filtering, and search in the marketplace UI
+  - When switching to real GitHub fetch, replace the MOCK_STORE_INDEX usage in each method with a fetch() call
 ---
 
 ## 2026-03-22 - US-005
-- Replaced hardcoded ABILITIES array in LeftSidebar with `useAbilities()` hook from `src/api/abilities.ts`
-- Added loading spinner and error state with retry button (matching the projects panel pattern)
-- Added empty state ("No abilities yet") when abilities array is empty
-- Added `activeAbilityId` state to layout store so clicking an ability sets the ID before navigating to detail view
-- Added `plugin` type to `typeBadge` helper (emerald color)
-- Files changed: src/components/shell/LeftSidebar.tsx, src/stores/layout.ts
+- Created `server/routes/marketplace.ts` as a Fastify plugin with 3 endpoints:
+  - GET /api/marketplace — paginated list with optional filters (type, trustTier, search, page, limit)
+  - GET /api/marketplace/:id — single item detail
+  - POST /api/marketplace/:id/install — downloads item payload, creates a template in local DB
+- Input validation via JSON Schema on querystring (enum constraints) and body
+- Pagination: page/limit params, returns `{ items, total, page, limit, totalPages }`
+- Install creates a template record from the marketplace item's chainDefinition
+- Registered routes in server/index.ts
+- Files changed: server/routes/marketplace.ts (new), server/index.ts
 - **Learnings for future iterations:**
-  - The abilities panel mirrors the projects panel pattern for loading/error states — copy that pattern
-  - `activeAbilityId` in layout store is the bridge between sidebar click and AbilityDetailView (US-006 will consume it)
-  - `typeBadge` returns undefined for unknown types — the className handles that gracefully
+  - `getOrCreateDefaultWorkspace()` is now duplicated in 3 files — should be extracted to a shared util
+  - Querystring params come as strings in Fastify, need parseInt for page/limit
+  - Install endpoint uses optional workspaceId from body, falls back to default workspace
+  - The marketplace client's `downloadItem()` returns a `Record<string, unknown>` — cast `payload.chainDefinition` carefully
+  - Pagination limits clamped: page >= 1, 1 <= limit <= 50
 ---
 
 ## 2026-03-22 - US-006
-- Replaced hardcoded AbilityDetailView with real API data from `useAbility(id)` hook
-- Reads `activeAbilityId` from layout store, fetches ability via API
-- Displays all fields: name, type, version, active status, config (JSON pretty-printed), assigned agents placeholder
-- Added active/inactive toggle button using `useUpdateAbility()` mutation
-- Added delete button with confirmation dialog using `useDeleteAbility()` mutation — navigates back on success
-- Added loading spinner, error state with retry, and empty state when no ability selected
-- Added back button to return to pipeline view
-- Files changed: src/components/views/AbilityDetailView.tsx
+- Created `src/api/templates.ts` with 5 hooks: useTemplates(), useTemplate(id), useApplyTemplate(), useCreateTemplate(), useDeleteTemplate()
+- Created `src/api/marketplace.ts` with 3 hooks: useMarketplace(filters), useMarketplaceItem(id), useInstallItem()
+- All mutations invalidate relevant query keys (templates, marketplace, projects)
+- Marketplace hook builds URLSearchParams from filters object for query string
+- Files changed: src/api/templates.ts (new), src/api/marketplace.ts (new)
 - **Learnings for future iterations:**
-  - The `typeIcon` and `typeBadge` helpers can be extracted/shared — LeftSidebar and AbilityDetailView both define similar mappings
-  - After delete, reset `activeAbilityId` to null and navigate to `pipeline` view via `setActiveMain`
-  - `useAbility(id)` returns `undefined` data when `id` is null (disabled query) — check for `!activeAbilityId` before rendering
-  - The config field is a JSON object — display with `JSON.stringify(config, null, 2)` in a `<pre>` block
+  - Template type mirrors DB schema but uses `string` for timestamps (JSON serialization)
+  - MarketplaceFilters includes pagination (page/limit) since the server paginates
+  - useMarketplace uses the full filters object as the query key for automatic refetch on filter changes
+  - useInstallItem invalidates both `["marketplace"]` and `["templates"]` since installing creates a template
+  - The marketplace.ts imports Template type from templates.ts for the install response typing
 ---
 
 ## 2026-03-22 - US-007
-- Installed `@xyflow/react` as dependency
-- Created `src/components/graph/ChainEditor.tsx` with full ReactFlow canvas: dark background (#0a0d13), dot grid pattern, pan/zoom, controls, minimap
-- Empty state overlay shows "Add your first agent node" prompt when no nodes exist
-- Updated `src/components/views/GraphView.tsx` to render ChainEditor instead of placeholder
-- Files changed: package.json, package-lock.json, src/components/graph/ChainEditor.tsx (created), src/components/views/GraphView.tsx
+- Created `src/components/views/MarketplaceView.tsx` with grid layout, search, category filters, and item cards
+- Added 'marketplace' to MainView type in `src/stores/layout.ts`
+- Added MarketplaceView route in `src/components/shell/MainView.tsx`
+- Each card shows: name, type badge (color-coded), trust tier icon, author, install count, description preview
+- Category filter tabs: All, Workflows, Agent Configs, Templates, MCP Adapters
+- Search input filters by name/description via the marketplace API
+- Files changed: src/components/views/MarketplaceView.tsx (new), src/components/shell/MainView.tsx, src/stores/layout.ts
 - **Learnings for future iterations:**
-  - ReactFlow requires its container to have an explicit height — `h-full w-full` works when the parent has flex layout with `flex-1`
-  - Import `@xyflow/react/dist/style.css` in the component file for ReactFlow's base styles
-  - Use `proOptions={{ hideAttribution: true }}` to hide the ReactFlow watermark
-  - Tailwind classes on ReactFlow's Controls/MiniMap need `!important` prefix (`!bg-...`) to override ReactFlow's inline styles
-  - The `BackgroundVariant.Dots` enum is used for the dot grid pattern; color `#1e2a3a` matches the theme's border-muted
-  - Empty state is an absolute overlay with `pointer-events-none` on the wrapper and `pointer-events-auto` on the content
+  - Adding a new view: (1) add to MainView type in layout.ts, (2) import + render conditionally in MainView.tsx
+  - useMarketplace hook accepts optional filters — pass `undefined` when no filters active (avoids empty object query key issues)
+  - `line-clamp-2` Tailwind utility works for truncating multi-line text
+  - Trust tier badges use different lucide icons: Shield (community), ShieldCheck (verified), ShieldAlert (official)
+  - MarketplaceView uses max-w-4xl to accommodate the 2-column grid layout
+  - Browser verification needed — no dev-browser available in this session
 ---
 
 ## 2026-03-22 - US-008
-- Created `src/components/graph/AgentNode.tsx` as a custom ReactFlow node with memo wrapper
-- Node renders: colored type dot (6 types mapped), bold 11px name, muted 10px model, 72-char system prompt preview
-- Status badge in footer (pending/running/done/error) with color-coded styles
-- Open button (ExternalLink icon) and delete button (X icon) in header
-- Input handle (left) and output handle (right) as circular port handles
-- Card styled with #111827 background and #1e2a3a border per spec
-- Registered `agent` node type in ChainEditor via `nodeTypes` prop
-- Files changed: src/components/graph/AgentNode.tsx (created), src/components/graph/ChainEditor.tsx
+- Added one-click Install button to each marketplace item card in MarketplaceView.tsx
+- Button shows loading spinner + "Installing…" during mutation via `useInstallItem()`
+- Success state: green check icon + "Installed" text replaces the button
+- Error state: inline red error message below the card footer
+- Tracks installed IDs and per-item errors via local state (Set and Record)
+- Files changed: src/components/views/MarketplaceView.tsx
 - **Learnings for future iterations:**
-  - Custom ReactFlow nodes must be wrapped in `memo()` for performance (ReactFlow re-renders frequently)
-  - Node type registration via `nodeTypes` object must be defined OUTSIDE the component to avoid re-renders (or use useMemo)
-  - `AgentNodeData` type includes callback props (`onOpen`, `onDelete`) — pass these via node data when creating nodes
-  - Handle className needs `!` prefix to override ReactFlow's default styles
-  - The `type: 'agent'` on a node object maps to the `nodeTypes.agent` component
+  - `useMutation` from TanStack Query exposes `isPending` and `variables` — use `variables?.id` to match which item is loading
+  - Per-item callbacks: pass `onSuccess`/`onError` as the second arg to `mutation.mutate()` for item-scoped side effects
+  - Install button pattern: `installedIds` Set for success tracking, `errorIds` Record<string, string> for per-item errors
+  - Browser verification needed — no dev-browser available in this session
 ---
 
 ## 2026-03-22 - US-009
-- Created `src/components/graph/CustomEdge.tsx` as a custom ReactFlow edge component
-- Edge condition colors: always(gray #374151), on-success(emerald), on-failure(red), on-decision(amber)
-- Smooth bezier curves via `getBezierPath`; invisible wider hit area for easier hover interaction
-- Hover/select reveals delete button at edge midpoint using `EdgeLabelRenderer`
-- Cycle detection via BFS in `wouldCreateCycle()` — rejects connections that would create loops (including self-loops)
-- Dashed preview curve during drag connection via custom `connectionLineComponent`
-- Updated ChainEditor with `edgeTypes`, `defaultEdgeOptions`, and custom connection line
-- Files changed: src/components/graph/CustomEdge.tsx (created), src/components/graph/ChainEditor.tsx
+- Updated marketplace sidebar panel in LeftSidebar.tsx with real data from useMarketplace hook
+- Added category buttons (All, Workflows, Agent Configs, Templates, MCP Adapters) that navigate to MarketplaceView with filter active
+- Added "Popular" section showing top 3 items sorted by installCount
+- Added `marketplaceCategory` state and `setMarketplaceCategory` action to layout store for sidebar-to-view communication
+- Updated MarketplaceView to sync its local category state with the store via useEffect
+- Extracted MarketplaceSidebar as a separate component within LeftSidebar.tsx
+- Files changed: src/stores/layout.ts, src/components/shell/LeftSidebar.tsx, src/components/views/MarketplaceView.tsx
 - **Learnings for future iterations:**
-  - Custom edges use `getBezierPath` + `BaseEdge` — pass style props to BaseEdge for colors
-  - `EdgeLabelRenderer` positions elements at `(labelX, labelY)` using `transform: translate(-50%, -50%) translate(Xpx, Ypx)`
-  - Invisible wider `<path>` with `strokeWidth={20}` and `stroke="transparent"` enables easy hover detection
-  - `connectionLineComponent` receives `fromX/Y, toX/Y, fromPosition, toPosition` (not source/target)
-  - Cycle detection: BFS from target node following outgoing edges — if source is reachable, it's a cycle
-  - `edgeTypes` object (like `nodeTypes`) must be defined outside the component to avoid re-renders
-  - `deleteElements` from `useReactFlow()` removes edges programmatically
+  - To share filter state between sidebar and main view, add state to the layout store rather than prop drilling
+  - Export types from stores when needed by other components (`export type MarketplaceCategory`)
+  - Use `useEffect` to sync local component state with store state for bidirectional updates
+  - The MarketplaceSidebar fetches all items (limit: 50) and sorts client-side for the "popular" section
+  - Browser verification needed — no dev-browser available in this session
 ---
 
 ## 2026-03-22 - US-010
-- Created `src/components/graph/AddNodeMenu.tsx` — floating menu with 6 built-in node types (Trigger, Prototyper, Builder, Tester, Reviewer, Auditor)
-- Each type shows colored dot, label, and role description
-- Clicking a type adds a new agent node at the menu's flow position
-- Menu accessible via toolbar '+ Add node' button (places at viewport center) and double-click on empty canvas (places at cursor)
-- Menu dismisses on click outside or Escape key
-- Updated `ChainEditor.tsx`: added toolbar bar, ReactFlowProvider wrapper, menu state management, `screenToFlowPosition` for coordinate conversion
-- Files changed: src/components/graph/AddNodeMenu.tsx (created), src/components/graph/ChainEditor.tsx
+- Added TemplatePicker overlay component to ChainEditor.tsx — shows all templates (built-in + user-created) in a centered modal with category badges
+- Modified empty state to include "Start from template" button with "or" divider below existing "Add your first agent node" prompt
+- Added "Load template" button to ChainToolbar (accessible from toolbar even when chain has nodes)
+- Clicking a template calls useApplyTemplate() for server persistence and directly deserializes the chainDefinition into local ReactFlow nodes/edges
+- Files changed: src/components/graph/ChainEditor.tsx, src/components/graph/ChainToolbar.tsx
 - **Learnings for future iterations:**
-  - `useReactFlow()` (for `screenToFlowPosition`, `deleteElements`, etc.) requires the component to be inside a `<ReactFlowProvider>` — wrap with provider and use an inner component
-  - Menu needs two coordinate systems: screen coords (CSS `left`/`top` for popup placement) and flow coords (for `node.position`)
-  - `onDoubleClick` on `<ReactFlow>` fires for double-click on the pane; use `event.target.closest('.react-flow')?.getBoundingClientRect()` to get relative screen position
-  - Node IDs use `crypto.randomUUID()` matching the backend pattern
-  - Node labels are auto-numbered: `${label} ${nodes.length + 1}`
+  - TemplatePicker uses the same click-outside + Escape close pattern as AddNodeMenu
+  - Template's `chainDefinition` is typed as `unknown` in the Template interface — cast to `ChainDefinition` when deserializing
+  - When applying a template, set nodes/edges locally AND call the mutation for server persistence — avoids waiting for network round-trip
+  - The auto-save mechanism (1s debounce) will fire after local state update, saving the same chain data — harmless duplicate
+  - Hide empty state when template picker is open (`!showTemplatePicker` condition) to avoid visual overlap
+  - Browser verification needed — no dev-browser available in this session
 ---
 
 ## 2026-03-22 - US-011
-- Created `src/components/graph/NodeInspector.tsx` — 340px slide-in panel from the right
-- Opens when clicking 'Open' (ExternalLink) button on a node via `onOpen` callback
-- Editable fields: node name (text input), model dropdown (ModelSelector), system prompt textarea
-- Abilities section: tag list of assigned abilities with remove (X) button, '+ Add ability' button opens inline picker from API data
-- Outgoing edge conditions: dropdown per edge to change condition (always/on-success/on-failure/on-decision) with color dot indicator
-- Save button persists changes to node data, Delete button removes node with confirmation
-- Panel renders inside the canvas wrapper so nodes remain visible alongside it
-- Added `AgentNodeAbility` type and `abilities` field to `AgentNodeData`
-- Updated `ChainEditor.tsx`: `inspectedNodeId` state, `nodesWithCallbacks` memo to inject onOpen/onDelete, inspector callbacks (save/delete/updateEdge)
-- Files changed: src/components/graph/NodeInspector.tsx (created), src/components/graph/AgentNode.tsx, src/components/graph/ChainEditor.tsx
+- Added 'Save as template' button (with Save icon) to ChainToolbar, positioned to the left of Export JSON
+- Created SaveTemplateForm overlay component with name input, description textarea, and category dropdown
+- Form submits via useCreateTemplate() mutation with current chain serialized via serializeChain()
+- Success shows a green confirmation toast ("Template saved successfully") for 2.5 seconds
+- Loading state disables submit button and shows "Saving…" text
+- Click-outside and Escape key close the form (same pattern as TemplatePicker/AddNodeMenu)
+- Files changed: src/components/graph/ChainToolbar.tsx, src/components/graph/ChainEditor.tsx
 - **Learnings for future iterations:**
-  - `useNodesState<Node>([])` returns generic `Node` with `Record<string, unknown>` data — cast to `Node<AgentNodeData>` when passing to typed components
-  - Inject callback props (onOpen, onDelete) via a `useMemo` wrapper over the nodes array rather than setting them at node creation time — keeps callbacks always up-to-date
-  - NodeInspector syncs local form state from props via `useEffect` keyed on `node.id` — handles switching between nodes
-  - Edge condition updates use `setEdges` map to modify `data.condition` on the matching edge
-  - `useAbilities()` hook provides the full list for the ability picker; filter out already-assigned and inactive abilities
----
-
-## 2026-03-22 - US-012
-- Created `src/components/graph/ChainToolbar.tsx` — presentational toolbar with 4 buttons: Add node, Auto-layout, Clear edges, Export JSON
-- Auto-layout arranges nodes in a left-to-right grid using sqrt-based column distribution (colWidth=280, rowHeight=160)
-- Clear edges calls `setEdges([])` — removes all edges leaving nodes in place
-- Export JSON serializes chain as `{ version, nodes[], edges[] }` and triggers download as `.insomniac-chain.json`
-- Extracted inline toolbar from ChainEditor, replaced with `<ChainToolbar>` component
-- Export JSON button pushed to right side of toolbar via flex spacer
-- Files changed: src/components/graph/ChainToolbar.tsx (created), src/components/graph/ChainEditor.tsx
-- **Learnings for future iterations:**
-  - Toolbar is pure presentational — all action logic stays in ChainEditorInner and is passed via props
-  - File download pattern: `new Blob()` → `URL.createObjectURL()` → programmatic anchor click → `URL.revokeObjectURL()`
-  - Auto-layout uses `Math.ceil(Math.sqrt(n))` for rows-per-column to produce roughly square grids
-  - When removing an import used in JSX, check all usages in the file — `Plus` was still used in empty state overlay
----
-
-## 2026-03-22 - US-013
-- Added `chainDefinition` (JSON text) column to projects table via migration 0006
-- Added GET /api/projects/:id/chain — returns chain JSON (defaults to empty `{ version: 1, nodes: [], edges: [] }`)
-- Added PUT /api/projects/:id/chain — saves chain JSON with validation (version, nodes[], edges[])
-- Added `useChain(projectId)` and `useSaveChain()` hooks in `src/api/projects.ts`
-- Updated ChainEditor: loads chain from API on mount, auto-saves with 1s debounce on nodes/edges changes
-- Added `serializeChain()` and `deserializeChain()` helpers for ReactFlow ↔ API format conversion
-- Files changed: server/db/schema/projects.ts, server/routes/projects.ts, src/api/projects.ts, src/components/graph/ChainEditor.tsx, migration 0006
-- **Learnings for future iterations:**
-  - `text({ mode: "json" })` in drizzle handles JSON serialization transparently — pass objects directly
-  - Use `hasLoadedRef` flag to prevent `useEffect` from resetting user edits when query cache updates
-  - Chain auto-save uses `useRef` for the timer to avoid stale closures — cleanup in useEffect return
-  - The `activeProjectId` from `useProjectsStore` is the link between ChainEditor and the persistence layer
-  - When deserializing, map saved `type` back to `nodeType` in AgentNodeData (not the ReactFlow `type` prop which is always `'agent'`)
+  - workspaceId for creating templates comes from `useProjects()?.[0]?.workspaceId` — same pattern as SettingsView
+  - SaveTemplateForm follows the same overlay/modal pattern as TemplatePicker (bg-black/40 backdrop, #111827 bg, #1e2a3a borders)
+  - Confirmation toast pattern: useState(false) + setTimeout(2500) to auto-dismiss, positioned absolute top-3 center
+  - Per-mutation callbacks: pass `{ onSuccess }` as second arg to `mutation.mutate()` for scoped side effects
+  - Browser verification needed — no dev-browser available in this session
 ---

@@ -274,7 +274,8 @@ export async function projectRoutes(server: FastifyInstance) {
         .where(eq(projects.id, id))
         .run();
 
-      return request.body;
+      const updated = db.select().from(projects).where(eq(projects.id, id)).get();
+      return updated?.chainDefinition ?? request.body;
     },
   );
 

@@ -1,21 +1,16 @@
 {
     "project": "Insomniac",
-    "branchName": "ralph/m4-abilities-reactflow",
-    "description": "M4 Abilities + ReactFlow — Ability system (skills/plugins/MCPs), agent chain editor, Claude Skill import",
+    "branchName": "ralph/m5-templates-marketplace",
+    "description": "M5 Templates + Marketplace — Template schema, 6 built-in templates, GitHub-backed store, install/publish",
     "userStories": [
         {
             "id": "US-001",
-            "title": "Create Abilities CRUD REST API endpoints",
-            "description": "As a developer, I need endpoints to manage Abilities (skills, plugins, MCP servers).",
+            "title": "Create templates database table",
+            "description": "As a developer, I need a table to store pipeline templates.",
             "acceptanceCriteria": [
-                "Create server/routes/abilities.ts as a Fastify plugin",
-                "GET /api/abilities returns all abilities for the default workspace",
-                "POST /api/abilities creates a new ability with name, type (skill|plugin|mcp), config (JSON)",
-                "PUT /api/abilities/:id updates an ability",
-                "DELETE /api/abilities/:id removes an ability",
-                "GET /api/abilities/:id returns a single ability with full config",
-                "Input validation on all POST/PUT bodies",
-                "Register routes in server/index.ts",
+                "Create server/db/schema/templates.ts with id, workspaceId, name, description, category ('workflow'|'agent-config'|'template'|'mcp-adapter'), chainDefinition (JSON), author, version, isBuiltIn (boolean), installCount (integer default 0), createdAt, updatedAt",
+                "Update barrel export in schema/index.ts",
+                "Migration generates and runs successfully",
                 "Typecheck passes"
             ],
             "priority": 1,
@@ -24,15 +19,13 @@
         },
         {
             "id": "US-002",
-            "title": "Add ability assignment to agents/stages",
-            "description": "As a developer, I need to assign abilities to pipeline stages so agents only access assigned tools.",
+            "title": "Create 6 built-in pipeline templates",
+            "description": "As a user, I want starter templates to quickly set up common pipeline patterns.",
             "acceptanceCriteria": [
-                "Create server/db/schema/stage-abilities.ts junction table with stageId (FK) and abilityId (FK)",
-                "Update barrel export in schema/index.ts",
-                "Migration generates and runs successfully",
-                "Add GET /api/pipelines/:pipelineId/stages/:stageId/abilities endpoint",
-                "Add POST /api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId to assign",
-                "Add DELETE /api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId to unassign",
+                "Create server/templates/built-in.ts with 6 template definitions",
+                "Templates: 'Full Stack Build' (trigger→builder→tester→reviewer), 'Security Audit' (trigger→auditor), 'Code Review' (trigger→reviewer), 'Rapid Prototype' (trigger→prototyper→builder), 'Test Suite' (trigger→tester), 'Full Pipeline' (trigger→prototyper→builder→tester→reviewer→auditor)",
+                "Each template includes complete chainDefinition JSON with nodes and edges",
+                "Seed function inserts templates on first run if templates table is empty",
                 "Typecheck passes"
             ],
             "priority": 2,
@@ -41,14 +34,17 @@
         },
         {
             "id": "US-003",
-            "title": "Implement Claude SKILL.md import parser",
-            "description": "As a user, I want to import Claude Code SKILL.md files as Abilities (PRD US-2).",
+            "title": "Create templates REST API endpoints",
+            "description": "As a developer, I need endpoints to list, create, and apply templates.",
             "acceptanceCriteria": [
-                "Create server/abilities/skill-parser.ts with parseSkillMd(content: string) function",
-                "Parses SKILL.md frontmatter (name, description, trigger) and body content",
-                "Returns { name, description, type: 'skill', config: { trigger, content } }",
-                "Add POST /api/abilities/import-skill endpoint accepting raw markdown body",
-                "Endpoint parses the SKILL.md and creates an Ability record",
+                "Create server/routes/templates.ts as a Fastify plugin",
+                "GET /api/templates returns all templates (built-in + user-created)",
+                "GET /api/templates/:id returns a single template",
+                "POST /api/templates creates a user template from current chain definition",
+                "POST /api/templates/:id/apply applies a template to a project (copies chainDefinition to project)",
+                "DELETE /api/templates/:id deletes a user template (cannot delete built-in)",
+                "Input validation on POST bodies",
+                "Register routes in server/index.ts",
                 "Typecheck passes"
             ],
             "priority": 3,
@@ -57,29 +53,32 @@
         },
         {
             "id": "US-004",
-            "title": "Create Abilities API hooks for frontend",
-            "description": "As a developer, I need TanStack Query hooks to manage abilities from the frontend.",
+            "title": "Create marketplace store schema and types",
+            "description": "As a developer, I need types and schema for marketplace items from the GitHub-backed store.",
             "acceptanceCriteria": [
-                "Create src/api/abilities.ts with useAbilities(), useAbility(id), useCreateAbility(), useUpdateAbility(), useDeleteAbility() hooks",
-                "Add useImportSkill() hook for SKILL.md import",
-                "All mutations invalidate the 'abilities' query key",
+                "Create server/marketplace/types.ts with MarketplaceItem type: id, name, description, type (workflow|agent-config|template|mcp-adapter), author, version, trustTier (community|verified|official), installCount, lastUpdated, repoUrl, downloadUrl",
+                "Create server/marketplace/client.ts with MarketplaceClient class",
+                "fetchItems(filters?) fetches the store index from a configurable GitHub repo URL",
+                "getItem(id) fetches a single item's metadata",
+                "downloadItem(id) downloads the item's package (JSON file)",
                 "Typecheck passes"
             ],
             "priority": 4,
             "passes": true,
-            "notes": ""
+            "notes": "Store is backed by insomniac-dev/store GitHub repo. For now, use a mock/local index."
         },
         {
             "id": "US-005",
-            "title": "Update Abilities sidebar panel with real API data",
-            "description": "As a user, I want the Abilities sidebar to show real abilities from the database (PRD US-3).",
+            "title": "Create marketplace REST API endpoints",
+            "description": "As a developer, I need endpoints to browse and install marketplace items.",
             "acceptanceCriteria": [
-                "Update LeftSidebar abilities panel to use useAbilities() hook instead of hardcoded ABILITIES array",
-                "Remove hardcoded ABILITIES array",
-                "Show loading and error states",
-                "Clicking an ability navigates to ability-detail view with the ability's data",
-                "Typecheck passes",
-                "Verify in browser using dev-browser skill"
+                "Create server/routes/marketplace.ts as a Fastify plugin",
+                "GET /api/marketplace returns paginated marketplace items with optional filters (type, trustTier, search)",
+                "GET /api/marketplace/:id returns a single item detail",
+                "POST /api/marketplace/:id/install downloads and installs an item (creates template or ability)",
+                "Input validation on query params and POST body",
+                "Register routes in server/index.ts",
+                "Typecheck passes"
             ],
             "priority": 5,
             "passes": true,
@@ -87,16 +86,13 @@
         },
         {
             "id": "US-006",
-            "title": "Update AbilityDetailView with real data and edit capability",
-            "description": "As a user, I want to view and edit ability details in the main view.",
+            "title": "Create marketplace API hooks for frontend",
+            "description": "As a developer, I need TanStack Query hooks for marketplace and templates.",
             "acceptanceCriteria": [
-                "Update AbilityDetailView.tsx to accept an abilityId prop or read from route/store state",
-                "Fetch ability data via useAbility(id) hook",
-                "Display all fields: name, type, version, active status, config, assigned agents",
-                "Add toggle for active/inactive status",
-                "Add delete button with confirmation",
-                "Typecheck passes",
-                "Verify in browser using dev-browser skill"
+                "Create src/api/templates.ts with useTemplates(), useApplyTemplate(), useCreateTemplate() hooks",
+                "Create src/api/marketplace.ts with useMarketplace(filters), useMarketplaceItem(id), useInstallItem() hooks",
+                "All mutations invalidate relevant query keys",
+                "Typecheck passes"
             ],
             "priority": 6,
             "passes": true,
@@ -104,15 +100,15 @@
         },
         {
             "id": "US-007",
-            "title": "Install ReactFlow and create base canvas component",
-            "description": "As a developer, I need the ReactFlow canvas for the agent chain editor.",
+            "title": "Create Marketplace main view",
+            "description": "As a user, I want to browse the marketplace from the main view (PRD US-6).",
             "acceptanceCriteria": [
-                "Install @xyflow/react as dependency",
-                "Create src/components/graph/ChainEditor.tsx with ReactFlow canvas",
-                "Dark theme canvas background (#0a0d13) with grid dot pattern",
-                "Pan (drag background) and zoom (scroll) enabled",
-                "Empty state shows 'Add your first agent node' prompt",
-                "Replace GraphView placeholder with ChainEditor",
+                "Create src/components/views/MarketplaceView.tsx",
+                "Grid layout showing marketplace items as cards",
+                "Each card shows: name, type badge, trust tier badge, author, install count, description preview",
+                "Search input for filtering by name/description",
+                "Category filter tabs: All, Workflows, Agent Configs, Templates, MCP Adapters",
+                "Add 'marketplace' to MainView routing",
                 "Typecheck passes",
                 "Verify in browser using dev-browser skill"
             ],
@@ -122,34 +118,29 @@
         },
         {
             "id": "US-008",
-            "title": "Create custom AgentNode component for ReactFlow",
-            "description": "As a user, I want styled agent nodes on the canvas with type dot, name, model, and status.",
+            "title": "Add one-click install button to marketplace items",
+            "description": "As a user, I want to install marketplace items with a single click (PRD US-6).",
             "acceptanceCriteria": [
-                "Create src/components/graph/AgentNode.tsx as a custom ReactFlow node",
-                "Node displays: colored type dot, node name (bold 11px), model name (muted 10px)",
-                "Shows first 72 chars of system prompt as body preview",
-                "Status badge in footer: pending/running/done/error",
-                "Open button and delete (x) button",
-                "Input port (left) and output port (right) as circular handles",
-                "Node card styled with #111827 background and #1e2a3a border",
+                "Each marketplace card has an 'Install' button",
+                "Clicking calls useInstallItem() mutation",
+                "Button shows loading state during install",
+                "Success shows a check icon and 'Installed' text",
+                "Error shows error message inline",
                 "Typecheck passes",
                 "Verify in browser using dev-browser skill"
             ],
             "priority": 8,
             "passes": true,
-            "notes": "Node types: Trigger(cyan), Prototyper(violet), Builder(indigo), Tester(emerald), Reviewer(amber), Auditor(red)"
+            "notes": ""
         },
         {
             "id": "US-009",
-            "title": "Add edge types and connection handling",
-            "description": "As a user, I want to connect agent nodes with typed edges (always, on-success, on-failure, on-decision).",
+            "title": "Update Marketplace sidebar panel with real data",
+            "description": "As a user, I want the marketplace sidebar to show real categories and navigate to the marketplace view.",
             "acceptanceCriteria": [
-                "Create src/components/graph/CustomEdge.tsx as a custom ReactFlow edge",
-                "Edge types with colors: always(gray #374151), on-success(emerald), on-failure(red), on-decision(amber)",
-                "Smooth bezier curves between output and input ports",
-                "Hover reveals delete button at edge midpoint",
-                "Cycle detection: reject connections that would create loops",
-                "Dashed preview curve during drag connection",
+                "Update LeftSidebar marketplace panel to show category buttons that set filters and navigate to marketplace view",
+                "Show featured/popular items preview (top 3 by install count)",
+                "Clicking a category opens MarketplaceView with that filter active",
                 "Typecheck passes",
                 "Verify in browser using dev-browser skill"
             ],
@@ -159,14 +150,13 @@
         },
         {
             "id": "US-010",
-            "title": "Create Add Node menu",
-            "description": "As a user, I want to add new agent nodes to the canvas by type.",
+            "title": "Add template picker to chain editor",
+            "description": "As a user, I want to start a new pipeline from a template in the chain editor.",
             "acceptanceCriteria": [
-                "Create src/components/graph/AddNodeMenu.tsx",
-                "Menu shows 6 built-in node types: Trigger, Prototyper, Builder, Tester, Reviewer, Auditor",
-                "Each type shows its colored dot and default role description",
-                "Clicking a type adds a new node at the cursor/center position",
-                "Accessible via toolbar '+ Add node' button and double-click on empty canvas",
+                "Add 'Start from template' option to the chain editor empty state",
+                "Shows a list of available templates (built-in + user-created)",
+                "Clicking a template calls useApplyTemplate() and loads the chain",
+                "Also accessible from ChainToolbar as 'Load template' button",
                 "Typecheck passes",
                 "Verify in browser using dev-browser skill"
             ],
@@ -176,53 +166,17 @@
         },
         {
             "id": "US-011",
-            "title": "Create node inspector panel",
-            "description": "As a user, I want a slide-in panel to edit node name, model, system prompt, and abilities.",
+            "title": "Add 'Save as template' to chain editor toolbar",
+            "description": "As a user, I want to save my current chain as a reusable template.",
             "acceptanceCriteria": [
-                "Create src/components/graph/NodeInspector.tsx as a 340px slide-in panel",
-                "Opens when clicking 'Open' on a node, slides in from the right",
-                "Editable fields: node name, model dropdown (using ModelSelector), system prompt textarea",
-                "Abilities section: tag list of assigned abilities with remove button, '+ Add ability' button",
-                "Edge condition dropdown: Always/On success/On failure/On decision",
-                "Save and Delete buttons",
-                "Panel does not dismiss the canvas — nodes remain visible",
+                "Add 'Save as template' button to ChainToolbar",
+                "Clicking opens a form: template name, description, category dropdown",
+                "Submit calls useCreateTemplate() with current chain definition",
+                "Success shows confirmation toast/message",
                 "Typecheck passes",
                 "Verify in browser using dev-browser skill"
             ],
             "priority": 11,
-            "passes": true,
-            "notes": ""
-        },
-        {
-            "id": "US-012",
-            "title": "Add chain editor toolbar",
-            "description": "As a user, I want a toolbar above the canvas with layout, export, and template actions.",
-            "acceptanceCriteria": [
-                "Create src/components/graph/ChainToolbar.tsx above the canvas",
-                "Buttons: + Add node, Auto-layout, Clear edges, Export JSON",
-                "Auto-layout arranges nodes in a left-to-right grid",
-                "Clear edges removes all edges leaving nodes in place",
-                "Export JSON downloads chain definition as .insomniac-chain.json file",
-                "Typecheck passes",
-                "Verify in browser using dev-browser skill"
-            ],
-            "priority": 12,
-            "passes": true,
-            "notes": ""
-        },
-        {
-            "id": "US-013",
-            "title": "Add chain definition persistence to database",
-            "description": "As a developer, I need to save and load chain definitions from the project's database record.",
-            "acceptanceCriteria": [
-                "Add chainDefinition (JSON text) column to projects table via migration",
-                "PUT /api/projects/:id/chain saves the chain JSON",
-                "GET /api/projects/:id/chain returns the chain JSON",
-                "ChainEditor loads chain from API on mount and auto-saves on changes (debounced 1s)",
-                "Chain schema matches PRD: { version, nodes[], edges[] }",
-                "Typecheck passes"
-            ],
-            "priority": 13,
             "passes": true,
             "notes": ""
         }
