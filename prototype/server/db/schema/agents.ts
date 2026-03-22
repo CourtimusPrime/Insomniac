@@ -20,6 +20,7 @@ export const agents = sqliteTable("agents", {
     .notNull()
     .default("idle"),
   currentTask: text("current_task"),
+  progress: integer("progress").notNull().default(0),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

@@ -5,6 +5,24 @@ type MainView = 'pipeline' | 'graph' | 'backseat' | 'ability-detail' | 'settings
 type BottomTab = 'terminal' | 'usage' | 'health' | 'browser';
 export type MarketplaceCategory = 'all' | 'workflow' | 'agent-config' | 'template' | 'mcp-adapter';
 
+const PINNED_THEMES_KEY = 'insomniac-pinned-themes';
+const MAX_PINNED = 4;
+
+function loadPinnedThemes(): string[] {
+  try {
+    const saved = localStorage.getItem(PINNED_THEMES_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed.slice(0, MAX_PINNED);
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+function savePinnedThemes(ids: string[]) {
+  localStorage.setItem(PINNED_THEMES_KEY, JSON.stringify(ids));
+}
+
 interface CollapsedPanels {
   leftSidebar: boolean;
   rightSidebar: boolean;
@@ -18,6 +36,7 @@ interface LayoutState {
   activeAbilityId: string | null;
   collapsedPanels: CollapsedPanels;
   marketplaceCategory: MarketplaceCategory;
+  pinnedThemes: string[];
 
   setActiveToolbar: (panel: ToolbarPanel) => void;
   setActiveMain: (view: MainView) => void;
@@ -26,6 +45,8 @@ interface LayoutState {
   togglePanel: (panel: keyof CollapsedPanels) => void;
   setCollapsedPanel: (panel: keyof CollapsedPanels, collapsed: boolean) => void;
   setMarketplaceCategory: (category: MarketplaceCategory) => void;
+  pinTheme: (id: string) => void;
+  unpinTheme: (id: string) => void;
 }
 
 export const useLayoutStore = create<LayoutState>((set) => ({
@@ -39,6 +60,7 @@ export const useLayoutStore = create<LayoutState>((set) => ({
     bottomPanel: false,
   },
   marketplaceCategory: 'all',
+  pinnedThemes: loadPinnedThemes(),
 
   setActiveToolbar: (panel) => set({ activeToolbar: panel }),
   setActiveMain: (view) => set({ activeMain: view }),
@@ -59,4 +81,17 @@ export const useLayoutStore = create<LayoutState>((set) => ({
         [panel]: collapsed,
       },
     })),
+  pinTheme: (id) =>
+    set((state) => {
+      if (state.pinnedThemes.includes(id) || state.pinnedThemes.length >= MAX_PINNED) return state;
+      const next = [...state.pinnedThemes, id];
+      savePinnedThemes(next);
+      return { pinnedThemes: next };
+    }),
+  unpinTheme: (id) =>
+    set((state) => {
+      const next = state.pinnedThemes.filter((t) => t !== id);
+      savePinnedThemes(next);
+      return { pinnedThemes: next };
+    }),
 }));
