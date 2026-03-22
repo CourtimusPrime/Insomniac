@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./client";
 
 export interface Pipeline {
@@ -37,5 +37,38 @@ export function usePipelineStages(pipelineId: string | null) {
     queryFn: () =>
       apiFetch<PipelineStage[]>(`/api/pipelines/${pipelineId}/stages`),
     enabled: !!pipelineId,
+  });
+}
+
+export function usePausePipeline(projectId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (pipelineId: string) =>
+      apiFetch(`/api/pipelines/${pipelineId}/pause`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pipelines", projectId] });
+    },
+  });
+}
+
+export function useResumePipeline(projectId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (pipelineId: string) =>
+      apiFetch(`/api/pipelines/${pipelineId}/resume`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pipelines", projectId] });
+    },
+  });
+}
+
+export function useCancelPipeline(projectId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (pipelineId: string) =>
+      apiFetch(`/api/pipelines/${pipelineId}/cancel`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pipelines", projectId] });
+    },
   });
 }

@@ -1,6 +1,6 @@
-import { CheckCircle2, AlertCircle, Circle, ArrowRight, Loader2, SkipForward } from 'lucide-react';
-import { usePipelines, usePipelineStages } from '../../api/pipelines';
-import type { PipelineStage } from '../../api/pipelines';
+import { CheckCircle2, AlertCircle, Circle, ArrowRight, Loader2, SkipForward, Pause, Play, XCircle } from 'lucide-react';
+import { usePipelines, usePipelineStages, usePausePipeline, useResumePipeline, useCancelPipeline } from '../../api/pipelines';
+import type { Pipeline, PipelineStage } from '../../api/pipelines';
 import { useProjectsStore } from '../../stores/projects';
 
 const stageColor = (s: string) => ({
@@ -57,6 +57,59 @@ function StageRow({ stage }: { stage: PipelineStage }) {
   );
 }
 
+function PipelineToolbar({ pipeline, projectId }: { pipeline: Pipeline; projectId: string }) {
+  const pause = usePausePipeline(projectId);
+  const resume = useResumePipeline(projectId);
+  const cancel = useCancelPipeline(projectId);
+
+  const status = pipeline.status;
+  const canPause = status === 'running';
+  const canResume = status === 'paused';
+  const canCancel = status === 'running' || status === 'paused';
+  const isBusy = pause.isPending || resume.isPending || cancel.isPending;
+
+  const statusBadge: Record<string, { text: string; className: string }> = {
+    idle: { text: 'Idle', className: 'text-text-muted border-border-muted' },
+    running: { text: 'Running', className: 'text-accent-primary border-accent-primary/30 bg-accent-primary/10' },
+    completed: { text: 'Completed', className: 'text-status-success border-status-success/30 bg-status-success/10' },
+    error: { text: 'Error', className: 'text-status-error border-status-error/30 bg-status-error/10' },
+    paused: { text: 'Paused', className: 'text-status-warning border-status-warning/30 bg-status-warning/10' },
+    cancelled: { text: 'Cancelled', className: 'text-text-muted border-border-muted bg-bg-muted' },
+  };
+
+  const badge = statusBadge[status] ?? statusBadge.idle;
+
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <span className={`text-[10px] font-medium px-2 py-0.5 rounded border ${badge.className}`}>
+        {badge.text}
+      </span>
+      <div className="flex-1" />
+      <button
+        disabled={!canPause || isBusy}
+        onClick={() => pause.mutate(pipeline.id)}
+        className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded border border-border-muted text-text-secondary hover:bg-bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition"
+      >
+        <Pause size={11} /> Pause
+      </button>
+      <button
+        disabled={!canResume || isBusy}
+        onClick={() => resume.mutate(pipeline.id)}
+        className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded border border-accent-primary/30 text-accent-primary hover:bg-accent-primary/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+      >
+        <Play size={11} /> Resume
+      </button>
+      <button
+        disabled={!canCancel || isBusy}
+        onClick={() => cancel.mutate(pipeline.id)}
+        className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded border border-status-error/30 text-status-error hover:bg-status-error/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+      >
+        <XCircle size={11} /> Cancel
+      </button>
+    </div>
+  );
+}
+
 export function PipelineView() {
   const activeProjectId = useProjectsStore((s) => s.activeProjectId);
   const { data: pipelines, isLoading: pipelinesLoading, error: pipelinesError } = usePipelines(activeProjectId);
@@ -105,6 +158,7 @@ export function PipelineView() {
 
   return (
     <div className="p-5 space-y-2 max-w-2xl">
+      <PipelineToolbar pipeline={activePipeline} projectId={activeProjectId!} />
       {stages && stages.length > 0 ? (
         stages.map((stage) => <StageRow key={stage.id} stage={stage} />)
       ) : (
