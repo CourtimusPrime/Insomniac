@@ -8,6 +8,7 @@ import { wsRoutes } from "./ws/handler.js";
 import { projectRoutes } from "./routes/projects.js";
 import { pipelineRoutes } from "./routes/pipelines.js";
 import { decisionRoutes } from "./routes/decisions.js";
+import { providerRoutes } from "./routes/providers.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -36,6 +37,7 @@ await server.register(fastifyStatic, {
 await server.register(projectRoutes);
 await server.register(pipelineRoutes);
 await server.register(decisionRoutes);
+await server.register(providerRoutes);
 
 // Health check
 server.get("/api/health", async () => {
