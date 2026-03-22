@@ -5,6 +5,7 @@ import websocket from "@fastify/websocket";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { wsRoutes } from "./ws/handler.js";
+import { projectRoutes } from "./routes/projects.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -28,6 +29,9 @@ await server.register(fastifyStatic, {
   root: resolve(__dirname, "../dist"),
   wildcard: false,
 });
+
+// API routes
+await server.register(projectRoutes);
 
 // Health check
 server.get("/api/health", async () => {
