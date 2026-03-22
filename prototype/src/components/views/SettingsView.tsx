@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Loader2, AlertCircle, Shield, Cpu, CheckCircle2, XCircle, Plus, X, Bell, Send, Webhook, Trash2 } from 'lucide-react';
+import { Loader2, AlertCircle, Shield, Cpu, CheckCircle2, XCircle, Plus, X, Bell, Send, Webhook, Trash2, KeyRound } from 'lucide-react';
 import { useProviders, useAddProvider, useProviderModels, type Provider, type ProviderName } from '../../api/providers';
 import { useProjects } from '../../api/projects';
 import { useSetting, useSaveSetting, useTestSlackWebhook } from '../../api/settings';
 import { useHooks, useCreateHook, useUpdateHook, useDeleteHook, type Hook } from '../../api/hooks';
+import { useCredentials, useCreateCredential, useDeleteCredential, type Credential } from '../../api/credentials';
 
-type SettingsTab = 'providers' | 'notifications' | 'hooks';
+type SettingsTab = 'providers' | 'notifications' | 'hooks' | 'credentials';
 
 const PROVIDER_OPTIONS: { value: ProviderName; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' },
@@ -591,9 +592,254 @@ function HooksTab() {
   );
 }
 
+function AddCredentialForm({ onClose }: { onClose: () => void }) {
+  const { data: projects } = useProjects();
+  const createCredential = useCreateCredential();
+  const [name, setName] = useState('');
+  const [providerName, setProviderName] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [redirectUri, setRedirectUri] = useState('');
+  const [scopes, setScopes] = useState('');
+  const [projectId, setProjectId] = useState<string | null>(null);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !providerName.trim() || !clientId || !clientSecret) return;
+
+    createCredential.mutate(
+      {
+        name,
+        providerName,
+        clientId,
+        clientSecret,
+        redirectUri,
+        scopes: scopes.split(',').map(s => s.trim()).filter(Boolean),
+        projectId,
+      },
+      { onSuccess: () => onClose() },
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-lg border border-border-default p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium font-heading text-text-primary">Add Credential</span>
+        <button type="button" onClick={onClose} className="text-text-muted hover:text-text-primary">
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-[11px] text-text-muted">Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="My OAuth App"
+            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] text-text-muted">Provider Name</label>
+          <input
+            type="text"
+            value={providerName}
+            onChange={e => setProviderName(e.target.value)}
+            placeholder="github, google, etc."
+            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <label className="text-[11px] text-text-muted">Client ID</label>
+          <input
+            type="password"
+            value={clientId}
+            onChange={e => setClientId(e.target.value)}
+            placeholder="Client ID"
+            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[11px] text-text-muted">Client Secret</label>
+          <input
+            type="password"
+            value={clientSecret}
+            onChange={e => setClientSecret(e.target.value)}
+            placeholder="Client Secret"
+            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[11px] text-text-muted">Redirect URI</label>
+        <input
+          type="text"
+          value={redirectUri}
+          onChange={e => setRedirectUri(e.target.value)}
+          placeholder="https://example.com/callback"
+          className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[11px] text-text-muted">Scopes (comma-separated)</label>
+        <input
+          type="text"
+          value={scopes}
+          onChange={e => setScopes(e.target.value)}
+          placeholder="read, write, admin"
+          className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
+        />
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-[11px] text-text-muted">Project Scope</label>
+        <select
+          value={projectId ?? ''}
+          onChange={e => setProjectId(e.target.value || null)}
+          className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary"
+        >
+          <option value="">Global (all projects)</option>
+          {projects?.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-3 py-1.5 text-[11px] rounded text-text-muted hover:text-text-primary hover:bg-bg-hover"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={createCredential.isPending || !name.trim() || !providerName.trim() || !clientId || !clientSecret}
+          className="px-3 py-1.5 text-[11px] rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50"
+        >
+          {createCredential.isPending ? 'Adding...' : 'Add Credential'}
+        </button>
+      </div>
+
+      {createCredential.isError && (
+        <div className="text-[11px] text-status-error flex items-center gap-1">
+          <AlertCircle size={12} />
+          {(createCredential.error as Error).message}
+        </div>
+      )}
+    </form>
+  );
+}
+
+function CredentialCard({ credential }: { credential: Credential }) {
+  const deleteCredential = useDeleteCredential();
+  const { data: projects } = useProjects();
+
+  const projectName = credential.projectId
+    ? projects?.find(p => p.id === credential.projectId)?.name ?? 'Unknown'
+    : 'Global';
+
+  function handleDelete() {
+    deleteCredential.mutate(credential.id);
+  }
+
+  return (
+    <div className="rounded-lg border border-border-default px-4 py-3 flex items-center gap-3">
+      <div className="w-8 h-8 rounded-md bg-accent-primary/10 flex items-center justify-center shrink-0">
+        <KeyRound size={16} className="text-accent-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium font-heading text-text-primary">{credential.name}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded border bg-accent-primary/10 text-accent-primary border-accent-primary/30 capitalize">
+            {credential.providerName}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 mt-0.5">
+          <span className="text-[11px] text-text-muted">{projectName}</span>
+          {credential.scopes && credential.scopes.length > 0 && (
+            <span className="text-[11px] text-text-faint">
+              {credential.scopes.join(', ')}
+            </span>
+          )}
+          <span className="text-[10px] text-text-faint flex items-center gap-1">
+            <Shield size={10} /> ****
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={handleDelete}
+          disabled={deleteCredential.isPending}
+          className="text-text-faint hover:text-status-error transition disabled:opacity-50"
+          title="Delete credential"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CredentialsTab() {
+  const { data: credentialsList, isLoading, error } = useCredentials();
+  const [showForm, setShowForm] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-text-muted">
+        <Loader2 size={14} className="animate-spin" />
+        Loading credentials…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-status-error">
+        <AlertCircle size={14} />
+        Failed to load credentials: {(error as Error).message}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {!showForm && (
+        <button
+          onClick={() => setShowForm(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] rounded border border-dashed border-border-default text-text-muted hover:text-accent-primary hover:border-accent-primary transition"
+        >
+          <Plus size={12} />
+          Add Credential
+        </button>
+      )}
+
+      {showForm && <AddCredentialForm onClose={() => setShowForm(false)} />}
+
+      {credentialsList && credentialsList.length > 0 ? (
+        credentialsList.map(cred => <CredentialCard key={cred.id} credential={cred} />)
+      ) : (
+        <div className="text-xs text-text-muted">
+          No credentials configured. Add a credential to store OAuth secrets securely.
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'providers', label: 'Providers' },
   { id: 'hooks', label: 'Hooks' },
+  { id: 'credentials', label: 'Credentials' },
   { id: 'notifications', label: 'Notifications' },
 ];
 
@@ -626,6 +872,7 @@ export function SettingsView() {
       {/* Tab content */}
       {activeTab === 'providers' && <ProvidersTab />}
       {activeTab === 'hooks' && <HooksTab />}
+      {activeTab === 'credentials' && <CredentialsTab />}
       {activeTab === 'notifications' && <NotificationsTab />}
     </div>
   );
