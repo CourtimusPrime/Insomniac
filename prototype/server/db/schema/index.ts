@@ -13,3 +13,4 @@ export { templates } from "./templates.js";
 export { hooks } from "./hooks.js";
 export { credentials } from "./credentials.js";
 export { usageRecords } from "./usage.js";
+export { logEntries } from "./logs.js";

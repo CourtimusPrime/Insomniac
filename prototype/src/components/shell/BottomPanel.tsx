@@ -7,6 +7,7 @@ import { useProjectsStore } from '../../stores/projects';
 import { useDevServerStatus, useStartDevServer, useStopDevServer } from '../../api/localhost';
 import { useBrowserStatus, useLaunchBrowser, useNavigate, useScreenshot, useCloseBrowser, useInspectInAgent } from '../../api/browser';
 import { useUsageSummary, useUsageBreakdown } from '../../api/usage';
+import { useLogs, type LogEntry } from '../../api/logs';
 
 export function BottomPanel() {
   const activeTab = useLayoutStore((s) => s.activeTab);
@@ -38,6 +39,46 @@ export function BottomPanel() {
   const [inspectSelector, setInspectSelector] = useState('');
   const [inspectDescription, setInspectDescription] = useState('');
   const [inspectConfirmation, setInspectConfirmation] = useState<string | null>(null);
+
+  // Admin Terminal: log search/filter + real-time entries
+  const [logSearch, setLogSearch] = useState('');
+  const [logSourceFilter, setLogSourceFilter] = useState('');
+  const [realtimeLogs, setRealtimeLogs] = useState<LogEntry[]>([]);
+  const { data: apiLogs } = useLogs(logSearch || undefined, logSourceFilter || undefined);
+  const adminLogsEndRef = useRef<HTMLDivElement>(null);
+
+  // Merge API logs with realtime WebSocket logs (deduplicate by id)
+  const allLogs = (() => {
+    const base = apiLogs ?? [];
+    const ids = new Set(base.map((l) => l.id));
+    const extras = realtimeLogs.filter((l) => !ids.has(l.id));
+    return [...base, ...extras];
+  })();
+
+  // Listen for log:entry WebSocket events
+  useEffect(() => {
+    const ws = new WebSocket('ws://localhost:4321/ws');
+    function onMessage(evt: MessageEvent) {
+      try {
+        const msg = JSON.parse(evt.data) as { event: string; data?: LogEntry };
+        if (msg.event === 'log:entry' && msg.data) {
+          setRealtimeLogs((prev) => [...prev.slice(-199), msg.data!]);
+        }
+      } catch { /* ignore */ }
+    }
+    ws.addEventListener('message', onMessage);
+    return () => { ws.close(); };
+  }, []);
+
+  // Clear realtime buffer when API data refreshes (it includes latest)
+  useEffect(() => {
+    if (apiLogs) setRealtimeLogs([]);
+  }, [apiLogs]);
+
+  // Auto-scroll admin logs
+  useEffect(() => {
+    adminLogsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [allLogs.length]);
 
   const handleNavigate = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -219,13 +260,59 @@ export function BottomPanel() {
 
       <div className="flex-1 overflow-y-auto p-4 font-mono text-[11px]">
         {activeTab === 'terminal' && (
-          <div className="space-y-1">
-            <div className="text-accent-secondary">[Orchestrator] Analyzing memory management module in aether_mem…</div>
-            <div className="text-text-muted">[Claude Code] Reading src/mem/gc.rs (line 142)…</div>
-            <div className="text-status-success">[System] Security pre-audit complete. No critical findings in 847 files.</div>
-            <div className="text-status-warning">[Auditor] Hash collision risk detected. Decision surfaced to queue.</div>
-            <div className="text-text-muted">[Claude Code] Writing implementation for sync_gc_cycle() — 67% complete.</div>
-            <div className="flex items-center gap-2 mt-3 text-text-faint">
+          <div className="flex flex-col h-full gap-2">
+            {/* Search and filter bar */}
+            <div className="flex items-center gap-2 shrink-0">
+              <input
+                value={logSearch}
+                onChange={(e) => setLogSearch(e.target.value)}
+                placeholder="Search logs…"
+                className="flex-1 bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
+              />
+              <select
+                value={logSourceFilter}
+                onChange={(e) => setLogSourceFilter(e.target.value)}
+                className="bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default outline-none focus:border-accent-primary"
+              >
+                <option value="">All sources</option>
+                <option value="orchestrator">Orchestrator</option>
+                <option value="agent">Agent</option>
+                <option value="system">System</option>
+                <option value="error">Error</option>
+              </select>
+            </div>
+            {/* Log entries */}
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-0.5">
+              {allLogs.length === 0 ? (
+                <div className="text-text-faint italic">No log entries yet.</div>
+              ) : (
+                allLogs.map((entry) => (
+                  <div key={entry.id} className="flex items-start gap-1.5">
+                    <span className="text-text-faint shrink-0">
+                      {new Date(typeof entry.createdAt === 'number' ? entry.createdAt * 1000 : entry.createdAt).toLocaleTimeString()}
+                    </span>
+                    <span className={`shrink-0 font-medium ${
+                      entry.source === 'orchestrator' ? 'text-status-success' :
+                      entry.source === 'agent' ? 'text-accent-primary' :
+                      entry.source === 'error' ? 'text-status-error' :
+                      'text-text-faint'
+                    }`}>
+                      [{entry.source}]
+                    </span>
+                    <span className={`whitespace-pre-wrap break-all ${
+                      entry.level === 'error' ? 'text-status-error' :
+                      entry.level === 'warn' ? 'text-status-warning' :
+                      'text-text-muted'
+                    }`}>
+                      {entry.message}
+                    </span>
+                  </div>
+                ))
+              )}
+              <div ref={adminLogsEndRef} />
+            </div>
+            {/* Input */}
+            <div className="flex items-center gap-2 shrink-0 text-text-faint">
               <ChevronRight size={12} />
               <input
                 className="bg-transparent outline-none text-text-default placeholder-text-faint flex-1"

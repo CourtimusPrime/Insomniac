@@ -22,6 +22,7 @@ import { credentialRoutes } from "./routes/credentials.js";
 import { backseatRoutes } from "./routes/backseat.js";
 import { metricsRoutes } from "./routes/metrics.js";
 import { usageRoutes } from "./routes/usage.js";
+import { logRoutes } from "./routes/logs.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -64,6 +65,7 @@ await server.register(credentialRoutes);
 await server.register(backseatRoutes);
 await server.register(metricsRoutes);
 await server.register(usageRoutes);
+await server.register(logRoutes);
 
 // Health check
 server.get("/api/health", async () => {
