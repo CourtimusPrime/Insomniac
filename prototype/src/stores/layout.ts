@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 type ToolbarPanel = 'projects' | 'abilities' | 'github' | 'marketplace';
-type MainView = 'pipeline' | 'graph' | 'backseat' | 'ability-detail';
+type MainView = 'pipeline' | 'graph' | 'backseat' | 'ability-detail' | 'settings';
 type BottomTab = 'terminal' | 'usage' | 'health' | 'browser';
 
 interface CollapsedPanels {
