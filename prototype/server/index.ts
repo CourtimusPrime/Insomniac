@@ -25,6 +25,7 @@ import { usageRoutes } from "./routes/usage.js";
 import { logRoutes } from "./routes/logs.js";
 import { agentRoutes } from "./routes/agents.js";
 import { authRoutes } from "./routes/auth.js";
+import { sandboxRoutes } from "./routes/sandboxes.js";
 import { registerAuthMiddleware } from "./hosted/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -55,6 +56,9 @@ registerAuthMiddleware(server);
 
 // Auth routes (only active in hosted/remote mode)
 await server.register(authRoutes);
+
+// Sandbox routes (only active in hosted mode)
+await server.register(sandboxRoutes);
 
 // API routes
 await server.register(projectRoutes);
