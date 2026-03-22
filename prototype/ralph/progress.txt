@@ -16,6 +16,8 @@ Started: Sun Mar 22 17:46:01 UTC 2026
 - Frontend API hooks live in `src/api/*.ts`, follow pattern: export interface + useX query + useMutateX with invalidateQueries
 - `apiFetch` defaults to `Content-Type: application/json`; override header for raw text endpoints
 - Layout store (`src/stores/layout.ts`) holds `activeAbilityId` for passing selected ability to detail views
+- ReactFlow: import `@xyflow/react` and its CSS (`@xyflow/react/dist/style.css`); container MUST have explicit height (use `h-full` with flex parent)
+- Graph components live in `src/components/graph/`; `GraphView.tsx` is the thin wrapper in views/
 - Sidebar loading/error pattern: match the projects panel (Loader2 spinner, AlertCircle + retry button)
 - `typeBadge` helper in LeftSidebar maps ability types to color classes (skill=violet, plugin=emerald, mcp=cyan)
 
@@ -95,4 +97,19 @@ Started: Sun Mar 22 17:46:01 UTC 2026
   - After delete, reset `activeAbilityId` to null and navigate to `pipeline` view via `setActiveMain`
   - `useAbility(id)` returns `undefined` data when `id` is null (disabled query) — check for `!activeAbilityId` before rendering
   - The config field is a JSON object — display with `JSON.stringify(config, null, 2)` in a `<pre>` block
+---
+
+## 2026-03-22 - US-007
+- Installed `@xyflow/react` as dependency
+- Created `src/components/graph/ChainEditor.tsx` with full ReactFlow canvas: dark background (#0a0d13), dot grid pattern, pan/zoom, controls, minimap
+- Empty state overlay shows "Add your first agent node" prompt when no nodes exist
+- Updated `src/components/views/GraphView.tsx` to render ChainEditor instead of placeholder
+- Files changed: package.json, package-lock.json, src/components/graph/ChainEditor.tsx (created), src/components/views/GraphView.tsx
+- **Learnings for future iterations:**
+  - ReactFlow requires its container to have an explicit height — `h-full w-full` works when the parent has flex layout with `flex-1`
+  - Import `@xyflow/react/dist/style.css` in the component file for ReactFlow's base styles
+  - Use `proOptions={{ hideAttribution: true }}` to hide the ReactFlow watermark
+  - Tailwind classes on ReactFlow's Controls/MiniMap need `!important` prefix (`!bg-...`) to override ReactFlow's inline styles
+  - The `BackgroundVariant.Dots` enum is used for the dot grid pattern; color `#1e2a3a` matches the theme's border-muted
+  - Empty state is an absolute overlay with `pointer-events-none` on the wrapper and `pointer-events-auto` on the content
 ---
