@@ -20,12 +20,15 @@ const statusStyles: Record<string, string> = {
   error: 'bg-red-500/20 text-red-300',
 };
 
+export type AgentNodeAbility = { id: string; name: string };
+
 export type AgentNodeData = {
   label: string;
   nodeType: string;
   model?: string;
   systemPrompt?: string;
   status?: 'pending' | 'running' | 'done' | 'error';
+  abilities?: AgentNodeAbility[];
   onOpen?: (id: string) => void;
   onDelete?: (id: string) => void;
 };

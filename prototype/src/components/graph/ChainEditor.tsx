@@ -23,6 +23,7 @@ import { Plus } from 'lucide-react';
 import { AgentNode, type AgentNodeData } from './AgentNode';
 import { CustomEdge } from './CustomEdge';
 import { AddNodeMenu } from './AddNodeMenu';
+import { NodeInspector } from './NodeInspector';
 
 const nodeTypes = { agent: AgentNode };
 const edgeTypes = { custom: CustomEdge };
@@ -100,7 +101,71 @@ function ChainEditorInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [menu, setMenu] = useState<MenuState>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const [inspectedNodeId, setInspectedNodeId] = useState<string | null>(null);
+  const { screenToFlowPosition, deleteElements } = useReactFlow();
+
+  /* ── Node open / delete callbacks (passed via node data) ── */
+  const handleNodeOpen = useCallback((nodeId: string) => {
+    setInspectedNodeId(nodeId);
+  }, []);
+
+  const handleNodeDelete = useCallback(
+    (nodeId: string) => {
+      deleteElements({ nodes: [{ id: nodeId }] });
+      if (inspectedNodeId === nodeId) setInspectedNodeId(null);
+    },
+    [deleteElements, inspectedNodeId],
+  );
+
+  /* ── Inspector save: update node data ── */
+  const handleInspectorSave = useCallback(
+    (nodeId: string, data: Partial<AgentNodeData>) => {
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === nodeId
+            ? { ...n, data: { ...n.data, ...data } }
+            : n,
+        ),
+      );
+    },
+    [setNodes],
+  );
+
+  /* ── Inspector edge condition update ── */
+  const handleUpdateEdge = useCallback(
+    (edgeId: string, condition: string) => {
+      setEdges((eds) =>
+        eds.map((e) =>
+          e.id === edgeId ? { ...e, data: { ...e.data, condition } } : e,
+        ),
+      );
+    },
+    [setEdges],
+  );
+
+  /* ── Inspector delete node ── */
+  const handleInspectorDelete = useCallback(
+    (nodeId: string) => {
+      deleteElements({ nodes: [{ id: nodeId }] });
+      setInspectedNodeId(null);
+    },
+    [deleteElements],
+  );
+
+  // Inject onOpen/onDelete callbacks into node data
+  const nodesWithCallbacks = useMemo(
+    () =>
+      nodes.map((n) => ({
+        ...n,
+        data: { ...n.data, onOpen: handleNodeOpen, onDelete: handleNodeDelete },
+      })),
+    [nodes, handleNodeOpen, handleNodeDelete],
+  );
+
+  // The inspected node (from the raw nodes, not the callback-injected version)
+  const inspectedNode = inspectedNodeId
+    ? (nodes.find((n) => n.id === inspectedNodeId) as Node<AgentNodeData> | undefined) ?? null
+    : null;
 
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
@@ -182,10 +247,10 @@ function ChainEditorInner() {
         </button>
       </div>
 
-      {/* Canvas */}
+      {/* Canvas + Inspector */}
       <div className="flex-1 relative">
         <ReactFlow
-          nodes={nodes}
+          nodes={nodesWithCallbacks}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
@@ -244,6 +309,18 @@ function ChainEditorInner() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Node Inspector panel (slide-in from right) */}
+        {inspectedNode && (
+          <NodeInspector
+            node={inspectedNode}
+            edges={edges}
+            onSave={handleInspectorSave}
+            onDelete={handleInspectorDelete}
+            onUpdateEdge={handleUpdateEdge}
+            onClose={() => setInspectedNodeId(null)}
+          />
         )}
       </div>
     </div>
