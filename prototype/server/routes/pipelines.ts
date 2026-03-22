@@ -130,7 +130,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
         return { error: "Pipeline not found" };
       }
 
-      if (pipeline.status === "running") {
+      if (pipeline.status === "running" || runningEngines.has(id)) {
         reply.code(409);
         return { error: "Pipeline is already running" };
       }
@@ -185,6 +185,11 @@ export async function pipelineRoutes(server: FastifyInstance) {
       if (pipeline.status !== "paused") {
         reply.code(409);
         return { error: "Pipeline is not paused" };
+      }
+
+      if (runningEngines.has(id)) {
+        reply.code(409);
+        return { error: "Pipeline engine is still active — wait for it to stop" };
       }
 
       const engine = new PipelineEngine(id);
@@ -515,7 +520,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
       }
 
       // "add [stage name]"
-      const addMatch = lower.match(/^add\s+(.+)$/);
+      const addMatch = message.match(/^add\s+(.+)$/i);
       if (addMatch) {
         const stageName = addMatch[1];
         const existing = db

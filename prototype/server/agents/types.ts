@@ -16,7 +16,10 @@ export type AgentConfig = {
 
 export interface AgentAdapter {
   sendMessage(prompt: string): Promise<void>;
+  /** Returns the next message. For single-response agents, returns the final result. */
   getResponse(): Promise<AgentMessage>;
+  /** Returns an async iterable of all messages until completion. Prefer this over getResponse() for streaming agents. */
+  getResponses?(): AsyncIterable<AgentMessage>;
   abort(): Promise<void>;
   status: AgentStatus;
 }

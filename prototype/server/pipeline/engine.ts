@@ -68,6 +68,11 @@ export class PipelineEngine {
       for (const group of groups) {
         if (this.shouldStop()) break;
         await this.executeStageGroup(group);
+        // Update status AFTER the group completes, not when pause() is called
+        if (this.pauseRequested) {
+          this.updatePipelineStatus("paused");
+          break;
+        }
       }
       // Only mark completed if we weren't interrupted
       if (!this.shouldStop()) {
@@ -88,7 +93,9 @@ export class PipelineEngine {
   pause(): void {
     if (this.cancelRequested) return;
     this.pauseRequested = true;
-    this.updatePipelineStatus("paused");
+    // Status update deferred to the run loop — only set "paused" after the
+    // current stage group finishes, preventing a DB/WS lie while agents
+    // are still active.
   }
 
   /**

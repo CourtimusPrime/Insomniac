@@ -38,6 +38,15 @@ export class StdioAdapter implements AgentAdapter {
       return buffered;
     }
 
+    // If the process is already dead, reject immediately
+    if (!this.process && this.status !== "working") {
+      return {
+        id: randomUUID(),
+        type: "message",
+        payload: { error: "process not running" },
+      };
+    }
+
     // Otherwise wait for the next message from stdout
     return new Promise<AgentMessage>((resolve) => {
       this.messageResolvers.push(resolve);
