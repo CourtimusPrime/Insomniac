@@ -147,6 +147,7 @@ Started: Sun Mar 22 19:11:30 UTC 2026
   - Use `flex-[2]` vs `flex-1` to create a 2:1 split in flex containers without hardcoded heights
   - The BottomPanel Browser tab now opens a second WebSocket for `browser:console` events, separate from the `devserver:log` listener
   - Browser console state is not project-scoped (unlike dev server logs) since there's only one browser singleton
+- Creating a pipeline requires `workspaceId` — look it up from the `projects` table via the `projectId`
 ---
 
 ## 2026-03-22 - US-010
@@ -164,4 +165,20 @@ Started: Sun Mar 22 19:11:30 UTC 2026
   - For state updates that modify existing entries by ID, use `findIndex` + spread to update in-place rather than just appending
   - Side-by-side layout (flex-row) for sub-panels is more space-efficient than stacking vertically when the bottom panel has limited height
   - The `describeAction` helper maps tool names to human-readable strings — keep this in sync when adding new browser tools
+---
+
+## 2026-03-22 - US-011
+- Added `POST /api/browser/inspect-in-agent` endpoint to `server/routes/browser.ts`
+- Endpoint accepts `{ selector, description, projectId }`, looks up the project's workspaceId, creates a pipeline with a single stage whose description is `Fix this element: [selector] — [description]`
+- Returns `{ stageId, pipelineId }`
+- Added `useInspectInAgent` hook to `src/api/browser.ts`
+- Added "Inspect" button (Crosshair icon) to Browser tab toolbar
+- Clicking opens an overlay dialog with selector and description inputs
+- Submit sends the request; on success shows a confirmation message that auto-dismisses after 2 seconds
+- Files changed: `server/routes/browser.ts`, `src/api/browser.ts`, `src/components/shell/BottomPanel.tsx`
+- **Learnings for future iterations:**
+  - Pipeline creation requires a `workspaceId` — look it up from the project record via `db.select().from(projects).where(eq(projects.id, projectId)).get()`
+  - Import `pipelines` and `pipelineStages` from `server/db/schema/index.js` (not individual files) for consistency
+  - The overlay dialog pattern reuses the same `absolute inset-0 z-10` approach as the screenshot preview
+  - For temporary confirmation UIs, `setTimeout` to auto-dismiss works well — just remember to clear both the dialog state and the confirmation state
 ---
