@@ -33,6 +33,8 @@ Started: Sun Mar 22 18:31:48 UTC 2026
 - Badge color maps: define as `Record<string, string>` constants (TYPE_COLORS, TIER_CONFIG)
 - MarketplaceView uses max-w-4xl (wider than other views) since it has a 2-column grid
 - Per-item mutation state: track with `installedIds` Set + `errorIds` Record, use `mutation.variables?.id` for loading state
+- Sidebar-to-view state sharing: use layout store for cross-component filter state (e.g., `marketplaceCategory`)
+- Export types from layout store when other components need them (e.g., `MarketplaceCategory`)
 ---
 
 ## 2026-03-22 - US-001
@@ -150,5 +152,21 @@ Started: Sun Mar 22 18:31:48 UTC 2026
   - `useMutation` from TanStack Query exposes `isPending` and `variables` — use `variables?.id` to match which item is loading
   - Per-item callbacks: pass `onSuccess`/`onError` as the second arg to `mutation.mutate()` for item-scoped side effects
   - Install button pattern: `installedIds` Set for success tracking, `errorIds` Record<string, string> for per-item errors
+  - Browser verification needed — no dev-browser available in this session
+---
+
+## 2026-03-22 - US-009
+- Updated marketplace sidebar panel in LeftSidebar.tsx with real data from useMarketplace hook
+- Added category buttons (All, Workflows, Agent Configs, Templates, MCP Adapters) that navigate to MarketplaceView with filter active
+- Added "Popular" section showing top 3 items sorted by installCount
+- Added `marketplaceCategory` state and `setMarketplaceCategory` action to layout store for sidebar-to-view communication
+- Updated MarketplaceView to sync its local category state with the store via useEffect
+- Extracted MarketplaceSidebar as a separate component within LeftSidebar.tsx
+- Files changed: src/stores/layout.ts, src/components/shell/LeftSidebar.tsx, src/components/views/MarketplaceView.tsx
+- **Learnings for future iterations:**
+  - To share filter state between sidebar and main view, add state to the layout store rather than prop drilling
+  - Export types from stores when needed by other components (`export type MarketplaceCategory`)
+  - Use `useEffect` to sync local component state with store state for bidirectional updates
+  - The MarketplaceSidebar fetches all items (limit: 50) and sorts client-side for the "popular" section
   - Browser verification needed — no dev-browser available in this session
 ---
