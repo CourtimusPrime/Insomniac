@@ -18,6 +18,8 @@ Started: Sun Mar 22 17:46:01 UTC 2026
 - Layout store (`src/stores/layout.ts`) holds `activeAbilityId` for passing selected ability to detail views
 - ReactFlow: import `@xyflow/react` and its CSS (`@xyflow/react/dist/style.css`); container MUST have explicit height (use `h-full` with flex parent)
 - Graph components live in `src/components/graph/`; `GraphView.tsx` is the thin wrapper in views/
+- Custom ReactFlow nodes: wrap in `memo()`, define `nodeTypes` object outside component, register via `nodeTypes` prop on `<ReactFlow>`
+- AgentNode data type: `{ label, nodeType, model?, systemPrompt?, status?, onOpen?, onDelete? }` — pass callbacks via node data
 - Sidebar loading/error pattern: match the projects panel (Loader2 spinner, AlertCircle + retry button)
 - `typeBadge` helper in LeftSidebar maps ability types to color classes (skill=violet, plugin=emerald, mcp=cyan)
 
@@ -112,4 +114,21 @@ Started: Sun Mar 22 17:46:01 UTC 2026
   - Tailwind classes on ReactFlow's Controls/MiniMap need `!important` prefix (`!bg-...`) to override ReactFlow's inline styles
   - The `BackgroundVariant.Dots` enum is used for the dot grid pattern; color `#1e2a3a` matches the theme's border-muted
   - Empty state is an absolute overlay with `pointer-events-none` on the wrapper and `pointer-events-auto` on the content
+---
+
+## 2026-03-22 - US-008
+- Created `src/components/graph/AgentNode.tsx` as a custom ReactFlow node with memo wrapper
+- Node renders: colored type dot (6 types mapped), bold 11px name, muted 10px model, 72-char system prompt preview
+- Status badge in footer (pending/running/done/error) with color-coded styles
+- Open button (ExternalLink icon) and delete button (X icon) in header
+- Input handle (left) and output handle (right) as circular port handles
+- Card styled with #111827 background and #1e2a3a border per spec
+- Registered `agent` node type in ChainEditor via `nodeTypes` prop
+- Files changed: src/components/graph/AgentNode.tsx (created), src/components/graph/ChainEditor.tsx
+- **Learnings for future iterations:**
+  - Custom ReactFlow nodes must be wrapped in `memo()` for performance (ReactFlow re-renders frequently)
+  - Node type registration via `nodeTypes` object must be defined OUTSIDE the component to avoid re-renders (or use useMemo)
+  - `AgentNodeData` type includes callback props (`onOpen`, `onDelete`) — pass these via node data when creating nodes
+  - Handle className needs `!` prefix to override ReactFlow's default styles
+  - The `type: 'agent'` on a node object maps to the `nodeTypes.agent` component
 ---
