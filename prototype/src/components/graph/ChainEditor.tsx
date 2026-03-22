@@ -19,7 +19,7 @@ import {
   Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Plus } from 'lucide-react';
+import { Plus, X, Layers } from 'lucide-react';
 import { AgentNode, type AgentNodeData } from './AgentNode';
 import { CustomEdge } from './CustomEdge';
 import { AddNodeMenu } from './AddNodeMenu';
@@ -27,6 +27,7 @@ import { NodeInspector } from './NodeInspector';
 import { ChainToolbar } from './ChainToolbar';
 import { useChain, useSaveChain, type ChainDefinition } from '../../api/projects';
 import { useProjectsStore } from '../../stores/projects';
+import { useTemplates, useApplyTemplate, type Template } from '../../api/templates';
 
 const nodeTypes = { agent: AgentNode };
 const edgeTypes = { custom: CustomEdge };
@@ -151,11 +152,100 @@ function deserializeChain(chain: ChainDefinition): { nodes: Node<AgentNodeData>[
   return { nodes, edges };
 }
 
+/* ── Template Picker overlay ── */
+const CATEGORY_LABELS: Record<string, string> = {
+  workflow: 'Workflow',
+  'agent-config': 'Agent Config',
+  template: 'Template',
+  'mcp-adapter': 'MCP Adapter',
+};
+
+function TemplatePicker({
+  onSelect,
+  onClose,
+}: {
+  onSelect: (template: Template) => void;
+  onClose: () => void;
+}) {
+  const { data: templates, isLoading } = useTemplates();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: globalThis.MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as HTMLElement)) {
+        onClose();
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/40">
+      <div
+        ref={ref}
+        className="w-96 max-h-[70vh] rounded-lg border shadow-xl overflow-hidden flex flex-col"
+        style={{ background: '#111827', borderColor: '#1e2a3a' }}
+      >
+        <div
+          className="px-4 py-3 border-b flex items-center justify-between shrink-0"
+          style={{ borderColor: '#1e2a3a' }}
+        >
+          <div className="text-xs font-semibold text-text-primary">Load Template</div>
+          <button className="text-text-muted hover:text-text-primary transition-colors" onClick={onClose}>
+            <X size={14} />
+          </button>
+        </div>
+        <div className="overflow-y-auto flex-1 py-1">
+          {isLoading && (
+            <div className="px-4 py-8 text-center text-xs text-text-muted">Loading templates…</div>
+          )}
+          {templates && templates.length === 0 && (
+            <div className="px-4 py-8 text-center text-xs text-text-muted">No templates available</div>
+          )}
+          {templates?.map((t) => (
+            <button
+              key={t.id}
+              className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors border-b last:border-b-0"
+              style={{ borderColor: '#1e2a3a' }}
+              onClick={() => onSelect(t)}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-text-primary">{t.name}</span>
+                {t.isBuiltIn && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary font-medium">
+                    Built-in
+                  </span>
+                )}
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-text-muted">
+                  {CATEGORY_LABELS[t.category] ?? t.category}
+                </span>
+              </div>
+              {t.description && (
+                <div className="text-[10px] text-text-muted mt-1 line-clamp-2">{t.description}</div>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ChainEditorInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [menu, setMenu] = useState<MenuState>(null);
   const [inspectedNodeId, setInspectedNodeId] = useState<string | null>(null);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const { screenToFlowPosition, deleteElements } = useReactFlow();
 
   /* ── Chain persistence ── */
@@ -194,6 +284,23 @@ function ChainEditorInner() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, activeProjectId]);
+
+  /* ── Apply template ── */
+  const applyTemplate = useApplyTemplate();
+  const handleApplyTemplate = useCallback(
+    (template: Template) => {
+      if (!activeProjectId) return;
+      // Persist on server
+      applyTemplate.mutate({ templateId: template.id, projectId: activeProjectId });
+      // Load chain locally from the template's chainDefinition
+      const chain = template.chainDefinition as ChainDefinition;
+      const { nodes: newNodes, edges: newEdges } = deserializeChain(chain);
+      setNodes(newNodes);
+      setEdges(newEdges);
+      setShowTemplatePicker(false);
+    },
+    [activeProjectId, applyTemplate, setNodes, setEdges],
+  );
 
   /* ── Node open / delete callbacks (passed via node data) ── */
   const handleNodeOpen = useCallback((nodeId: string) => {
@@ -381,6 +488,7 @@ function ChainEditorInner() {
         onAutoLayout={handleAutoLayout}
         onClearEdges={handleClearEdges}
         onExportJSON={handleExportJSON}
+        onLoadTemplate={() => setShowTemplatePicker(true)}
       />
 
       {/* Canvas + Inspector */}
@@ -431,7 +539,7 @@ function ChainEditorInner() {
         )}
 
         {/* Empty state overlay */}
-        {isEmpty && !menu && (
+        {isEmpty && !menu && !showTemplatePicker && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center space-y-3 pointer-events-auto">
               <div className="w-12 h-12 rounded-xl bg-accent-primary/10 border border-accent-primary/30 flex items-center justify-center mx-auto">
@@ -443,8 +551,29 @@ function ChainEditorInner() {
               <div className="text-xs text-text-muted max-w-xs">
                 Build an agent chain by adding nodes and connecting them with edges.
               </div>
+              <div className="flex items-center gap-2 justify-center pt-1">
+                <div className="h-px w-8 bg-border-default" />
+                <span className="text-[10px] text-text-muted">or</span>
+                <div className="h-px w-8 bg-border-default" />
+              </div>
+              <button
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium text-text-primary border transition-colors hover:bg-white/5"
+                style={{ borderColor: '#1e2a3a' }}
+                onClick={() => setShowTemplatePicker(true)}
+              >
+                <Layers size={13} />
+                Start from template
+              </button>
             </div>
           </div>
+        )}
+
+        {/* Template Picker overlay */}
+        {showTemplatePicker && (
+          <TemplatePicker
+            onSelect={handleApplyTemplate}
+            onClose={() => setShowTemplatePicker(false)}
+          />
         )}
 
         {/* Node Inspector panel (slide-in from right) */}
