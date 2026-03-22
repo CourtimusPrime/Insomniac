@@ -22,6 +22,9 @@ Started: Sun Mar 22 17:46:01 UTC 2026
 - AgentNode data type: `{ label, nodeType, model?, systemPrompt?, status?, onOpen?, onDelete? }` — pass callbacks via node data
 - Sidebar loading/error pattern: match the projects panel (Loader2 spinner, AlertCircle + retry button)
 - `typeBadge` helper in LeftSidebar maps ability types to color classes (skill=violet, plugin=emerald, mcp=cyan)
+- Custom ReactFlow edges: use `getBezierPath` + `BaseEdge`, define `edgeTypes` outside component, register via `edgeTypes` prop
+- Edge data type `CustomEdgeData` has `condition` field: always | on-success | on-failure | on-decision
+- `EdgeLabelRenderer` for floating UI elements (buttons) at edge midpoints; use `deleteElements` from `useReactFlow()` for programmatic edge removal
 
 ---
 
@@ -131,4 +134,23 @@ Started: Sun Mar 22 17:46:01 UTC 2026
   - `AgentNodeData` type includes callback props (`onOpen`, `onDelete`) — pass these via node data when creating nodes
   - Handle className needs `!` prefix to override ReactFlow's default styles
   - The `type: 'agent'` on a node object maps to the `nodeTypes.agent` component
+---
+
+## 2026-03-22 - US-009
+- Created `src/components/graph/CustomEdge.tsx` as a custom ReactFlow edge component
+- Edge condition colors: always(gray #374151), on-success(emerald), on-failure(red), on-decision(amber)
+- Smooth bezier curves via `getBezierPath`; invisible wider hit area for easier hover interaction
+- Hover/select reveals delete button at edge midpoint using `EdgeLabelRenderer`
+- Cycle detection via BFS in `wouldCreateCycle()` — rejects connections that would create loops (including self-loops)
+- Dashed preview curve during drag connection via custom `connectionLineComponent`
+- Updated ChainEditor with `edgeTypes`, `defaultEdgeOptions`, and custom connection line
+- Files changed: src/components/graph/CustomEdge.tsx (created), src/components/graph/ChainEditor.tsx
+- **Learnings for future iterations:**
+  - Custom edges use `getBezierPath` + `BaseEdge` — pass style props to BaseEdge for colors
+  - `EdgeLabelRenderer` positions elements at `(labelX, labelY)` using `transform: translate(-50%, -50%) translate(Xpx, Ypx)`
+  - Invisible wider `<path>` with `strokeWidth={20}` and `stroke="transparent"` enables easy hover detection
+  - `connectionLineComponent` receives `fromX/Y, toX/Y, fromPosition, toPosition` (not source/target)
+  - Cycle detection: BFS from target node following outgoing edges — if source is reachable, it's a cycle
+  - `edgeTypes` object (like `nodeTypes`) must be defined outside the component to avoid re-renders
+  - `deleteElements` from `useReactFlow()` removes edges programmatically
 ---
