@@ -27,6 +27,11 @@ Started: Sun Mar 22 18:31:48 UTC 2026
 - ChainDefinition format: `{ version: 1, nodes: [{id, type, label, model, systemPrompt, status, abilities, position}], edges: [{id, source, target, condition}] }`
 - Node types: trigger, prototyper, builder, tester, reviewer, auditor
 - Edge conditions: always, on-success, on-failure, on-decision
+- MainView routing: add view name to `MainView` type in stores/layout.ts, import + render in MainView.tsx
+- Category tab filter pattern: local state CategoryTab, map over CATEGORIES array, conditionally include in filters object
+- Grid card pattern: `grid grid-cols-2 gap-3` with `rounded-lg border border-border-default bg-bg-base p-4`
+- Badge color maps: define as `Record<string, string>` constants (TYPE_COLORS, TIER_CONFIG)
+- MarketplaceView uses max-w-4xl (wider than other views) since it has a 2-column grid
 ---
 
 ## 2026-03-22 - US-001
@@ -114,4 +119,21 @@ Started: Sun Mar 22 18:31:48 UTC 2026
   - useMarketplace uses the full filters object as the query key for automatic refetch on filter changes
   - useInstallItem invalidates both `["marketplace"]` and `["templates"]` since installing creates a template
   - The marketplace.ts imports Template type from templates.ts for the install response typing
+---
+
+## 2026-03-22 - US-007
+- Created `src/components/views/MarketplaceView.tsx` with grid layout, search, category filters, and item cards
+- Added 'marketplace' to MainView type in `src/stores/layout.ts`
+- Added MarketplaceView route in `src/components/shell/MainView.tsx`
+- Each card shows: name, type badge (color-coded), trust tier icon, author, install count, description preview
+- Category filter tabs: All, Workflows, Agent Configs, Templates, MCP Adapters
+- Search input filters by name/description via the marketplace API
+- Files changed: src/components/views/MarketplaceView.tsx (new), src/components/shell/MainView.tsx, src/stores/layout.ts
+- **Learnings for future iterations:**
+  - Adding a new view: (1) add to MainView type in layout.ts, (2) import + render conditionally in MainView.tsx
+  - useMarketplace hook accepts optional filters — pass `undefined` when no filters active (avoids empty object query key issues)
+  - `line-clamp-2` Tailwind utility works for truncating multi-line text
+  - Trust tier badges use different lucide icons: Shield (community), ShieldCheck (verified), ShieldAlert (official)
+  - MarketplaceView uses max-w-4xl to accommodate the 2-column grid layout
+  - Browser verification needed — no dev-browser available in this session
 ---
