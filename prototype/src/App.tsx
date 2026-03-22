@@ -1,30 +1,15 @@
-import { useState } from 'react';
 import {
   Play, CheckCircle2, AlertCircle,
   Terminal, BarChart2, Heart, ChevronRight,
-  Plus, Cpu, GitMerge, Globe, Sparkles,
+  Cpu, Globe, Sparkles,
   ArrowRight, Circle, BookOpen
 } from 'lucide-react';
 import { LeftToolbar } from './components/shell/LeftToolbar';
+import { LeftSidebar } from './components/shell/LeftSidebar';
 import { useLayoutStore } from './stores/layout';
+import { useProjectsStore } from './stores/projects';
 
 // --- DATA ---
-
-const PROJECTS = [
-  { name: 'Aether-OS', status: 'building', lang: 'Rust', agents: 3 },
-  { name: 'Nova-Protocol', status: 'idle', lang: 'TypeScript', agents: 0 },
-  { name: 'Lumina-API', status: 'error', lang: 'Python', agents: 1 },
-  { name: 'Void-Shell', status: 'completed', lang: 'Go', agents: 0 },
-];
-
-const ABILITIES = [
-  { name: 'Playwright Tests', type: 'skill', active: true },
-  { name: 'GitHub MCP', type: 'mcp', active: true },
-  { name: 'OWASP Auditor', type: 'skill', active: true },
-  { name: 'Stripe MCP', type: 'mcp', active: false },
-  { name: 'OpenAPI Generator', type: 'skill', active: true },
-  { name: 'Supabase MCP', type: 'mcp', active: false },
-];
 
 const PIPELINE_STAGES = [
   { name: 'Scaffold architecture', agent: 'Prototyper', model: 'Gemini Flash', status: 'done', note: 'Component tree and data models generated.' },
@@ -55,13 +40,6 @@ const AGENTS = [
 
 // --- HELPERS ---
 
-const statusDot = (s: string) => ({
-  building: 'bg-accent-primary animate-pulse',
-  idle: 'bg-text-faint',
-  error: 'bg-status-error',
-  completed: 'bg-status-success',
-}[s] || 'bg-text-faint');
-
 const stageColor = (s: string) => ({
   done: 'border-status-success/30 bg-status-success/5',
   running: 'border-accent-primary/50 bg-accent-primary/8',
@@ -76,12 +54,6 @@ const stageIcon = (s: string) => {
   return <Circle size={14} className="text-text-faint shrink-0" />;
 };
 
-const typeBadge = (t: string) => ({
-  skill: 'bg-violet-500/20 text-violet-300',
-  mcp: 'bg-cyan-500/20 text-cyan-300',
-  workflow: 'bg-amber-500/20 text-amber-300',
-}[t]);
-
 const severityColor = (s: string) => ({
   critical: 'text-status-error bg-status-error/10 border-status-error/30',
   warning: 'text-status-warning bg-status-warning/10 border-status-warning/30',
@@ -91,10 +63,12 @@ const severityColor = (s: string) => ({
 // --- APP ---
 
 export default function InsomniacApp() {
-  const activeToolbar = useLayoutStore((s) => s.activeToolbar);
-  const [activeProject, setActiveProject] = useState('Aether-OS');
-  const [activeTab, setActiveTab] = useState('terminal');
-  const [activeMain, setActiveMain] = useState('pipeline');
+  const activeMain = useLayoutStore((s) => s.activeMain);
+  const setActiveMain = useLayoutStore((s) => s.setActiveMain);
+  const activeTab = useLayoutStore((s) => s.activeTab);
+  const setActiveTab = useLayoutStore((s) => s.setActiveTab);
+  const activeProject = useProjectsStore((s) => s.activeProject);
+  const projects = useProjectsStore((s) => s.projects);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-bg-default text-text-default font-sans">
@@ -103,92 +77,7 @@ export default function InsomniacApp() {
       <LeftToolbar />
 
       {/* LEFT SIDEBAR */}
-      <aside className="w-56 flex flex-col bg-bg-default border-r border-border-default shrink-0">
-
-        {activeToolbar === 'projects' && (
-          <>
-            <div className="px-4 py-3 flex items-center justify-between border-b border-border-default">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Projects</span>
-              <button className="text-text-faint hover:text-accent-primary transition"><Plus size={13} /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto py-1">
-              {PROJECTS.map(p => (
-                <button
-                  key={p.name}
-                  onClick={() => setActiveProject(p.name)}
-                  className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition border-l-2 ${
-                    activeProject === p.name
-                      ? 'border-accent-primary bg-accent-primary/5 text-text-primary'
-                      : 'border-transparent hover:bg-bg-hover text-text-secondary'
-                  }`}>
-                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(p.status)}`} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-medium truncate">{p.name}</div>
-                    <div className="text-[10px] text-text-faint mt-0.5">{p.lang} · {p.agents > 0 ? `${p.agents} agents` : 'idle'}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {activeToolbar === 'abilities' && (
-          <>
-            <div className="px-4 py-3 flex items-center justify-between border-b border-border-default">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Abilities</span>
-              <button className="text-text-faint hover:text-accent-primary transition"><Plus size={13} /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto py-1">
-              {ABILITIES.map(a => (
-                <button
-                  key={a.name}
-                  onClick={() => setActiveMain('ability-detail')}
-                  className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-bg-hover transition border-l-2 border-transparent hover:border-border-muted">
-                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${a.active ? 'bg-status-success' : 'bg-text-faint'}`} />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs truncate">{a.name}</div>
-                    <div className={`text-[10px] mt-0.5 ${typeBadge(a.type)} px-1.5 py-0.5 rounded inline-block`}>{a.type}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {activeToolbar === 'github' && (
-          <>
-            <div className="px-4 py-3 border-b border-border-default">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">GitHub</span>
-            </div>
-            <div className="p-4 space-y-2">
-              <button className="w-full text-left px-3 py-2.5 rounded-lg border border-border-muted hover:border-accent-primary/50 hover:bg-accent-primary/5 text-xs transition flex items-center gap-2">
-                <GitMerge size={12} className="text-accent-secondary" />
-                Open this repo
-              </button>
-              <button className="w-full text-left px-3 py-2.5 rounded-lg border border-border-muted hover:border-status-success/50 hover:bg-status-success/5 text-xs transition flex items-center gap-2">
-                <CheckCircle2 size={12} className="text-status-success" />
-                Merge when ready
-              </button>
-              <div className="pt-2 text-[10px] text-text-faint uppercase tracking-widest">Connected as</div>
-              <div className="text-xs text-text-secondary">@court-ash-dale</div>
-            </div>
-          </>
-        )}
-
-        {activeToolbar === 'marketplace' && (
-          <>
-            <div className="px-4 py-3 border-b border-border-default">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Marketplace</span>
-            </div>
-            <div className="p-3 space-y-1.5">
-              {['All', 'Skills', 'MCPs', 'Workflows'].map(cat => (
-                <button key={cat} className="w-full text-left px-3 py-1.5 rounded text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary transition">{cat}</button>
-              ))}
-            </div>
-          </>
-        )}
-
-      </aside>
+      <LeftSidebar />
 
       {/* MAIN VIEW */}
       <main className="flex-1 flex flex-col overflow-hidden">
@@ -199,7 +88,7 @@ export default function InsomniacApp() {
             <div className="flex items-center gap-2">
               <h1 className="text-sm font-bold text-text-primary font-heading">{activeProject}</h1>
               <span className="text-[10px] px-2 py-0.5 rounded-full border border-accent-primary/30 bg-accent-primary/5 text-accent-primary">
-                {PROJECTS.find(p => p.name === activeProject)?.status}
+                {projects.find(p => p.name === activeProject)?.status}
               </span>
             </div>
             <p className="text-[11px] text-text-muted mt-0.5">Decentralized OS kernel · Rust · 3 agents running</p>
@@ -414,12 +303,12 @@ export default function InsomniacApp() {
         {/* BOTTOM PANEL */}
         <div className="h-52 border-t border-border-default flex flex-col shrink-0">
           <div className="flex border-b border-border-default text-[11px] shrink-0">
-            {[
-              { id: 'terminal', icon: <Terminal size={11} />, label: 'Admin Terminal' },
-              { id: 'usage', icon: <BarChart2 size={11} />, label: 'Usage Graphs' },
-              { id: 'health', icon: <Heart size={11} />, label: 'Project Health' },
-              { id: 'browser', icon: <Globe size={11} />, label: 'Browser' },
-            ].map(tab => (
+            {([
+              { id: 'terminal' as const, icon: <Terminal size={11} />, label: 'Admin Terminal' },
+              { id: 'usage' as const, icon: <BarChart2 size={11} />, label: 'Usage Graphs' },
+              { id: 'health' as const, icon: <Heart size={11} />, label: 'Project Health' },
+              { id: 'browser' as const, icon: <Globe size={11} />, label: 'Browser' },
+            ]).map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
