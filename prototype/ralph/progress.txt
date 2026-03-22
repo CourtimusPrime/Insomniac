@@ -44,6 +44,9 @@ Started: Sun Mar 22 15:42:51 UTC 2026
 - Decision query key: `["decisions", projectId]` — invalidate after resolving a decision
 - When a component needs its own mutation state (e.g., each decision card), extract it as a separate component with its own hooks
 - Steer endpoint pattern: route-over-existing-ops, no new engine methods needed — parse keyword, delegate to DB/engine
+- WebSocket hook pattern: `useWebSocket()` in App.tsx — listens for server events, invalidates TanStack Query caches via partial `queryKey` matches
+- WebSocket events from server: `pipeline:status`, `stage:status`, `decision:created`, `decision:resolved`
+- Query invalidation with partial keys (e.g., `{ queryKey: ["pipelines"] }`) invalidates all queries whose key starts with that prefix
 
 ---
 
@@ -289,4 +292,21 @@ Started: Sun Mar 22 15:42:51 UTC 2026
   - `useSteerPipeline` invalidates `["pipelineStages"]` without a specific ID — invalidates all stage queries since skip/add can change any
   - Full NLP steering deferred to M2 (AI provider integration) — current implementation is keyword-only
   - Manual browser verification needed — no dev-browser tools configured in this session
+---
+
+## 2026-03-22 - US-016
+- Created `src/hooks/useWebSocket.ts` — connects to `ws://localhost:4321/ws` with automatic reconnection
+- Exponential backoff reconnection: starts at 1s, doubles up to 8s max, resets on successful connection
+- Listens for `pipeline:status`, `stage:status`, `decision:created`, `decision:resolved` events
+- Each event type invalidates the corresponding TanStack Query cache using partial key matching
+- Wired `useWebSocket()` into `App.tsx` so it's always active while the app is mounted
+- Uses refs for WebSocket, reconnect timer, and unmount flag to avoid stale closure issues
+- Cleanup on unmount: clears reconnect timer and closes WebSocket
+- Files changed: src/hooks/useWebSocket.ts (new), src/App.tsx
+- **Learnings for future iterations:**
+  - `queryClient.invalidateQueries({ queryKey: ["pipelines"] })` invalidates ALL queries whose key starts with `["pipelines"]` — no need to specify the full key
+  - WebSocket `onclose` fires after `onerror`, so reconnection logic only needs to live in `onclose`
+  - Use `useRef` for mutable state in effects (ws instance, timers, unmounted flag) to avoid dependency array issues
+  - Browser WebSocket API uses `onmessage`, `onclose`, `onerror`, `onopen` — not `.on("event")` like Node ws
+  - Hook returns void — it's a side-effect-only hook, not a data hook
 ---
