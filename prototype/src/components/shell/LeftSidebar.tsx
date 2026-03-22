@@ -2,12 +2,14 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Plus, GitMerge, CheckCircle2, Loader2, AlertCircle,
   Pencil, Trash2, Code2, Github, FolderPlus, X, ArrowLeft,
+  Download, TrendingUp,
 } from 'lucide-react';
-import { useLayoutStore } from '../../stores/layout';
+import { useLayoutStore, type MarketplaceCategory } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
 import { useProjects, useDeleteProject, useUpdateProject, useOpenInVSCode, useCreateProject, useCloneProject } from '../../api/projects';
 import type { Project } from '../../api/projects';
 import { useAbilities } from '../../api/abilities';
+import { useMarketplace } from '../../api/marketplace';
 
 const statusDot = (s: string) => ({
   building: 'bg-accent-primary animate-pulse',
@@ -22,6 +24,98 @@ const typeBadge = (t: string) => ({
   mcp: 'bg-cyan-500/20 text-cyan-300',
   workflow: 'bg-amber-500/20 text-amber-300',
 }[t]);
+
+const SIDEBAR_CATEGORIES: { key: MarketplaceCategory; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'workflow', label: 'Workflows' },
+  { key: 'agent-config', label: 'Agent Configs' },
+  { key: 'template', label: 'Templates' },
+  { key: 'mcp-adapter', label: 'MCP Adapters' },
+];
+
+function MarketplaceSidebar() {
+  const setActiveMain = useLayoutStore((s) => s.setActiveMain);
+  const marketplaceCategory = useLayoutStore((s) => s.marketplaceCategory);
+  const setMarketplaceCategory = useLayoutStore((s) => s.setMarketplaceCategory);
+
+  // Fetch all items to find the top 3 by install count
+  const { data, isLoading } = useMarketplace({ limit: 50 });
+
+  const featured = (data?.items ?? [])
+    .slice()
+    .sort((a, b) => b.installCount - a.installCount)
+    .slice(0, 3);
+
+  const handleCategoryClick = (key: MarketplaceCategory) => {
+    setMarketplaceCategory(key);
+    setActiveMain('marketplace');
+  };
+
+  return (
+    <>
+      <div className="px-4 py-3 border-b border-border-default flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Marketplace</span>
+        <button
+          onClick={() => setActiveMain('marketplace')}
+          className="text-text-faint hover:text-accent-primary transition text-[10px]"
+          title="Open marketplace"
+        >
+          Browse all
+        </button>
+      </div>
+
+      {/* Categories */}
+      <div className="p-3 space-y-0.5">
+        <div className="text-[9px] font-bold uppercase tracking-widest text-text-faint px-3 pb-1.5">Categories</div>
+        {SIDEBAR_CATEGORIES.map(cat => (
+          <button
+            key={cat.key}
+            onClick={() => handleCategoryClick(cat.key)}
+            className={`w-full text-left px-3 py-1.5 rounded text-xs transition ${
+              marketplaceCategory === cat.key
+                ? 'bg-accent-primary/10 text-accent-primary'
+                : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+            }`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Featured / Popular */}
+      <div className="border-t border-border-default p-3 space-y-1.5">
+        <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-text-faint px-3 pb-1">
+          <TrendingUp size={10} />
+          Popular
+        </div>
+        {isLoading && (
+          <div className="flex items-center justify-center py-4 text-text-faint">
+            <Loader2 size={14} className="animate-spin" />
+          </div>
+        )}
+        {featured.map(item => (
+          <button
+            key={item.id}
+            onClick={() => setActiveMain('marketplace')}
+            className="w-full text-left px-3 py-2 rounded hover:bg-bg-hover transition"
+          >
+            <div className="text-xs font-medium text-text-primary truncate">{item.name}</div>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[10px] text-text-faint">{item.author}</span>
+              <span className="flex items-center gap-0.5 text-[10px] text-text-faint">
+                <Download size={9} />
+                {item.installCount}
+              </span>
+            </div>
+          </button>
+        ))}
+        {!isLoading && featured.length === 0 && (
+          <div className="px-3 py-2 text-[10px] text-text-faint">No items available</div>
+        )}
+      </div>
+    </>
+  );
+}
 
 interface ContextMenu {
   projectId: string;
@@ -302,16 +396,7 @@ export function LeftSidebar() {
       )}
 
       {activeToolbar === 'marketplace' && (
-        <>
-          <div className="px-4 py-3 border-b border-border-default">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">Marketplace</span>
-          </div>
-          <div className="p-3 space-y-1.5">
-            {['All', 'Skills', 'MCPs', 'Workflows'].map(cat => (
-              <button key={cat} className="w-full text-left px-3 py-1.5 rounded text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary transition">{cat}</button>
-            ))}
-          </div>
-        </>
+        <MarketplaceSidebar />
       )}
 
       </div>

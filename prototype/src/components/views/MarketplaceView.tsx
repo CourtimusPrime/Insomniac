@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2, AlertCircle, Search, Download, Shield, ShieldCheck, ShieldAlert, Check } from 'lucide-react';
 import { useMarketplace, useInstallItem, type MarketplaceItemType } from '../../api/marketplace';
+import { useLayoutStore, type MarketplaceCategory } from '../../stores/layout';
 
 type CategoryTab = 'all' | MarketplaceItemType;
 
@@ -26,8 +27,21 @@ const TIER_CONFIG: Record<string, { icon: typeof Shield; color: string; label: s
 };
 
 export function MarketplaceView() {
+  const storeCategory = useLayoutStore((s) => s.marketplaceCategory);
+  const setStoreCategory = useLayoutStore((s) => s.setMarketplaceCategory);
+
   const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState<CategoryTab>('all');
+  const [activeCategory, setActiveCategory] = useState<CategoryTab>(storeCategory);
+
+  // Sync from store when sidebar changes the category
+  useEffect(() => {
+    setActiveCategory(storeCategory);
+  }, [storeCategory]);
+
+  const handleCategoryChange = (cat: CategoryTab) => {
+    setActiveCategory(cat);
+    setStoreCategory(cat as MarketplaceCategory);
+  };
   const [installedIds, setInstalledIds] = useState<Set<string>>(new Set());
   const [errorIds, setErrorIds] = useState<Record<string, string>>({});
   const installMutation = useInstallItem();
@@ -106,7 +120,7 @@ export function MarketplaceView() {
         {CATEGORIES.map((cat) => (
           <button
             key={cat.key}
-            onClick={() => setActiveCategory(cat.key)}
+            onClick={() => handleCategoryChange(cat.key)}
             className={`px-3 py-1.5 text-[11px] rounded transition ${
               activeCategory === cat.key
                 ? 'bg-accent-primary/15 text-accent-primary'
