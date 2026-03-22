@@ -29,12 +29,16 @@ const typeBadge = (t: string) => ({
 export function LeftSidebar() {
   const activeToolbar = useLayoutStore((s) => s.activeToolbar);
   const setActiveMain = useLayoutStore((s) => s.setActiveMain);
+  const collapsed = useLayoutStore((s) => s.collapsedPanels.leftSidebar);
   const projects = useProjectsStore((s) => s.projects);
   const activeProject = useProjectsStore((s) => s.activeProject);
   const setActiveProject = useProjectsStore((s) => s.setActiveProject);
 
   return (
-    <aside className="w-56 flex flex-col bg-bg-default border-r border-border-default shrink-0">
+    <aside className={`flex flex-col bg-bg-default shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out ${
+      collapsed ? 'w-0' : 'w-56 border-r border-border-default'
+    }`}>
+      <div className="w-56 min-w-[14rem] flex flex-col h-full">
 
       {activeToolbar === 'projects' && (
         <>
@@ -119,6 +123,7 @@ export function LeftSidebar() {
         </>
       )}
 
+      </div>
     </aside>
   );
 }

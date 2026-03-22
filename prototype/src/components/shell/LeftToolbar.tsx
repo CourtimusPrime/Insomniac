@@ -12,6 +12,9 @@ const toolbarItems = [
 export function LeftToolbar() {
   const activeToolbar = useLayoutStore((s) => s.activeToolbar);
   const setActiveToolbar = useLayoutStore((s) => s.setActiveToolbar);
+  const togglePanel = useLayoutStore((s) => s.togglePanel);
+  const leftSidebarCollapsed = useLayoutStore((s) => s.collapsedPanels.leftSidebar);
+  const setCollapsedPanel = useLayoutStore((s) => s.setCollapsedPanel);
 
   return (
     <aside className="w-14 flex flex-col items-center py-4 gap-1 bg-bg-base border-r border-border-default shrink-0">
@@ -23,7 +26,16 @@ export function LeftToolbar() {
       {toolbarItems.map(item => (
         <button
           key={item.id}
-          onClick={() => setActiveToolbar(item.id)}
+          onClick={() => {
+            if (activeToolbar === item.id) {
+              togglePanel('leftSidebar');
+            } else {
+              setActiveToolbar(item.id);
+              if (leftSidebarCollapsed) {
+                setCollapsedPanel('leftSidebar', false);
+              }
+            }
+          }}
           title={item.label}
           className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
             activeToolbar === item.id

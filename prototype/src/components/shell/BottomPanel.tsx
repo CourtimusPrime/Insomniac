@@ -1,14 +1,18 @@
 import {
-  Terminal, BarChart2, Heart, ChevronRight, Globe
+  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe
 } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout';
 
 export function BottomPanel() {
   const activeTab = useLayoutStore((s) => s.activeTab);
   const setActiveTab = useLayoutStore((s) => s.setActiveTab);
+  const collapsed = useLayoutStore((s) => s.collapsedPanels.bottomPanel);
+  const togglePanel = useLayoutStore((s) => s.togglePanel);
 
   return (
-    <div className="h-52 border-t border-border-default flex flex-col shrink-0">
+    <div className={`border-t border-border-default flex flex-col shrink-0 transition-[height] duration-200 ease-in-out ${
+      collapsed ? 'h-9' : 'h-52'
+    }`}>
       <div className="flex border-b border-border-default text-[11px] shrink-0">
         {([
           { id: 'terminal' as const, icon: <Terminal size={11} />, label: 'Admin Terminal' },
@@ -31,6 +35,13 @@ export function BottomPanel() {
           <span className="text-[10px] text-text-faint">Session:</span>
           <span className="text-[10px] text-text-secondary">128k tokens</span>
           <span className="text-[10px] text-accent-primary">~$0.42</span>
+          <button
+            onClick={() => togglePanel('bottomPanel')}
+            className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
+            title={collapsed ? 'Expand panel' : 'Collapse panel'}
+          >
+            {collapsed ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
         </div>
       </div>
 

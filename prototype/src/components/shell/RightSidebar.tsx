@@ -1,6 +1,7 @@
 import {
-  CheckCircle2, AlertCircle, Circle
+  CheckCircle2, AlertCircle, Circle, ChevronLeft, ChevronRight
 } from 'lucide-react';
+import { useLayoutStore } from '../../stores/layout';
 
 const TIMELINE = [
   { label: 'Initialize repo', done: true },
@@ -16,8 +17,36 @@ const AGENTS = [
 ];
 
 export function RightSidebar() {
+  const collapsed = useLayoutStore((s) => s.collapsedPanels.rightSidebar);
+  const togglePanel = useLayoutStore((s) => s.togglePanel);
+
   return (
-    <aside className="w-72 border-l border-border-default flex flex-col shrink-0 overflow-hidden">
+    <aside className={`border-l border-border-default flex flex-col shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out ${
+      collapsed ? 'w-8' : 'w-72'
+    }`}>
+      {collapsed ? (
+        <div className="w-8 flex flex-col items-center pt-3">
+          <button
+            onClick={() => togglePanel('rightSidebar')}
+            className="p-1 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
+            title="Expand sidebar"
+          >
+            <ChevronLeft size={14} />
+          </button>
+        </div>
+      ) : (
+      <div className="w-72 min-w-[18rem] flex flex-col overflow-hidden h-full">
+
+      {/* Collapse button */}
+      <div className="flex items-center justify-end px-2 pt-1">
+        <button
+          onClick={() => togglePanel('rightSidebar')}
+          className="p-1 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
+          title="Collapse sidebar"
+        >
+          <ChevronRight size={14} />
+        </button>
+      </div>
 
       {/* Decision queue */}
       <div className="p-4 border-b border-border-default">
@@ -80,6 +109,8 @@ export function RightSidebar() {
           </div>
         ))}
       </div>
+      </div>
+      )}
     </aside>
   );
 }
