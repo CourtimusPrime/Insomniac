@@ -43,7 +43,8 @@ export class PipelineEngine {
   }
 
   /**
-   * Executes the pipeline stages sequentially in sortOrder.
+   * Executes the pipeline stages in sortOrder.
+   * Stages with the same sortOrder are executed in parallel.
    */
   async run(): Promise<void> {
     this.load();
@@ -60,8 +61,9 @@ export class PipelineEngine {
     this.updatePipelineStatus("running");
 
     try {
-      for (const stage of this.stages) {
-        await this.executeStage(stage);
+      const groups = this.groupStagesBySortOrder(this.stages);
+      for (const group of groups) {
+        await this.executeStageGroup(group);
       }
       // All stages complete
       this.updatePipelineStatus("completed");
@@ -88,18 +90,18 @@ export class PipelineEngine {
 
     // Find the index to resume from
     const startIndex = this.getResumeIndex();
+    const remainingStages = this.stages.slice(startIndex);
 
     // Set pipeline status to running
     this.updatePipelineStatus("running");
 
     try {
-      for (let i = startIndex; i < this.stages.length; i++) {
-        const stage = this.stages[i];
-        // Skip stages that are already done
-        if (stage.status === "done") {
-          continue;
-        }
-        await this.executeStage(stage);
+      const groups = this.groupStagesBySortOrder(remainingStages);
+      for (const group of groups) {
+        // Filter out already-done stages within the group
+        const pending = group.filter((s) => s.status !== "done");
+        if (pending.length === 0) continue;
+        await this.executeStageGroup(pending);
       }
       // All stages complete
       this.updatePipelineStatus("completed");
@@ -132,6 +134,58 @@ export class PipelineEngine {
   }
 
   /**
+   * Groups stages by their sortOrder value.
+   * Returns an array of groups, sorted by sortOrder ascending.
+   * Stages within the same group execute in parallel.
+   */
+  private groupStagesBySortOrder(stages: StageRow[]): StageRow[][] {
+    const groups = new Map<number, StageRow[]>();
+    for (const stage of stages) {
+      const order = stage.sortOrder;
+      if (!groups.has(order)) {
+        groups.set(order, []);
+      }
+      groups.get(order)!.push(stage);
+    }
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([, g]) => g);
+  }
+
+  /**
+   * Executes a group of stages. If the group has a single stage, it runs
+   * directly. If multiple, they run in parallel via Promise.allSettled.
+   * All parallel stages complete even if some fail. If any fail, the
+   * pipeline reports partial failure. Checkpoints after full group success.
+   */
+  private async executeStageGroup(group: StageRow[]): Promise<void> {
+    if (group.length === 1) {
+      await this.executeStage(group[0]);
+      this.updateCheckpoint(group[0].id);
+      return;
+    }
+
+    // Execute parallel stages — allSettled lets all finish even if some fail
+    const results = await Promise.allSettled(
+      group.map((stage) => this.executeStage(stage)),
+    );
+
+    const failures = results.filter(
+      (r): r is PromiseRejectedResult => r.status === "rejected",
+    );
+
+    if (failures.length > 0) {
+      // Do NOT checkpoint — the group had partial failures
+      throw new Error(
+        `${failures.length} of ${group.length} parallel stages failed`,
+      );
+    }
+
+    // All stages in the group succeeded — checkpoint the last one
+    this.updateCheckpoint(group[group.length - 1].id);
+  }
+
+  /**
    * Executes a single pipeline stage: spawns an agent, sends the prompt,
    * waits for the response, and updates the stage status.
    */
@@ -153,9 +207,6 @@ export class PipelineEngine {
       await agent.getResponse();
 
       this.updateStageStatus(stage.id, "done");
-
-      // Checkpoint after successful completion
-      this.updateCheckpoint(stage.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[PipelineEngine] Stage "${stage.name}" failed: ${message}`);
