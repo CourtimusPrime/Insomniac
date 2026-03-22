@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { db } from "../db/connection.js";
 import { workspaces, abilities } from "../db/schema/index.js";
+import { parseSkillMd } from "../abilities/skill-parser.js";
 
 const DEFAULT_WORKSPACE_NAME = "Default";
 
@@ -189,6 +190,46 @@ export async function abilityRoutes(server: FastifyInstance) {
 
       db.delete(abilities).where(eq(abilities.id, id)).run();
       return reply.code(204).send();
+    },
+  );
+
+  // POST /api/abilities/import-skill — import a Claude SKILL.md as an ability
+  server.post<{ Body: string }>(
+    "/api/abilities/import-skill",
+    {
+      schema: {
+        body: { type: "string" },
+      },
+    },
+    async (request, reply) => {
+      let parsed;
+      try {
+        parsed = parseSkillMd(request.body);
+      } catch (err) {
+        reply.code(400);
+        return { error: (err as Error).message };
+      }
+
+      const id = crypto.randomUUID();
+
+      db.insert(abilities)
+        .values({
+          id,
+          workspaceId,
+          name: parsed.name,
+          type: parsed.type,
+          config: parsed.config,
+        })
+        .run();
+
+      const created = db
+        .select()
+        .from(abilities)
+        .where(eq(abilities.id, id))
+        .get();
+
+      reply.code(201);
+      return created;
     },
   );
 }
