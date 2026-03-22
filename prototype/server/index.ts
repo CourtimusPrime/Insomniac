@@ -27,8 +27,12 @@ import { agentRoutes } from "./routes/agents.js";
 import { authRoutes } from "./routes/auth.js";
 import { sandboxRoutes } from "./routes/sandboxes.js";
 import { registerAuthMiddleware } from "./hosted/index.js";
+import { validatePlatformForSandbox } from "./config/platform-check.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Validate platform supports configured sandbox mode (throws on fatal mismatch)
+await validatePlatformForSandbox();
 
 const server = Fastify({ logger: true });
 
