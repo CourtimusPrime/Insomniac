@@ -167,3 +167,16 @@ Started: Sun Mar 22 17:15:36 UTC 2026
   - `resolveWSLPath` only transforms paths matching `X:\...` pattern; non-Windows paths pass through unchanged
   - US-011 will import `getVSCodeCommand` from `server/utils/index.js` (note `.js` extension for ESM resolution)
 ---
+
+## 2026-03-22 ~21:30 - US-011
+- Added `POST /api/projects/:id/open-vscode` endpoint to `server/routes/projects.ts`
+- Looks up project by ID, validates it has a `path`, spawns VS Code with `getVSCodeCommand()` from WSL utils
+- Uses `spawn` with `detached: true` + `child.unref()` so VS Code runs independently of the server process
+- Returns `{ success: boolean, error?: string }`
+- Files changed: `server/routes/projects.ts`
+- **Learnings for future iterations:**
+  - Place parameterized routes like `/api/projects/:id/open-vscode` before generic `:id` PUT/DELETE to avoid ambiguity (Fastify handles this, but it's cleaner)
+  - `spawn` with `detached: true` + `stdio: "ignore"` + `child.unref()` is the pattern for fire-and-forget child processes that outlive the request
+  - The `getVSCodeCommand()` import from `../utils/index.js` works — ESM requires the `.js` extension
+  - US-012 will need to call this endpoint from the frontend context menu
+---
