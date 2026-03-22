@@ -6,3 +6,4 @@ export { agents } from "./agents.js";
 export { abilities } from "./abilities.js";
 export { decisions } from "./decisions.js";
 export { settings } from "./settings.js";
+export { providers } from "./providers.js";
