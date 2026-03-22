@@ -65,6 +65,10 @@ export function useWebSocket(): void {
         case "decision:resolved":
           queryClient.invalidateQueries({ queryKey: ["decisions"] });
           break;
+        case "devserver:log":
+        case "devserver:status":
+          queryClient.invalidateQueries({ queryKey: ["devServerStatus"] });
+          break;
       }
     }
 
