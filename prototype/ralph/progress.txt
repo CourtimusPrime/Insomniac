@@ -25,6 +25,9 @@ Started: Sun Mar 22 17:46:01 UTC 2026
 - Custom ReactFlow edges: use `getBezierPath` + `BaseEdge`, define `edgeTypes` outside component, register via `edgeTypes` prop
 - Edge data type `CustomEdgeData` has `condition` field: always | on-success | on-failure | on-decision
 - `EdgeLabelRenderer` for floating UI elements (buttons) at edge midpoints; use `deleteElements` from `useReactFlow()` for programmatic edge removal
+- ChainEditor uses `ReactFlowProvider` wrapper; hooks like `useReactFlow()` / `screenToFlowPosition` must be called inside an inner component
+- AddNodeMenu tracks both screen coords (for CSS popup placement) and flow coords (for `node.position`) — two coordinate systems
+- Node type definitions (color, label, description) are in `AddNodeMenu.tsx` as `nodeTypeEntries`
 
 ---
 
@@ -153,4 +156,20 @@ Started: Sun Mar 22 17:46:01 UTC 2026
   - Cycle detection: BFS from target node following outgoing edges — if source is reachable, it's a cycle
   - `edgeTypes` object (like `nodeTypes`) must be defined outside the component to avoid re-renders
   - `deleteElements` from `useReactFlow()` removes edges programmatically
+---
+
+## 2026-03-22 - US-010
+- Created `src/components/graph/AddNodeMenu.tsx` — floating menu with 6 built-in node types (Trigger, Prototyper, Builder, Tester, Reviewer, Auditor)
+- Each type shows colored dot, label, and role description
+- Clicking a type adds a new agent node at the menu's flow position
+- Menu accessible via toolbar '+ Add node' button (places at viewport center) and double-click on empty canvas (places at cursor)
+- Menu dismisses on click outside or Escape key
+- Updated `ChainEditor.tsx`: added toolbar bar, ReactFlowProvider wrapper, menu state management, `screenToFlowPosition` for coordinate conversion
+- Files changed: src/components/graph/AddNodeMenu.tsx (created), src/components/graph/ChainEditor.tsx
+- **Learnings for future iterations:**
+  - `useReactFlow()` (for `screenToFlowPosition`, `deleteElements`, etc.) requires the component to be inside a `<ReactFlowProvider>` — wrap with provider and use an inner component
+  - Menu needs two coordinate systems: screen coords (CSS `left`/`top` for popup placement) and flow coords (for `node.position`)
+  - `onDoubleClick` on `<ReactFlow>` fires for double-click on the pane; use `event.target.closest('.react-flow')?.getBoundingClientRect()` to get relative screen position
+  - Node IDs use `crypto.randomUUID()` matching the backend pattern
+  - Node labels are auto-numbered: `${label} ${nodes.length + 1}`
 ---
