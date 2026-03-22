@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import {
-  Layers, Github, Zap, Store, Play, CheckCircle2, AlertCircle,
+  Play, CheckCircle2, AlertCircle,
   Terminal, BarChart2, Heart, ChevronRight,
-  Settings, Plus, Cpu, GitMerge, Globe, Sparkles,
+  Plus, Cpu, GitMerge, Globe, Sparkles,
   ArrowRight, Circle, BookOpen
 } from 'lucide-react';
-import { ThemeSwitcher } from './components/ThemeSwitcher';
+import { LeftToolbar } from './components/shell/LeftToolbar';
+import { useLayoutStore } from './stores/layout';
 
 // --- DATA ---
 
@@ -90,48 +91,16 @@ const severityColor = (s: string) => ({
 // --- APP ---
 
 export default function InsomniacApp() {
-  const [activeToolbar, setActiveToolbar] = useState('projects');
+  const activeToolbar = useLayoutStore((s) => s.activeToolbar);
   const [activeProject, setActiveProject] = useState('Aether-OS');
   const [activeTab, setActiveTab] = useState('terminal');
   const [activeMain, setActiveMain] = useState('pipeline');
-
-  const toolbarItems = [
-    { id: 'projects', icon: <Layers size={18} />, label: 'Projects' },
-    { id: 'abilities', icon: <Zap size={18} />, label: 'Abilities' },
-    { id: 'github', icon: <Github size={18} />, label: 'GitHub' },
-    { id: 'marketplace', icon: <Store size={18} />, label: 'Marketplace' },
-  ];
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-bg-default text-text-default font-sans">
 
       {/* LEFT TOOLBAR */}
-      <aside className="w-14 flex flex-col items-center py-4 gap-1 bg-bg-base border-r border-border-default shrink-0">
-        <div className="mb-5 p-1">
-          <div className="w-7 h-7 bg-accent-primary rounded flex items-center justify-center">
-            <Zap size={14} fill="white" className="text-text-primary" />
-          </div>
-        </div>
-        {toolbarItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => setActiveToolbar(item.id)}
-            title={item.label}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-              activeToolbar === item.id
-                ? 'bg-accent-primary/15 text-accent-primary'
-                : 'text-text-faint hover:text-text-default hover:bg-bg-hover'
-            }`}>
-            {item.icon}
-          </button>
-        ))}
-        <div className="mt-auto flex flex-col items-center gap-1">
-          <ThemeSwitcher />
-          <button className="w-10 h-10 rounded-lg flex items-center justify-center text-text-faint hover:text-text-default hover:bg-bg-hover">
-            <Settings size={18} />
-          </button>
-        </div>
-      </aside>
+      <LeftToolbar />
 
       {/* LEFT SIDEBAR */}
       <aside className="w-56 flex flex-col bg-bg-default border-r border-border-default shrink-0">
