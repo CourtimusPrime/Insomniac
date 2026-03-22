@@ -7,3 +7,4 @@ export { abilities } from "./abilities.js";
 export { decisions } from "./decisions.js";
 export { settings } from "./settings.js";
 export { providers } from "./providers.js";
+export { projectPreferences } from "./project-preferences.js";
