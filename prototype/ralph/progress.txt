@@ -148,3 +148,20 @@ Started: Sun Mar 22 19:11:30 UTC 2026
   - The BottomPanel Browser tab now opens a second WebSocket for `browser:console` events, separate from the `devserver:log` listener
   - Browser console state is not project-scoped (unlike dev server logs) since there's only one browser singleton
 ---
+
+## 2026-03-22 - US-010
+- Added agent activity broadcasting to `executeBrowserTool` in `server/browser/browser-tools.ts`
+- Each tool execution broadcasts `browser:agent-action` WebSocket events with pending → done/error lifecycle
+- Actions have unique IDs, human-readable descriptions (e.g., "clicking #submit-btn"), and status
+- Frontend: Added Agent Activity sub-panel side-by-side with Console in the Browser tab
+- Status icons: Loader2 (spinning) for pending, CheckCircle for done, XCircle for error
+- Entries update in-place when status changes from pending → done/error (matched by action ID)
+- Auto-scrolls to latest entry
+- Clear button to reset activity feed
+- Files changed: `server/browser/browser-tools.ts`, `src/components/shell/BottomPanel.tsx`
+- **Learnings for future iterations:**
+  - Consolidated `browser:console` and `browser:agent-action` WebSocket listeners into one connection to avoid excessive WS connections (BottomPanel already had 2 separate WS connections)
+  - For state updates that modify existing entries by ID, use `findIndex` + spread to update in-place rather than just appending
+  - Side-by-side layout (flex-row) for sub-panels is more space-efficient than stacking vertically when the bottom panel has limited height
+  - The `describeAction` helper maps tool names to human-readable strings — keep this in sync when adding new browser tools
+---
