@@ -1,4 +1,13 @@
 // download-icons.ts
+// Usage:
+//   bun download-icons.ts                          # install all default icons
+//   bun download-icons.ts cloudflare neon duckdb   # install specific icons only
+//
+// Source: devicon (node_modules/devicon/icons/)
+// Copies original (full-color) and plain (mono) variants to public/icons/
+
+import { cpSync, rmSync, existsSync, readdirSync } from 'fs'
+
 export const ICONS = [
   // AI
   'openai', 'claude', 'openrouter', 'gemini', 'mistral', 'huggingface',
@@ -101,78 +110,98 @@ export const ICONS = [
   'algolia', 'meilisearch', 'typesense',
 ] as const
 
-// Simple Icons CDN uses different slugs for some icons
-const SLUG_MAP: Record<string, string> = {
-  mistral: 'mistralai',
-  gemini: 'googlegemini',
-  java: 'openjdk',
-  csharp: 'dotnet',
-  vue: 'vuedotjs',
-  nodejs: 'nodedotjs',
-  nextjs: 'nextdotjs',
+// Our slug → devicon folder name (where they differ)
+export const SLUG_MAP: Record<string, string> = {
+  nodejs: 'nodejs',
+  nextjs: 'nextjs',
   cpp: 'cplusplus',
+  csharp: 'csharp',
   tailwind: 'tailwindcss',
-  materialui: 'mui',
-  shadcn: 'shadcnui',
-  solidjs: 'solid',
-  sveltekit: 'svelte',
-  rails: 'rubyonrails',
-  cassandra: 'apachecassandra',
-  firestore: 'firebase',
-  openapi: 'openapiinitiative',
-  googlecloud: 'googlecloud',
-  gitlabcicd: 'gitlab',
-  argocd: 'argo',
-  intellij: 'intellijidea',
-  chrome: 'googlechrome',
-  sublime: 'sublimetext',
-  emacs: 'gnuemacs',
-  zed: 'zedindustries',
+  materialui: 'materialui',
+  rails: 'rails',
   reactnative: 'react',
-  cockroachdb: 'cockroachlabs',
-  rollup: 'rollupdotjs',
+  sveltekit: 'svelte',
+  aws: 'amazonwebservices',
+  azure: 'azure',
+  googlecloud: 'googlecloud',
+  vscode: 'vscode',
+  intellij: 'intellijidea',
+  chrome: 'chrome',
+  sublime: 'sublimetext',
+  cockroachdb: 'cockroachdb',
+  firestore: 'firebase',
+  archlinux: 'archlinux',
   raspberrypi: 'raspberrypi',
+  rollup: 'rollup',
+  gitlabcicd: 'gitlab',
+  windows: 'windows11',
+  cypress: 'cypressio',
+  framer: 'framermotion',
+  slack: 'slack',
+  travisci: 'travis',
 }
 
-// Variant → hex color for Simple Icons CDN
-const VARIANTS: Record<string, string | null> = {
-  default: null,       // brand color
-  light: '000000',     // black (for light backgrounds)
-  dark: 'ffffff',      // white (for dark backgrounds)
-}
-
+const SRC_DIR = './node_modules/devicon/icons'
 const OUT_DIR = './public/icons'
-const BASE = 'https://cdn.simpleicons.org'
 
-// Deduplicate
-const unique = [...new Set(ICONS)]
+// CLI args override the default list
+const args = Bun.argv.slice(2)
+const slugs = args.length > 0 ? args : [...new Set(ICONS)]
+
+// Build an index of available devicon folders for loose matching
+const available = new Set(readdirSync(SRC_DIR))
+
+function findDevicon(slug: string): string | null {
+  // 1. Exact match via slug map
+  const mapped = SLUG_MAP[slug]
+  if (mapped && available.has(mapped)) return mapped
+
+  // 2. Direct match
+  if (available.has(slug)) return slug
+
+  // 3. Try common suffixes/prefixes
+  for (const variant of [`${slug}js`, `${slug}dotjs`, `apache${slug}`]) {
+    if (available.has(variant)) return variant
+  }
+
+  return null
+}
+
 let ok = 0, fail = 0
 
-for (const slug of unique) {
-  const siSlug = SLUG_MAP[slug] ?? slug
+for (const slug of slugs) {
+  const devSlug = findDevicon(slug)
 
-  for (const [variant, color] of Object.entries(VARIANTS)) {
-    const url = color ? `${BASE}/${siSlug}/${color}` : `${BASE}/${siSlug}`
-    const res = await fetch(url)
-
-    if (!res.ok) {
-      if (variant === 'default') {
-        console.log(`\x1b[31m✗ ${slug}\x1b[0m (not found as "${siSlug}")`)
-        fail++
-      }
-      break // if default fails, skip other variants
-    }
-
-    const svg = await res.text()
-    await Bun.write(`${OUT_DIR}/${slug}/${variant}.svg`, svg)
-
-    if (variant === 'default') {
-      ok++
-    }
+  if (!devSlug) {
+    console.log(`\x1b[31m✗ ${slug}\x1b[0m (not in devicon)`)
+    fail++
+    continue
   }
+
+  const srcDir = `${SRC_DIR}/${devSlug}`
+  const destDir = `${OUT_DIR}/${slug}`
+  const files = readdirSync(srcDir).filter(f => f.endsWith('.svg'))
+
+  // Clean existing folder for a fresh install
+  if (existsSync(destDir)) {
+    rmSync(destDir, { recursive: true })
+  }
+
+  // Copy SVGs, renaming to consistent names:
+  //   {name}-original.svg         → original.svg
+  //   {name}-original-wordmark.svg → original-wordmark.svg
+  //   {name}-plain.svg            → plain.svg
+  //   {name}-plain-wordmark.svg   → plain-wordmark.svg
+  let copied = 0
+  for (const file of files) {
+    // Strip the icon name prefix: "react-original.svg" → "original.svg"
+    const renamed = file.replace(`${devSlug}-`, '')
+    cpSync(`${srcDir}/${file}`, `${destDir}/${renamed}`)
+    console.log(`  \x1b[32m✓\x1b[0m ${slug}/${renamed}`)
+    copied++
+  }
+
+  if (copied > 0) ok++
 }
 
-console.log(`\nDone: ${ok} downloaded, ${fail} not found`)
-if (fail > 0) {
-  console.log('Run: bun validate-icons.ts to see which slugs need mapping')
-}
+console.log(`\nDone: ${ok} installed, ${fail} not found`)
