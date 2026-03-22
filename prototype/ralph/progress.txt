@@ -15,6 +15,9 @@ Started: Sun Mar 22 17:15:36 UTC 2026
 - `apiFetch` from `src/api/client.ts` is the fetch wrapper for all API calls
 - Active project tracked via `useProjectsStore((s) => s.activeProjectId)` from `src/stores/projects.ts`
 - WebSocket event handling in `src/hooks/useWebSocket.ts` — add cases to the `handleEvent` switch to invalidate query keys
+- Settings stored in `settings` table as key-value pairs (key: text, value: JSON) scoped to workspaceId
+- Settings API: GET `/api/settings/:key` and PUT `/api/settings/:key` with `{ value, category? }` body
+- Settings hooks in `src/api/settings.ts`: `useSetting(key)`, `useSaveSetting()`, `useTestSlackWebhook()`
 
 ---
 
@@ -99,4 +102,19 @@ Started: Sun Mar 22 17:15:36 UTC 2026
   - Native `fetch` is available in Node 18+ (this project's target), no need for `node-fetch`
   - The `SlackNotifier` class is stateless — it can be instantiated once and reused across routes
   - Status colors: success=#36a64f, warning=#f2c744, error=#e01e5a, info=#1264a3
+---
+
+## 2026-03-22 ~19:30 - US-007
+- Added 'Notifications' tab to SettingsView with Slack webhook URL configuration
+- Created `server/routes/settings.ts` with GET/PUT `/api/settings/:key` and POST `/api/settings/slack/test`
+- Created `src/api/settings.ts` with `useSetting`, `useSaveSetting`, `useTestSlackWebhook` hooks
+- Updated `SettingsView.tsx` with `NotificationsTab` component: webhook URL input, Save button, Test button with status feedback
+- Registered `settingsRoutes` in `server/index.ts`
+- Files changed: `server/routes/settings.ts` (new), `src/api/settings.ts` (new), `src/components/views/SettingsView.tsx`, `server/index.ts`
+- **Learnings for future iterations:**
+  - The `settings` table uses a key-value pattern with JSON value column — good for any workspace-level config
+  - Settings routes use a `getDefaultWorkspaceId()` helper (not the closure pattern from projects) since settings are workspace-global
+  - Drizzle's `text("value", { mode: "json" })` stores JSON but you still need `JSON.stringify()` when writing via `.set()` / `.values()`
+  - SettingsView uses a `SettingsTab` union type and `TABS` array for the tab bar — add new tabs by extending both
+  - For upsert pattern in SQLite via Drizzle: check existing row with `.get()`, then update or insert accordingly
 ---
