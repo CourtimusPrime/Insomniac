@@ -4,6 +4,10 @@ Started: Sun Mar 22 18:31:48 UTC 2026
 
 ## Codebase Patterns
 - Schema files use `sqliteTable` from drizzle-orm/sqlite-core with `.js` extension in imports
+- Frontend API hooks pattern: `useQuery` for GET, `useMutation` with `useQueryClient().invalidateQueries` for mutations
+- API hooks import `apiFetch` from `./client` (base URL http://localhost:4321)
+- Query keys follow `["resource"]` for lists, `["resource", id]` for single items
+- Mutations invalidate all related query keys on success (e.g., install invalidates both marketplace + templates)
 - Primary keys use `text("id").$defaultFn(() => crypto.randomUUID())`
 - Timestamps use `integer("created_at", { mode: "timestamp" }).default(sql\`(unixepoch())\`)`
 - Booleans use `integer("col", { mode: "boolean" })`
@@ -96,4 +100,18 @@ Started: Sun Mar 22 18:31:48 UTC 2026
   - Install endpoint uses optional workspaceId from body, falls back to default workspace
   - The marketplace client's `downloadItem()` returns a `Record<string, unknown>` — cast `payload.chainDefinition` carefully
   - Pagination limits clamped: page >= 1, 1 <= limit <= 50
+---
+
+## 2026-03-22 - US-006
+- Created `src/api/templates.ts` with 5 hooks: useTemplates(), useTemplate(id), useApplyTemplate(), useCreateTemplate(), useDeleteTemplate()
+- Created `src/api/marketplace.ts` with 3 hooks: useMarketplace(filters), useMarketplaceItem(id), useInstallItem()
+- All mutations invalidate relevant query keys (templates, marketplace, projects)
+- Marketplace hook builds URLSearchParams from filters object for query string
+- Files changed: src/api/templates.ts (new), src/api/marketplace.ts (new)
+- **Learnings for future iterations:**
+  - Template type mirrors DB schema but uses `string` for timestamps (JSON serialization)
+  - MarketplaceFilters includes pagination (page/limit) since the server paginates
+  - useMarketplace uses the full filters object as the query key for automatic refetch on filter changes
+  - useInstallItem invalidates both `["marketplace"]` and `["templates"]` since installing creates a template
+  - The marketplace.ts imports Template type from templates.ts for the install response typing
 ---
