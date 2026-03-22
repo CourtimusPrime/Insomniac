@@ -7,7 +7,9 @@ export function broadcast(event: string, data: unknown): void {
   const message = JSON.stringify({ event, data });
   for (const client of clients) {
     if (client.readyState === client.OPEN) {
-      client.send(message);
+      client.send(message, (err) => {
+        if (err) clients.delete(client);
+      });
     }
   }
 }
@@ -31,6 +33,11 @@ export async function wsRoutes(server: FastifyInstance): Promise<void> {
 
     socket.on("message", () => {
       socket.send(JSON.stringify({ error: "Messages not accepted" }));
+    });
+
+    socket.on("error", (err) => {
+      server.log.error({ err }, "WebSocket error");
+      clients.delete(socket);
     });
 
     socket.on("close", () => {
