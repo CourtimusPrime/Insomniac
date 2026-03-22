@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Loader2, AlertCircle, Shield, Cpu, CheckCircle2, XCircle, Plus, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Loader2, AlertCircle, Shield, Cpu, CheckCircle2, XCircle, Plus, X, Bell, Send } from 'lucide-react';
 import { useProviders, useAddProvider, useProviderModels, type Provider, type ProviderName } from '../../api/providers';
 import { useProjects } from '../../api/projects';
+import { useSetting, useSaveSetting, useTestSlackWebhook } from '../../api/settings';
 
-type SettingsTab = 'providers';
+type SettingsTab = 'providers' | 'notifications';
 
 const PROVIDER_OPTIONS: { value: ProviderName; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' },
@@ -224,8 +225,108 @@ function ProvidersTab() {
   );
 }
 
+function NotificationsTab() {
+  const { data: setting, isLoading } = useSetting('slack_webhook_url');
+  const saveSetting = useSaveSetting();
+  const testWebhook = useTestSlackWebhook();
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (setting?.value && typeof setting.value === 'string') {
+      setWebhookUrl(setting.value);
+    }
+  }, [setting]);
+
+  function handleSave() {
+    saveSetting.mutate(
+      { key: 'slack_webhook_url', value: webhookUrl, category: 'notifications' },
+      {
+        onSuccess: () => {
+          setSaved(true);
+          setTimeout(() => setSaved(false), 2000);
+        },
+      },
+    );
+  }
+
+  function handleTest() {
+    if (!webhookUrl) return;
+    testWebhook.mutate(webhookUrl);
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-text-muted">
+        <Loader2 size={14} className="animate-spin" />
+        Loading notification settings…
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-border-default p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Bell size={14} className="text-accent-primary" />
+          <span className="text-xs font-medium font-heading text-text-primary">Slack Notifications</span>
+        </div>
+
+        <p className="text-[11px] text-text-muted">
+          Enter a Slack incoming webhook URL to receive pipeline notifications, decision alerts, and error reports.
+        </p>
+
+        <div className="space-y-1">
+          <label className="text-[11px] text-text-muted">Webhook URL</label>
+          <input
+            type="text"
+            value={webhookUrl}
+            onChange={e => setWebhookUrl(e.target.value)}
+            placeholder="https://hooks.slack.com/services/..."
+            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 pt-1">
+          <button
+            onClick={handleSave}
+            disabled={saveSetting.isPending}
+            className="px-3 py-1.5 text-[11px] rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50"
+          >
+            {saveSetting.isPending ? 'Saving...' : saved ? 'Saved!' : 'Save'}
+          </button>
+
+          <button
+            onClick={handleTest}
+            disabled={!webhookUrl || testWebhook.isPending}
+            className="flex items-center gap-1 px-3 py-1.5 text-[11px] rounded border border-border-default text-text-muted hover:text-text-primary hover:border-accent-primary disabled:opacity-50 transition"
+          >
+            <Send size={10} />
+            {testWebhook.isPending ? 'Sending...' : 'Test'}
+          </button>
+
+          {testWebhook.isSuccess && (
+            <span className="text-[11px] text-status-success flex items-center gap-1">
+              <CheckCircle2 size={12} />
+              Test message sent!
+            </span>
+          )}
+
+          {testWebhook.isError && (
+            <span className="text-[11px] text-status-error flex items-center gap-1">
+              <AlertCircle size={12} />
+              {(testWebhook.error as Error).message}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'providers', label: 'Providers' },
+  { id: 'notifications', label: 'Notifications' },
 ];
 
 export function SettingsView() {
@@ -256,6 +357,7 @@ export function SettingsView() {
 
       {/* Tab content */}
       {activeTab === 'providers' && <ProvidersTab />}
+      {activeTab === 'notifications' && <NotificationsTab />}
     </div>
   );
 }

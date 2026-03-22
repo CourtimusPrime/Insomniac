@@ -11,6 +11,7 @@ import { decisionRoutes } from "./routes/decisions.js";
 import { providerRoutes } from "./routes/providers.js";
 import { preferencesRoutes } from "./routes/preferences.js";
 import { localhostRoutes } from "./routes/localhost.js";
+import { settingsRoutes } from "./routes/settings.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -42,6 +43,7 @@ await server.register(decisionRoutes);
 await server.register(providerRoutes);
 await server.register(preferencesRoutes);
 await server.register(localhostRoutes);
+await server.register(settingsRoutes);
 
 // Health check
 server.get("/api/health", async () => {
