@@ -31,8 +31,8 @@ export function LeftSidebar() {
   const activeToolbar = useLayoutStore((s) => s.activeToolbar);
   const setActiveMain = useLayoutStore((s) => s.setActiveMain);
   const collapsed = useLayoutStore((s) => s.collapsedPanels.leftSidebar);
-  const activeProject = useProjectsStore((s) => s.activeProject);
-  const setActiveProject = useProjectsStore((s) => s.setActiveProject);
+  const activeProjectId = useProjectsStore((s) => s.activeProjectId);
+  const setActiveProjectId = useProjectsStore((s) => s.setActiveProjectId);
   const { data: projects, isLoading, isError, refetch } = useProjects();
 
   return (
@@ -67,16 +67,16 @@ export function LeftSidebar() {
             {projects?.map(p => (
               <button
                 key={p.id}
-                onClick={() => setActiveProject(p.name)}
+                onClick={() => setActiveProjectId(p.id)}
                 className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition border-l-2 ${
-                  activeProject === p.name
+                  activeProjectId === p.id
                     ? 'border-accent-primary bg-accent-primary/5 text-text-primary'
                     : 'border-transparent hover:bg-bg-hover text-text-secondary'
                 }`}>
                 <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot(p.status)}`} />
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium truncate">{p.name}</div>
-                  <div className="text-[10px] text-text-faint mt-0.5">{p.language ?? 'Unknown'} · idle</div>
+                  <div className="text-[10px] text-text-faint mt-0.5">{p.language ?? 'Unknown'} · {p.status}</div>
                 </div>
               </button>
             ))}

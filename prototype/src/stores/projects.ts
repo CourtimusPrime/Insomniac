@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 
 interface ProjectsState {
-  activeProject: string;
-  setActiveProject: (name: string) => void;
+  activeProjectId: string | null;
+  setActiveProjectId: (id: string | null) => void;
 }
 
 export const useProjectsStore = create<ProjectsState>((set) => ({
-  activeProject: 'Aether-OS',
-  setActiveProject: (name) => set({ activeProject: name }),
+  activeProjectId: null,
+  setActiveProjectId: (id) => set({ activeProjectId: id }),
 }));

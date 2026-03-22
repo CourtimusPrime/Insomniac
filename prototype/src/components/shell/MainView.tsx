@@ -9,8 +9,9 @@ import { AbilityDetailView } from '../views/AbilityDetailView';
 export function MainView() {
   const activeMain = useLayoutStore((s) => s.activeMain);
   const setActiveMain = useLayoutStore((s) => s.setActiveMain);
-  const activeProject = useProjectsStore((s) => s.activeProject);
+  const activeProjectId = useProjectsStore((s) => s.activeProjectId);
   const { data: projects } = useProjects();
+  const activeProject = projects?.find(p => p.id === activeProjectId);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -18,9 +19,9 @@ export function MainView() {
       <div className="px-6 py-3 border-b border-border-default flex items-center gap-4 shrink-0">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold text-text-primary font-heading">{activeProject}</h1>
+            <h1 className="text-sm font-bold text-text-primary font-heading">{activeProject?.name ?? 'No project selected'}</h1>
             <span className="text-[10px] px-2 py-0.5 rounded-full border border-accent-primary/30 bg-accent-primary/5 text-accent-primary">
-              {projects?.find(p => p.name === activeProject)?.status ?? 'loading'}
+              {activeProject?.status ?? 'idle'}
             </span>
           </div>
           <p className="text-[11px] text-text-muted mt-0.5">Decentralized OS kernel · Rust · 3 agents running</p>

@@ -15,7 +15,7 @@ export const pipelines = sqliteTable("pipelines", {
     .references(() => projects.id),
   name: text("name").notNull(),
   status: text("status", {
-    enum: ["idle", "running", "completed", "error"],
+    enum: ["idle", "running", "completed", "error", "paused", "cancelled"],
   })
     .notNull()
     .default("idle"),

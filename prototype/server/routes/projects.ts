@@ -164,7 +164,7 @@ export async function projectRoutes(server: FastifyInstance) {
       }
 
       db.delete(projects).where(eq(projects.id, id)).run();
-      reply.code(204);
+      return reply.code(204).send();
     },
   );
 }

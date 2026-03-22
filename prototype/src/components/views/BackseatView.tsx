@@ -1,5 +1,6 @@
 import { Sparkles, Play } from 'lucide-react';
 import { useProjectsStore } from '../../stores/projects';
+import { useProjects } from '../../api/projects';
 
 const BACKSEAT = [
   { type: 'security', severity: 'critical', file: 'src/auth/hash.rs', msg: 'SHA-1 collision risk in password hashing. Recommend SHA-256 or Argon2.' },
@@ -14,13 +15,15 @@ const severityColor = (s: string) => ({
 }[s]);
 
 export function BackseatView() {
-  const activeProject = useProjectsStore((s) => s.activeProject);
+  const activeProjectId = useProjectsStore((s) => s.activeProjectId);
+  const { data: projects } = useProjects();
+  const activeProject = projects?.find(p => p.id === activeProjectId);
 
   return (
     <div className="p-5 space-y-3 max-w-2xl">
       <div className="flex items-center gap-2 mb-4">
         <Sparkles size={14} className="text-accent-secondary" />
-        <span className="text-xs text-text-secondary">Monitoring <span className="text-text-primary">{activeProject}</span> · Last scan 2m ago · {BACKSEAT.length} recommendations</span>
+        <span className="text-xs text-text-secondary">Monitoring <span className="text-text-primary">{activeProject?.name ?? 'No project'}</span> · Last scan 2m ago · {BACKSEAT.length} recommendations</span>
       </div>
       {BACKSEAT.map((r, i) => (
         <div key={i} className={`rounded-lg border px-4 py-3 ${severityColor(r.severity)}`}>
