@@ -12,10 +12,26 @@ export function broadcast(event: string, data: unknown): void {
   }
 }
 
+const ALLOWED_ORIGINS = [
+  "http://localhost:1420",
+  "http://localhost:4321",
+  "http://localhost:5173",
+];
+
 export async function wsRoutes(server: FastifyInstance): Promise<void> {
-  server.get("/ws", { websocket: true }, (socket) => {
+  server.get("/ws", { websocket: true }, (socket, request) => {
+    const origin = request.headers.origin ?? "";
+    if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+      socket.close(1008, "Forbidden");
+      return;
+    }
+
     clients.add(socket);
     server.log.info(`WebSocket client connected (${clients.size} total)`);
+
+    socket.on("message", () => {
+      socket.send(JSON.stringify({ error: "Messages not accepted" }));
+    });
 
     socket.on("close", () => {
       clients.delete(socket);

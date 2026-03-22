@@ -41,7 +41,7 @@ server.get("/api/health", async () => {
 // Start
 const start = async () => {
   try {
-    await server.listen({ port: 4321, host: "0.0.0.0" });
+    await server.listen({ port: Number(process.env.PORT ?? 4321), host: process.env.HOST ?? "127.0.0.1" });
   } catch (err) {
     server.log.error(err);
     process.exit(1);

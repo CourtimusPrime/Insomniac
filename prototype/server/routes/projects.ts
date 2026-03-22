@@ -59,6 +59,21 @@ export async function projectRoutes(server: FastifyInstance) {
   // POST /api/projects — create a new project
   server.post<{ Body: { name: string; language?: string; repoUrl?: string; path?: string } }>(
     "/api/projects",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["name"],
+          additionalProperties: false,
+          properties: {
+            name: { type: "string", minLength: 1, maxLength: 100 },
+            language: { type: "string", maxLength: 50 },
+            repoUrl: { type: "string", format: "uri", maxLength: 500 },
+            path: { type: "string", maxLength: 500 },
+          },
+        },
+      },
+    },
     async (request, reply) => {
       const { name, language, repoUrl, path } = request.body;
       const id = crypto.randomUUID();
@@ -81,9 +96,23 @@ export async function projectRoutes(server: FastifyInstance) {
   // PUT /api/projects/:id — update a project
   server.put<{ Params: { id: string }; Body: Partial<{ name: string; status: "idle" | "building" | "completed" | "error"; language: string; repoUrl: string; path: string }> }>(
     "/api/projects/:id",
+    {
+      schema: {
+        body: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            name: { type: "string", minLength: 1, maxLength: 100 },
+            status: { type: "string", enum: ["idle", "building", "completed", "error"] },
+            language: { type: "string", maxLength: 50 },
+            repoUrl: { type: "string", format: "uri", maxLength: 500 },
+            path: { type: "string", maxLength: 500 },
+          },
+        },
+      },
+    },
     async (request, reply) => {
       const { id } = request.params;
-      const updates = request.body;
 
       const existing = db
         .select()
@@ -95,6 +124,14 @@ export async function projectRoutes(server: FastifyInstance) {
         reply.code(404);
         return { error: "Project not found" };
       }
+
+      const { name, status, language, repoUrl, path } = request.body;
+      const updates: Record<string, unknown> = {};
+      if (name !== undefined) updates.name = name;
+      if (status !== undefined) updates.status = status;
+      if (language !== undefined) updates.language = language;
+      if (repoUrl !== undefined) updates.repoUrl = repoUrl;
+      if (path !== undefined) updates.path = path;
 
       db.update(projects)
         .set({ ...updates, updatedAt: new Date() })
