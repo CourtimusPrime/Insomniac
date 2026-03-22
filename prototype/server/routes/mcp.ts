@@ -26,7 +26,19 @@ export async function mcpRoutes(server: FastifyInstance): Promise<void> {
       return { error: "command is required and must be a string" };
     }
 
-    const result = manager.connect({ name, command, args, env });
+    // Security: reject absolute paths and path traversal in command
+    if (command.includes("/") || command.includes("\\") || command.includes("..")) {
+      reply.code(400);
+      return { error: "command must be a binary name, not a path" };
+    }
+
+    // Security: block dangerous env vars that enable code injection
+    const BLOCKED_ENV_KEYS = new Set(["PATH", "LD_PRELOAD", "LD_LIBRARY_PATH", "NODE_OPTIONS", "PYTHONPATH"]);
+    const safeEnv = env
+      ? Object.fromEntries(Object.entries(env).filter(([k]) => !BLOCKED_ENV_KEYS.has(k)))
+      : undefined;
+
+    const result = manager.connect({ name, command, args, env: safeEnv });
 
     if (!result.success) {
       reply.code(409);

@@ -122,16 +122,27 @@ export async function projectRoutes(server: FastifyInstance) {
       const { repoUrl, name } = request.body;
 
       // Derive project name from URL if not provided
-      const repoName =
+      const repoName = (
         name ||
         repoUrl
           .replace(/\.git$/, "")
           .split("/")
           .pop()
-          ?.replace(/[^a-zA-Z0-9._-]/g, "") ||
-        "project";
+          ?.replace(/[^a-zA-Z0-9_-]/g, "") ||
+        "project"
+      ).replace(/^\.+/, ""); // Strip leading dots to prevent path traversal
+
+      if (!repoName || repoName === "." || repoName === "..") {
+        reply.code(400);
+        return { error: "Invalid project name" };
+      }
 
       const targetPath = resolve(PROJECTS_DIR, repoName);
+      // Security: verify resolved path is inside PROJECTS_DIR
+      if (!targetPath.startsWith(PROJECTS_DIR + "/")) {
+        reply.code(400);
+        return { error: "Invalid project path" };
+      }
 
       // Ensure projects directory exists
       await mkdir(PROJECTS_DIR, { recursive: true });
@@ -203,6 +214,67 @@ export async function projectRoutes(server: FastifyInstance) {
         reply.code(500);
         return { success: false, error: message };
       }
+    },
+  );
+
+  // GET /api/projects/:id/chain — get chain definition
+  server.get<{ Params: { id: string } }>(
+    "/api/projects/:id/chain",
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const project = db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, id))
+        .get();
+
+      if (!project) {
+        reply.code(404);
+        return { error: "Project not found" };
+      }
+
+      return project.chainDefinition ?? { version: 1, nodes: [], edges: [] };
+    },
+  );
+
+  // PUT /api/projects/:id/chain — save chain definition
+  server.put<{ Params: { id: string }; Body: { version: number; nodes: unknown[]; edges: unknown[] } }>(
+    "/api/projects/:id/chain",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["version", "nodes", "edges"],
+          additionalProperties: false,
+          properties: {
+            version: { type: "number" },
+            nodes: { type: "array" },
+            edges: { type: "array" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const existing = db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, id))
+        .get();
+
+      if (!existing) {
+        reply.code(404);
+        return { error: "Project not found" };
+      }
+
+      db.update(projects)
+        .set({ chainDefinition: request.body, updatedAt: new Date() })
+        .where(eq(projects.id, id))
+        .run();
+
+      return request.body;
     },
   );
 

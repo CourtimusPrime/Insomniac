@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { eq, and, asc } from "drizzle-orm";
 import { db } from "../db/connection.js";
-import { pipelines, pipelineStages } from "../db/schema/index.js";
+import { pipelines, pipelineStages, stageAbilities, abilities } from "../db/schema/index.js";
 import { PipelineEngine } from "../pipeline/engine.js";
 
 /** Registry of running PipelineEngine instances so we can pause/cancel them. */
@@ -587,6 +587,163 @@ export async function pipelineRoutes(server: FastifyInstance) {
         .from(pipelineStages)
         .where(eq(pipelineStages.id, stageId))
         .get();
+    },
+  );
+
+  // ── Stage Abilities ─────────────────────────────────────────────────
+
+  // GET /api/pipelines/:pipelineId/stages/:stageId/abilities — list abilities for a stage
+  server.get<{ Params: { pipelineId: string; stageId: string } }>(
+    "/api/pipelines/:pipelineId/stages/:stageId/abilities",
+    async (request, reply) => {
+      const { pipelineId, stageId } = request.params;
+
+      const stage = db
+        .select()
+        .from(pipelineStages)
+        .where(
+          and(
+            eq(pipelineStages.id, stageId),
+            eq(pipelineStages.pipelineId, pipelineId),
+          ),
+        )
+        .get();
+
+      if (!stage) {
+        reply.code(404);
+        return { error: "Stage not found" };
+      }
+
+      const rows = db
+        .select({
+          stageId: stageAbilities.stageId,
+          abilityId: stageAbilities.abilityId,
+          assignedAt: stageAbilities.assignedAt,
+          ability: {
+            id: abilities.id,
+            name: abilities.name,
+            type: abilities.type,
+            active: abilities.active,
+            config: abilities.config,
+            version: abilities.version,
+          },
+        })
+        .from(stageAbilities)
+        .innerJoin(abilities, eq(stageAbilities.abilityId, abilities.id))
+        .where(eq(stageAbilities.stageId, stageId))
+        .all();
+
+      return rows;
+    },
+  );
+
+  // POST /api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId — assign ability to stage
+  server.post<{ Params: { pipelineId: string; stageId: string; abilityId: string } }>(
+    "/api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId",
+    async (request, reply) => {
+      const { pipelineId, stageId, abilityId } = request.params;
+
+      const stage = db
+        .select()
+        .from(pipelineStages)
+        .where(
+          and(
+            eq(pipelineStages.id, stageId),
+            eq(pipelineStages.pipelineId, pipelineId),
+          ),
+        )
+        .get();
+
+      if (!stage) {
+        reply.code(404);
+        return { error: "Stage not found" };
+      }
+
+      const ability = db
+        .select()
+        .from(abilities)
+        .where(eq(abilities.id, abilityId))
+        .get();
+
+      if (!ability) {
+        reply.code(404);
+        return { error: "Ability not found" };
+      }
+
+      // Check if already assigned
+      const existing = db
+        .select()
+        .from(stageAbilities)
+        .where(
+          and(
+            eq(stageAbilities.stageId, stageId),
+            eq(stageAbilities.abilityId, abilityId),
+          ),
+        )
+        .get();
+
+      if (existing) {
+        reply.code(409);
+        return { error: "Ability already assigned to this stage" };
+      }
+
+      db.insert(stageAbilities)
+        .values({ stageId, abilityId })
+        .run();
+
+      reply.code(201);
+      return { stageId, abilityId };
+    },
+  );
+
+  // DELETE /api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId — unassign ability from stage
+  server.delete<{ Params: { pipelineId: string; stageId: string; abilityId: string } }>(
+    "/api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId",
+    async (request, reply) => {
+      const { pipelineId, stageId, abilityId } = request.params;
+
+      const stage = db
+        .select()
+        .from(pipelineStages)
+        .where(
+          and(
+            eq(pipelineStages.id, stageId),
+            eq(pipelineStages.pipelineId, pipelineId),
+          ),
+        )
+        .get();
+
+      if (!stage) {
+        reply.code(404);
+        return { error: "Stage not found" };
+      }
+
+      const assignment = db
+        .select()
+        .from(stageAbilities)
+        .where(
+          and(
+            eq(stageAbilities.stageId, stageId),
+            eq(stageAbilities.abilityId, abilityId),
+          ),
+        )
+        .get();
+
+      if (!assignment) {
+        reply.code(404);
+        return { error: "Ability assignment not found" };
+      }
+
+      db.delete(stageAbilities)
+        .where(
+          and(
+            eq(stageAbilities.stageId, stageId),
+            eq(stageAbilities.abilityId, abilityId),
+          ),
+        )
+        .run();
+
+      return reply.code(204).send();
     },
   );
 }

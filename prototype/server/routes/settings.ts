@@ -99,7 +99,7 @@ export async function settingsRoutes(server: FastifyInstance) {
           type: "object",
           required: ["webhookUrl"],
           properties: {
-            webhookUrl: { type: "string", minLength: 1 },
+            webhookUrl: { type: "string", minLength: 1, pattern: "^https://hooks\\.slack\\.com/services/" },
           },
         },
       },

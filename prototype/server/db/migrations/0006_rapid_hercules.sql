@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `chain_definition` text;

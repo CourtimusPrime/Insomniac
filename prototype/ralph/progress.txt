@@ -1,218 +1,234 @@
 # Ralph Progress Log
-Started: Sun Mar 22 17:15:36 UTC 2026
+Started: Sun Mar 22 17:46:01 UTC 2026
 
 ## Codebase Patterns
-- Server code typechecked with `npx tsc --noEmit -p tsconfig.server.json`
-- Server routes are Fastify plugins registered in `server/index.ts`
-- Database uses Drizzle ORM with better-sqlite3; schemas in `server/db/schema/`
-- Project module uses ESNext with bundler module resolution
-- Integration services go in `server/integrations/`
-- Cloned projects live under `data/projects/` directory
-- Route handlers share `workspaceId` via closure from plugin load
-- LocalhostRunner is per-project; route layer uses a Map<projectId, LocalhostRunner> in server/routes/localhost.ts
-- McpConnectionManager is a singleton managing named connections; use `connect(config)` / `disconnect(name)` / `listConnections()` / `getConnection(name)`
-- MCP process auto-restart: on unexpected exit, retry up to 3 times (MAX_RETRIES), tracked via `restartCount`
-- WSL utilities in `server/utils/wsl.ts`; re-export from `server/utils/index.ts` — use `isWSL()` / `getVSCodeCommand()` / `resolveWSLPath()`
-- WebSocket log streaming uses `broadcast("devserver:log", { projectId, line })` from ws/handler.ts
-- Client API hooks go in `src/api/<resource>.ts` using TanStack React Query (`useQuery`, `useMutation`)
-- `apiFetch` from `src/api/client.ts` is the fetch wrapper for all API calls
-- Active project tracked via `useProjectsStore((s) => s.activeProjectId)` from `src/stores/projects.ts`
-- WebSocket event handling in `src/hooks/useWebSocket.ts` — add cases to the `handleEvent` switch to invalidate query keys
-- Settings stored in `settings` table as key-value pairs (key: text, value: JSON) scoped to workspaceId
-- Settings API: GET `/api/settings/:key` and PUT `/api/settings/:key` with `{ value, category? }` body
-- Settings hooks in `src/api/settings.ts`: `useSetting(key)`, `useSaveSetting()`, `useTestSlackWebhook()`
-- Context menus: use `fixed` positioning with `onContextMenu` handler; dismiss on outside click via `mousedown` listener on `document`
-- Inline editing: use `renamingId` state + `ref` focus pattern; commit on Enter/blur, cancel on Escape
-- API mutation hooks: `useDeleteProject()`, `useUpdateProject()`, `useOpenInVSCode()` in `src/api/projects.ts`
+- Routes are Fastify plugins: `export async function xxxRoutes(server: FastifyInstance)` registered in `server/index.ts`
+- DB uses drizzle-orm with better-sqlite3, imported from `../db/connection.js`
+- Schema tables exported via barrel in `server/db/schema/index.ts`
+- IDs use `crypto.randomUUID()`, not auto-increment
+- JSON schema validation on Fastify request bodies (not Zod)
+- Return 201 for creates, 204 for deletes, 404 for not found
+- Default workspace pattern: `getOrCreateDefaultWorkspace()` returns the "Default" workspace ID
+- Abilities schema already has: id, workspaceId, name, type (skill|plugin|mcp), active, config (JSON), version, createdAt
+- Junction tables use composite primary keys via `primaryKey({ columns: [...] })` in drizzle
+- Stage-ability routes live in pipelines.ts since they're nested under `/api/pipelines/...`
+- Use `innerJoin` on junction tables to return related entity data in GET endpoints
+- Frontend API hooks live in `src/api/*.ts`, follow pattern: export interface + useX query + useMutateX with invalidateQueries
+- `apiFetch` defaults to `Content-Type: application/json`; override header for raw text endpoints
+- Layout store (`src/stores/layout.ts`) holds `activeAbilityId` for passing selected ability to detail views
+- ReactFlow: import `@xyflow/react` and its CSS (`@xyflow/react/dist/style.css`); container MUST have explicit height (use `h-full` with flex parent)
+- Graph components live in `src/components/graph/`; `GraphView.tsx` is the thin wrapper in views/
+- Custom ReactFlow nodes: wrap in `memo()`, define `nodeTypes` object outside component, register via `nodeTypes` prop on `<ReactFlow>`
+- AgentNode data type: `{ label, nodeType, model?, systemPrompt?, status?, onOpen?, onDelete? }` — pass callbacks via node data
+- Sidebar loading/error pattern: match the projects panel (Loader2 spinner, AlertCircle + retry button)
+- `typeBadge` helper in LeftSidebar maps ability types to color classes (skill=violet, plugin=emerald, mcp=cyan)
+- Custom ReactFlow edges: use `getBezierPath` + `BaseEdge`, define `edgeTypes` outside component, register via `edgeTypes` prop
+- Edge data type `CustomEdgeData` has `condition` field: always | on-success | on-failure | on-decision
+- `EdgeLabelRenderer` for floating UI elements (buttons) at edge midpoints; use `deleteElements` from `useReactFlow()` for programmatic edge removal
+- ChainEditor uses `ReactFlowProvider` wrapper; hooks like `useReactFlow()` / `screenToFlowPosition` must be called inside an inner component
+- AddNodeMenu tracks both screen coords (for CSS popup placement) and flow coords (for `node.position`) — two coordinate systems
+- Node type definitions (color, label, description) are in `AddNodeMenu.tsx` as `nodeTypeEntries`
+- Inject callback props (onOpen, onDelete) into nodes via a `useMemo` wrapper — keeps refs fresh without re-creating nodes
+- `useNodesState<Node>([])` returns generic `Node`; cast to `Node<AgentNodeData>` when passing to typed components
+- NodeInspector lives in `src/components/graph/NodeInspector.tsx`; opens via `inspectedNodeId` state in ChainEditor
+- ChainToolbar is a pure presentational component — action callbacks are passed as props from ChainEditorInner
+- Export JSON uses Blob + createObjectURL + anchor click pattern for file downloads
+- Chain persistence: `chainDefinition` column on projects table is `text({ mode: "json" })` — drizzle handles JSON serialize/deserialize
+- Chain API: GET/PUT `/api/projects/:id/chain` — returns `{ version, nodes[], edges[] }`, defaults to empty chain if null
+- Auto-save pattern: `useRef` timer + `setTimeout(1000)` debounce; `hasLoadedRef` flag prevents overwriting user edits with stale query data
+- Deserialize chain → ReactFlow: map saved nodes to `Node<AgentNodeData>` with `type: 'agent'`, map edges with `type: 'custom'`
 
 ---
 
-## 2026-03-22 ~17:20 - US-001
-- Created `server/integrations/github.ts` with `GitHubService` class
-- `cloneRepo(repoUrl, targetPath)` validates GitHub HTTPS/SSH URLs, spawns `git clone`
-- Returns `{ success, path, error? }`, checks for existing target path
-- Files changed: `server/integrations/github.ts` (new)
+## 2026-03-22 - US-001
+- Implemented full CRUD REST API for Abilities
+- Endpoints: GET /api/abilities, GET /api/abilities/:id, POST /api/abilities, PUT /api/abilities/:id, DELETE /api/abilities/:id
+- Input validation on POST/PUT bodies (name, type enum, config object, version, active boolean)
+- Files changed: server/routes/abilities.ts (created), server/index.ts (registered route)
 - **Learnings for future iterations:**
-  - tsconfig.server.json includes the `server/` directory — use it for server typechecks
-  - The project already has `repoUrl` and `path` columns on the projects table
-  - Integration services are standalone classes (no Fastify dependency)
+  - The abilities schema already exists in server/db/schema/abilities.ts — no migration needed for this story
+  - Follow the projects.ts route pattern for default workspace handling
+  - `config` column uses `{ mode: "json" }` in drizzle schema — pass objects directly
 ---
 
-## 2026-03-22 ~17:30 - US-002
-- Added `POST /api/projects/clone` endpoint to `server/routes/projects.ts`
-- Accepts `{ repoUrl, name? }`, validates via GitHubService, clones to `data/projects/{name}`
-- Creates project DB record with repoUrl and path, returns 201 with created project
-- Derives project name from repo URL if not provided
-- Files changed: `server/routes/projects.ts`
+## 2026-03-22 - US-002
+- Created stage_abilities junction table (stageId FK, abilityId FK, composite PK)
+- Added GET /api/pipelines/:pipelineId/stages/:stageId/abilities — returns abilities with full data via innerJoin
+- Added POST /api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId — assign with 409 on duplicate
+- Added DELETE /api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId — unassign
+- Files changed: server/db/schema/stage-abilities.ts (created), server/db/schema/index.ts, server/routes/pipelines.ts, migration 0005
 - **Learnings for future iterations:**
-  - The `workspaceId` from `getOrCreateDefaultWorkspace()` is available as a closure variable in all route handlers
-  - Clone endpoint placed before PUT/DELETE routes (Fastify matches `/clone` literally before `:id` param)
-  - `data/projects/` is the target directory for cloned repos; `mkdir({ recursive: true })` ensures it exists
+  - drizzle-kit `generate` auto-detects new schema exports from the barrel — just add to index.ts
+  - drizzle-kit `migrate` applies pending migrations to the SQLite DB
+  - Composite primary keys need `primaryKey` imported from `drizzle-orm/sqlite-core`
+  - Stage routes validate stage belongs to pipeline before any operation (pipelineId + stageId AND check)
 ---
 
-## 2026-03-22 ~17:45 - US-003
-- Created `server/integrations/localhost-runner.ts` with `LocalhostRunner` class
-- `detectDevServer(projectPath)` reads package.json, matches Next.js/Vite/CRA/Astro by dependency, falls back to dev/start scripts
-- `start(projectPath)` spawns `npm run <script>` with auto-detected available port via `node:net` createServer
-- `stop()` kills the child process, `getStatus()` returns `{ running, port, pid }`
-- `onLog(listener)` method for subscribing to stdout/stderr output (for WebSocket streaming in US-004)
-- Files changed: `server/integrations/localhost-runner.ts` (new)
+## 2026-03-22 - US-003
+- Created `server/abilities/skill-parser.ts` with `parseSkillMd(content)` — parses YAML frontmatter (name, description, trigger) and body content
+- Added `POST /api/abilities/import-skill` endpoint to abilities routes, accepting raw markdown string body
+- Endpoint parses SKILL.md, creates an Ability record with type "skill" and config `{ trigger, content }`
+- Files changed: server/abilities/skill-parser.ts (created), server/routes/abilities.ts (added import + endpoint)
 - **Learnings for future iterations:**
-  - `node:net` createServer trick for port detection: try preferred port, on EADDRINUSE let OS pick with port 0
-  - `LocalhostRunner` instances are per-project (not a singleton) — US-004 will need a map of projectId → runner
-  - The `onLog` callback pattern matches how WebSocket events can be wired in the route layer
-  - Framework detection order matters: check specific frameworks first, then fall back to generic scripts
+  - Fastify can accept `{ type: "string" }` body schema for raw text/markdown payloads
+  - No need for a YAML library — simple key:value frontmatter can be parsed with string splitting
+  - The import-skill endpoint reuses the existing `workspaceId` from the route plugin closure
 ---
 
-## 2026-03-22 ~18:00 - US-004
-- Created `server/routes/localhost.ts` as a Fastify plugin with three endpoints
-- POST `/api/projects/:id/dev-server/start` — looks up project, validates it has a path, starts runner with log streaming via WebSocket broadcast
-- POST `/api/projects/:id/dev-server/stop` — stops the runner for a project
-- GET `/api/projects/:id/dev-server/status` — returns `{ running, port, pid }` (defaults to not-running if no runner exists)
-- Registered `localhostRoutes` in `server/index.ts`
-- Module-level `Map<string, LocalhostRunner>` manages per-project runner instances
-- Log streaming wired via `broadcast("devserver:log", { projectId, line })` from `ws/handler.ts`
-- Files changed: `server/routes/localhost.ts` (new), `server/index.ts`
+## 2026-03-22 - US-004
+- Created `src/api/abilities.ts` with TanStack Query hooks: useAbilities(), useAbility(id), useCreateAbility(), useUpdateAbility(), useDeleteAbility(), useImportSkill()
+- All mutations invalidate the `["abilities"]` query key on success
+- useImportSkill sends raw markdown with `Content-Type: text/plain` header
+- Files changed: src/api/abilities.ts (created)
 - **Learnings for future iterations:**
-  - The `broadcast` function from `ws/handler.ts` is the canonical way to push events to all WebSocket clients
-  - Route plugins don't need `workspaceId` closure if they only look up projects by `:id` param
-  - Always check `project.path` exists before passing to LocalhostRunner — seed projects have no path
-  - `onLog` returns an unsubscribe function but for long-lived runners it's fine to leave the listener attached
+  - Follow the `projects.ts` pattern: interface + query hooks + mutation hooks with queryClient.invalidateQueries
+  - `useAbility(id)` uses `enabled: !!id` pattern for conditional fetching (same as usePipelines)
+  - The import-skill endpoint expects `text/plain` Content-Type, not `application/json` — override the default header from apiFetch
+  - Ability interface mirrors the DB schema: id, workspaceId, name, type, active, config, version, createdAt
 ---
 
-## 2026-03-22 ~18:30 - US-005
-- Created `src/api/localhost.ts` with `useDevServerStatus(projectId)`, `useStartDevServer()`, `useStopDevServer()` hooks
-- Updated `src/hooks/useWebSocket.ts` to handle `devserver:log` and `devserver:status` events → invalidates `devServerStatus` query key
-- Rewrote BottomPanel Project Health tab: real dev server status indicator, start/stop buttons, live log streaming via WebSocket
-- Status polling at 5s interval plus real-time invalidation from WS events
-- Files changed: `src/api/localhost.ts` (new), `src/hooks/useWebSocket.ts`, `src/components/shell/BottomPanel.tsx`
+## 2026-03-22 - US-005
+- Replaced hardcoded ABILITIES array in LeftSidebar with `useAbilities()` hook from `src/api/abilities.ts`
+- Added loading spinner and error state with retry button (matching the projects panel pattern)
+- Added empty state ("No abilities yet") when abilities array is empty
+- Added `activeAbilityId` state to layout store so clicking an ability sets the ID before navigating to detail view
+- Added `plugin` type to `typeBadge` helper (emerald color)
+- Files changed: src/components/shell/LeftSidebar.tsx, src/stores/layout.ts
 - **Learnings for future iterations:**
-  - `useProjectsStore((s) => s.activeProjectId)` is the canonical way to get the selected project in any component
-  - For WS log streaming on the client, open a dedicated WebSocket in a useEffect (the global useWebSocket hook only does cache invalidation, not data extraction)
-  - TanStack Query `enabled: !!projectId` prevents firing queries when no project is selected
-  - `refetchInterval: 5000` on status queries provides a polling baseline; WS events give instant updates on top
-  - BottomPanel health tab needs both `activeProjectId` and the dev server hooks — no project selected = show placeholder
+  - The abilities panel mirrors the projects panel pattern for loading/error states — copy that pattern
+  - `activeAbilityId` in layout store is the bridge between sidebar click and AbilityDetailView (US-006 will consume it)
+  - `typeBadge` returns undefined for unknown types — the className handles that gracefully
 ---
 
-## 2026-03-22 ~19:00 - US-006
-- Created `server/integrations/slack.ts` with `SlackNotifier` class
-- `sendMessage(webhookUrl, message)` sends POST to Slack incoming webhook with JSON body
-- Supports formatted messages via `buildFormattedMessage(title, body, status)` using Slack attachments with color + Block Kit sections
-- Helper methods: `notifyPipelineComplete`, `notifyDecisionNeeded`, `notifyError` — each maps to a status color (green, yellow, red)
-- Returns `{ success: boolean, error?: string }`
-- Uses native `fetch` (no extra dependencies needed)
-- Files changed: `server/integrations/slack.ts` (new)
+## 2026-03-22 - US-006
+- Replaced hardcoded AbilityDetailView with real API data from `useAbility(id)` hook
+- Reads `activeAbilityId` from layout store, fetches ability via API
+- Displays all fields: name, type, version, active status, config (JSON pretty-printed), assigned agents placeholder
+- Added active/inactive toggle button using `useUpdateAbility()` mutation
+- Added delete button with confirmation dialog using `useDeleteAbility()` mutation — navigates back on success
+- Added loading spinner, error state with retry, and empty state when no ability selected
+- Added back button to return to pipeline view
+- Files changed: src/components/views/AbilityDetailView.tsx
 - **Learnings for future iterations:**
-  - Slack incoming webhooks accept `{ text, blocks?, attachments? }` — use `attachments` with `color` field for colored sidebar indicators
-  - Block Kit `mrkdwn` type supports Slack markdown (`*bold*`, `_italic_`, `~strike~`, `<url|label>`)
-  - Native `fetch` is available in Node 18+ (this project's target), no need for `node-fetch`
-  - The `SlackNotifier` class is stateless — it can be instantiated once and reused across routes
-  - Status colors: success=#36a64f, warning=#f2c744, error=#e01e5a, info=#1264a3
+  - The `typeIcon` and `typeBadge` helpers can be extracted/shared — LeftSidebar and AbilityDetailView both define similar mappings
+  - After delete, reset `activeAbilityId` to null and navigate to `pipeline` view via `setActiveMain`
+  - `useAbility(id)` returns `undefined` data when `id` is null (disabled query) — check for `!activeAbilityId` before rendering
+  - The config field is a JSON object — display with `JSON.stringify(config, null, 2)` in a `<pre>` block
 ---
 
-## 2026-03-22 ~19:30 - US-007
-- Added 'Notifications' tab to SettingsView with Slack webhook URL configuration
-- Created `server/routes/settings.ts` with GET/PUT `/api/settings/:key` and POST `/api/settings/slack/test`
-- Created `src/api/settings.ts` with `useSetting`, `useSaveSetting`, `useTestSlackWebhook` hooks
-- Updated `SettingsView.tsx` with `NotificationsTab` component: webhook URL input, Save button, Test button with status feedback
-- Registered `settingsRoutes` in `server/index.ts`
-- Files changed: `server/routes/settings.ts` (new), `src/api/settings.ts` (new), `src/components/views/SettingsView.tsx`, `server/index.ts`
+## 2026-03-22 - US-007
+- Installed `@xyflow/react` as dependency
+- Created `src/components/graph/ChainEditor.tsx` with full ReactFlow canvas: dark background (#0a0d13), dot grid pattern, pan/zoom, controls, minimap
+- Empty state overlay shows "Add your first agent node" prompt when no nodes exist
+- Updated `src/components/views/GraphView.tsx` to render ChainEditor instead of placeholder
+- Files changed: package.json, package-lock.json, src/components/graph/ChainEditor.tsx (created), src/components/views/GraphView.tsx
 - **Learnings for future iterations:**
-  - The `settings` table uses a key-value pattern with JSON value column — good for any workspace-level config
-  - Settings routes use a `getDefaultWorkspaceId()` helper (not the closure pattern from projects) since settings are workspace-global
-  - Drizzle's `text("value", { mode: "json" })` stores JSON but you still need `JSON.stringify()` when writing via `.set()` / `.values()`
-  - SettingsView uses a `SettingsTab` union type and `TABS` array for the tab bar — add new tabs by extending both
-  - For upsert pattern in SQLite via Drizzle: check existing row with `.get()`, then update or insert accordingly
+  - ReactFlow requires its container to have an explicit height — `h-full w-full` works when the parent has flex layout with `flex-1`
+  - Import `@xyflow/react/dist/style.css` in the component file for ReactFlow's base styles
+  - Use `proOptions={{ hideAttribution: true }}` to hide the ReactFlow watermark
+  - Tailwind classes on ReactFlow's Controls/MiniMap need `!important` prefix (`!bg-...`) to override ReactFlow's inline styles
+  - The `BackgroundVariant.Dots` enum is used for the dot grid pattern; color `#1e2a3a` matches the theme's border-muted
+  - Empty state is an absolute overlay with `pointer-events-none` on the wrapper and `pointer-events-auto` on the content
 ---
 
-## 2026-03-22 ~20:00 - US-008
-- Created `server/integrations/mcp-manager.ts` with `McpConnectionManager` class
-- `connect(config)` spawns an MCP server as a child process with `{ name, command, args, env }` config
-- `disconnect(name)` kills the process and removes the connection from the map
-- `listConnections()` returns all connections with status, pid, and restart count
-- `getConnection(name)` returns a single connection's status or null
-- Auto-restart on crash: `close` and `error` events trigger `spawnProcess` up to MAX_RETRIES (3)
-- Removes all listeners before killing on disconnect to prevent auto-restart
-- Files changed: `server/integrations/mcp-manager.ts` (new)
+## 2026-03-22 - US-008
+- Created `src/components/graph/AgentNode.tsx` as a custom ReactFlow node with memo wrapper
+- Node renders: colored type dot (6 types mapped), bold 11px name, muted 10px model, 72-char system prompt preview
+- Status badge in footer (pending/running/done/error) with color-coded styles
+- Open button (ExternalLink icon) and delete button (X icon) in header
+- Input handle (left) and output handle (right) as circular port handles
+- Card styled with #111827 background and #1e2a3a border per spec
+- Registered `agent` node type in ChainEditor via `nodeTypes` prop
+- Files changed: src/components/graph/AgentNode.tsx (created), src/components/graph/ChainEditor.tsx
 - **Learnings for future iterations:**
-  - MCP servers communicate via stdio (stdin/stdout/stderr pipes) — spawned with `stdio: ["pipe", "pipe", "pipe"]`
-  - `removeAllListeners("close")` before `.kill()` prevents the auto-restart handler from firing during intentional disconnect
-  - The singleton pattern (vs per-project like LocalhostRunner) works here because MCP connections are workspace-global
-  - `restartCount` resets are not needed — once a connection hits MAX_RETRIES, it stays disconnected until manually reconnected
+  - Custom ReactFlow nodes must be wrapped in `memo()` for performance (ReactFlow re-renders frequently)
+  - Node type registration via `nodeTypes` object must be defined OUTSIDE the component to avoid re-renders (or use useMemo)
+  - `AgentNodeData` type includes callback props (`onOpen`, `onDelete`) — pass these via node data when creating nodes
+  - Handle className needs `!` prefix to override ReactFlow's default styles
+  - The `type: 'agent'` on a node object maps to the `nodeTypes.agent` component
 ---
 
-## 2026-03-22 ~20:30 - US-009
-- Created `server/routes/mcp.ts` as a Fastify plugin with four endpoints
-- GET `/api/mcp/connections` — returns all MCP connections via `manager.listConnections()`
-- POST `/api/mcp/connections` — validates name+command, connects via `manager.connect(config)`, returns 201 with connection status
-- DELETE `/api/mcp/connections/:name` — disconnects and removes an MCP server
-- GET `/api/mcp/connections/:name/status` — returns a single connection's status
-- Registered `mcpRoutes` in `server/index.ts`
-- Module-level singleton `McpConnectionManager` instance (workspace-global, not per-project)
-- Files changed: `server/routes/mcp.ts` (new), `server/index.ts`
+## 2026-03-22 - US-009
+- Created `src/components/graph/CustomEdge.tsx` as a custom ReactFlow edge component
+- Edge condition colors: always(gray #374151), on-success(emerald), on-failure(red), on-decision(amber)
+- Smooth bezier curves via `getBezierPath`; invisible wider hit area for easier hover interaction
+- Hover/select reveals delete button at edge midpoint using `EdgeLabelRenderer`
+- Cycle detection via BFS in `wouldCreateCycle()` — rejects connections that would create loops (including self-loops)
+- Dashed preview curve during drag connection via custom `connectionLineComponent`
+- Updated ChainEditor with `edgeTypes`, `defaultEdgeOptions`, and custom connection line
+- Files changed: src/components/graph/CustomEdge.tsx (created), src/components/graph/ChainEditor.tsx
 - **Learnings for future iterations:**
-  - MCP routes use a singleton manager (unlike LocalhostRunner's per-project Map) — matches the workspace-global nature of MCP connections
-  - POST returns 409 Conflict when connection name already exists (McpConnectionManager.connect returns `{ success: false }` for duplicates)
-  - Route pattern: validate body fields with early return + 400, then delegate to the service class
-  - For routes that create a resource, return 201 + the created resource (not just `{ success: true }`)
+  - Custom edges use `getBezierPath` + `BaseEdge` — pass style props to BaseEdge for colors
+  - `EdgeLabelRenderer` positions elements at `(labelX, labelY)` using `transform: translate(-50%, -50%) translate(Xpx, Ypx)`
+  - Invisible wider `<path>` with `strokeWidth={20}` and `stroke="transparent"` enables easy hover detection
+  - `connectionLineComponent` receives `fromX/Y, toX/Y, fromPosition, toPosition` (not source/target)
+  - Cycle detection: BFS from target node following outgoing edges — if source is reachable, it's a cycle
+  - `edgeTypes` object (like `nodeTypes`) must be defined outside the component to avoid re-renders
+  - `deleteElements` from `useReactFlow()` removes edges programmatically
 ---
 
-## 2026-03-22 ~21:00 - US-010
-- Created `server/utils/wsl.ts` with `isWSL()`, `getVSCodeCommand()`, `resolveWSLPath()` functions
-- Created `server/utils/index.ts` barrel export
-- `isWSL()` reads `/proc/version` and caches the result; checks for Microsoft/WSL strings
-- `getVSCodeCommand()` returns `code.exe` on WSL, `code` otherwise
-- `resolveWSLPath()` converts `C:\foo\bar` to `/mnt/c/foo/bar`
-- Files changed: `server/utils/wsl.ts` (new), `server/utils/index.ts` (new)
+## 2026-03-22 - US-010
+- Created `src/components/graph/AddNodeMenu.tsx` — floating menu with 6 built-in node types (Trigger, Prototyper, Builder, Tester, Reviewer, Auditor)
+- Each type shows colored dot, label, and role description
+- Clicking a type adds a new agent node at the menu's flow position
+- Menu accessible via toolbar '+ Add node' button (places at viewport center) and double-click on empty canvas (places at cursor)
+- Menu dismisses on click outside or Escape key
+- Updated `ChainEditor.tsx`: added toolbar bar, ReactFlowProvider wrapper, menu state management, `screenToFlowPosition` for coordinate conversion
+- Files changed: src/components/graph/AddNodeMenu.tsx (created), src/components/graph/ChainEditor.tsx
 - **Learnings for future iterations:**
-  - `server/utils/` is a new directory — first util module in the project
-  - `isWSL()` caches via module-level variable to avoid repeated filesystem reads
-  - `resolveWSLPath` only transforms paths matching `X:\...` pattern; non-Windows paths pass through unchanged
-  - US-011 will import `getVSCodeCommand` from `server/utils/index.js` (note `.js` extension for ESM resolution)
+  - `useReactFlow()` (for `screenToFlowPosition`, `deleteElements`, etc.) requires the component to be inside a `<ReactFlowProvider>` — wrap with provider and use an inner component
+  - Menu needs two coordinate systems: screen coords (CSS `left`/`top` for popup placement) and flow coords (for `node.position`)
+  - `onDoubleClick` on `<ReactFlow>` fires for double-click on the pane; use `event.target.closest('.react-flow')?.getBoundingClientRect()` to get relative screen position
+  - Node IDs use `crypto.randomUUID()` matching the backend pattern
+  - Node labels are auto-numbered: `${label} ${nodes.length + 1}`
 ---
 
-## 2026-03-22 ~21:30 - US-011
-- Added `POST /api/projects/:id/open-vscode` endpoint to `server/routes/projects.ts`
-- Looks up project by ID, validates it has a `path`, spawns VS Code with `getVSCodeCommand()` from WSL utils
-- Uses `spawn` with `detached: true` + `child.unref()` so VS Code runs independently of the server process
-- Returns `{ success: boolean, error?: string }`
-- Files changed: `server/routes/projects.ts`
+## 2026-03-22 - US-011
+- Created `src/components/graph/NodeInspector.tsx` — 340px slide-in panel from the right
+- Opens when clicking 'Open' (ExternalLink) button on a node via `onOpen` callback
+- Editable fields: node name (text input), model dropdown (ModelSelector), system prompt textarea
+- Abilities section: tag list of assigned abilities with remove (X) button, '+ Add ability' button opens inline picker from API data
+- Outgoing edge conditions: dropdown per edge to change condition (always/on-success/on-failure/on-decision) with color dot indicator
+- Save button persists changes to node data, Delete button removes node with confirmation
+- Panel renders inside the canvas wrapper so nodes remain visible alongside it
+- Added `AgentNodeAbility` type and `abilities` field to `AgentNodeData`
+- Updated `ChainEditor.tsx`: `inspectedNodeId` state, `nodesWithCallbacks` memo to inject onOpen/onDelete, inspector callbacks (save/delete/updateEdge)
+- Files changed: src/components/graph/NodeInspector.tsx (created), src/components/graph/AgentNode.tsx, src/components/graph/ChainEditor.tsx
 - **Learnings for future iterations:**
-  - Place parameterized routes like `/api/projects/:id/open-vscode` before generic `:id` PUT/DELETE to avoid ambiguity (Fastify handles this, but it's cleaner)
-  - `spawn` with `detached: true` + `stdio: "ignore"` + `child.unref()` is the pattern for fire-and-forget child processes that outlive the request
-  - The `getVSCodeCommand()` import from `../utils/index.js` works — ESM requires the `.js` extension
-  - US-012 will need to call this endpoint from the frontend context menu
+  - `useNodesState<Node>([])` returns generic `Node` with `Record<string, unknown>` data — cast to `Node<AgentNodeData>` when passing to typed components
+  - Inject callback props (onOpen, onDelete) via a `useMemo` wrapper over the nodes array rather than setting them at node creation time — keeps callbacks always up-to-date
+  - NodeInspector syncs local form state from props via `useEffect` keyed on `node.id` — handles switching between nodes
+  - Edge condition updates use `setEdges` map to modify `data.condition` on the matching edge
+  - `useAbilities()` hook provides the full list for the ability picker; filter out already-assigned and inactive abilities
 ---
 
-## 2026-03-22 ~22:00 - US-012
-- Added right-click context menu to project items in LeftSidebar with Rename, Remove from list, Open in VS Code
-- Rename enables inline editing via input field (commit on Enter/blur, cancel on Escape)
-- Remove calls DELETE /api/projects/:id, Open in VS Code calls POST /api/projects/:id/open-vscode
-- Context menu positioned at cursor location, dismissed on outside click
-- Added `useDeleteProject`, `useUpdateProject`, `useOpenInVSCode` hooks to `src/api/projects.ts`
-- Files changed: `src/components/shell/LeftSidebar.tsx`, `src/api/projects.ts`
+## 2026-03-22 - US-012
+- Created `src/components/graph/ChainToolbar.tsx` — presentational toolbar with 4 buttons: Add node, Auto-layout, Clear edges, Export JSON
+- Auto-layout arranges nodes in a left-to-right grid using sqrt-based column distribution (colWidth=280, rowHeight=160)
+- Clear edges calls `setEdges([])` — removes all edges leaving nodes in place
+- Export JSON serializes chain as `{ version, nodes[], edges[] }` and triggers download as `.insomniac-chain.json`
+- Extracted inline toolbar from ChainEditor, replaced with `<ChainToolbar>` component
+- Export JSON button pushed to right side of toolbar via flex spacer
+- Files changed: src/components/graph/ChainToolbar.tsx (created), src/components/graph/ChainEditor.tsx
 - **Learnings for future iterations:**
-  - Context menu pattern: `fixed` z-50 div positioned at `e.clientX/Y`, dismissed via `mousedown` listener on `document`
-  - Inline rename pattern: `renamingId` + `renameValue` state, `ref` for auto-focus/select, commit on blur/Enter, cancel on Escape
-  - `onClick={(e) => e.stopPropagation()}` on the rename input prevents the parent button's click (project selection) from firing
-  - The existing server PUT /api/projects/:id already supports partial updates including `name` — no server changes needed
-  - Import `type { Project }` separately from value imports when used only for type annotations (e.g., callback params)
+  - Toolbar is pure presentational — all action logic stays in ChainEditorInner and is passed via props
+  - File download pattern: `new Blob()` → `URL.createObjectURL()` → programmatic anchor click → `URL.revokeObjectURL()`
+  - Auto-layout uses `Math.ceil(Math.sqrt(n))` for rows-per-column to produce roughly square grids
+  - When removing an import used in JSX, check all usages in the file — `Plus` was still used in empty state overlay
 ---
 
-## 2026-03-22 ~22:30 - US-013
-- Added `useCloneProject` mutation hook to `src/api/projects.ts` (calls POST /api/projects/clone)
-- Added create project dialog to LeftSidebar with three states: choose mode, GitHub clone form, empty project form
-- '+' button in projects header opens the dialog
-- GitHub mode: repo URL input (required) + optional project name, submits to clone endpoint
-- Empty mode: project name input (required), submits to create endpoint
-- Dialog closes and project list refreshes on success; shows error messages on failure
-- Loading states with spinner on submit buttons; form validation (disabled button when required fields empty)
-- Files changed: `src/api/projects.ts`, `src/components/shell/LeftSidebar.tsx`
+## 2026-03-22 - US-013
+- Added `chainDefinition` (JSON text) column to projects table via migration 0006
+- Added GET /api/projects/:id/chain — returns chain JSON (defaults to empty `{ version: 1, nodes: [], edges: [] }`)
+- Added PUT /api/projects/:id/chain — saves chain JSON with validation (version, nodes[], edges[])
+- Added `useChain(projectId)` and `useSaveChain()` hooks in `src/api/projects.ts`
+- Updated ChainEditor: loads chain from API on mount, auto-saves with 1s debounce on nodes/edges changes
+- Added `serializeChain()` and `deserializeChain()` helpers for ReactFlow ↔ API format conversion
+- Files changed: server/db/schema/projects.ts, server/routes/projects.ts, src/api/projects.ts, src/components/graph/ChainEditor.tsx, migration 0006
 - **Learnings for future iterations:**
-  - Modal dialog pattern: fixed inset-0 z-50 with black/50 backdrop, stopPropagation on inner div, click backdrop to dismiss
-  - Multi-step dialogs: use a union type state (`'choose' | 'github' | 'empty'`) with back button to return to initial state
-  - `useCloneProject` follows same pattern as `useCreateProject` — both invalidate `["projects"]` query key on success
-  - `useMutation` supports `onSuccess`/`onError` callbacks in `.mutate()` call for per-invocation behavior (dialog close, error display)
-  - `autoFocus` on input elements works well for modal forms — focuses the first input when the form appears
-  - Lucide icons `Github`, `FolderPlus`, `X`, `ArrowLeft` used for dialog UI — check lucide-react exports for available icons
+  - `text({ mode: "json" })` in drizzle handles JSON serialization transparently — pass objects directly
+  - Use `hasLoadedRef` flag to prevent `useEffect` from resetting user edits when query cache updates
+  - Chain auto-save uses `useRef` for the timer to avoid stale closures — cleanup in useEffect return
+  - The `activeProjectId` from `useProjectsStore` is the link between ChainEditor and the persistence layer
+  - When deserializing, map saved `type` back to `nodeType` in AgentNodeData (not the ReactFlow `type` prop which is always `'agent'`)
 ---

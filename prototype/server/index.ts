@@ -13,6 +13,7 @@ import { preferencesRoutes } from "./routes/preferences.js";
 import { localhostRoutes } from "./routes/localhost.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { mcpRoutes } from "./routes/mcp.js";
+import { abilityRoutes } from "./routes/abilities.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -46,6 +47,7 @@ await server.register(preferencesRoutes);
 await server.register(localhostRoutes);
 await server.register(settingsRoutes);
 await server.register(mcpRoutes);
+await server.register(abilityRoutes);
 
 // Health check
 server.get("/api/health", async () => {

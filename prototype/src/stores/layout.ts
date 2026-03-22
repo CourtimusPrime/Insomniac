@@ -14,11 +14,13 @@ interface LayoutState {
   activeToolbar: ToolbarPanel;
   activeMain: MainView;
   activeTab: BottomTab;
+  activeAbilityId: string | null;
   collapsedPanels: CollapsedPanels;
 
   setActiveToolbar: (panel: ToolbarPanel) => void;
   setActiveMain: (view: MainView) => void;
   setActiveTab: (tab: BottomTab) => void;
+  setActiveAbilityId: (id: string | null) => void;
   togglePanel: (panel: keyof CollapsedPanels) => void;
   setCollapsedPanel: (panel: keyof CollapsedPanels, collapsed: boolean) => void;
 }
@@ -27,6 +29,7 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   activeToolbar: 'projects',
   activeMain: 'pipeline',
   activeTab: 'terminal',
+  activeAbilityId: null,
   collapsedPanels: {
     leftSidebar: false,
     rightSidebar: false,
@@ -36,6 +39,7 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   setActiveToolbar: (panel) => set({ activeToolbar: panel }),
   setActiveMain: (view) => set({ activeMain: view }),
   setActiveTab: (tab) => set({ activeTab: tab }),
+  setActiveAbilityId: (id) => set({ activeAbilityId: id }),
   togglePanel: (panel) =>
     set((state) => ({
       collapsedPanels: {
