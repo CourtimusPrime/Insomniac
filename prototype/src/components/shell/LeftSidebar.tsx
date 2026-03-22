@@ -7,15 +7,7 @@ import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
 import { useProjects, useDeleteProject, useUpdateProject, useOpenInVSCode, useCreateProject, useCloneProject } from '../../api/projects';
 import type { Project } from '../../api/projects';
-
-const ABILITIES = [
-  { name: 'Playwright Tests', type: 'skill', active: true },
-  { name: 'GitHub MCP', type: 'mcp', active: true },
-  { name: 'OWASP Auditor', type: 'skill', active: true },
-  { name: 'Stripe MCP', type: 'mcp', active: false },
-  { name: 'OpenAPI Generator', type: 'skill', active: true },
-  { name: 'Supabase MCP', type: 'mcp', active: false },
-];
+import { useAbilities } from '../../api/abilities';
 
 const statusDot = (s: string) => ({
   building: 'bg-accent-primary animate-pulse',
@@ -26,6 +18,7 @@ const statusDot = (s: string) => ({
 
 const typeBadge = (t: string) => ({
   skill: 'bg-violet-500/20 text-violet-300',
+  plugin: 'bg-emerald-500/20 text-emerald-300',
   mcp: 'bg-cyan-500/20 text-cyan-300',
   workflow: 'bg-amber-500/20 text-amber-300',
 }[t]);
@@ -39,10 +32,12 @@ interface ContextMenu {
 export function LeftSidebar() {
   const activeToolbar = useLayoutStore((s) => s.activeToolbar);
   const setActiveMain = useLayoutStore((s) => s.setActiveMain);
+  const setActiveAbilityId = useLayoutStore((s) => s.setActiveAbilityId);
   const collapsed = useLayoutStore((s) => s.collapsedPanels.leftSidebar);
   const activeProjectId = useProjectsStore((s) => s.activeProjectId);
   const setActiveProjectId = useProjectsStore((s) => s.setActiveProjectId);
   const { data: projects, isLoading, isError, refetch } = useProjects();
+  const { data: abilities, isLoading: abilitiesLoading, isError: abilitiesError, refetch: refetchAbilities } = useAbilities();
 
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -249,10 +244,26 @@ export function LeftSidebar() {
             <button className="text-text-faint hover:text-accent-primary transition"><Plus size={13} /></button>
           </div>
           <div className="flex-1 overflow-y-auto py-1">
-            {ABILITIES.map(a => (
+            {abilitiesLoading && (
+              <div className="flex items-center justify-center py-8 text-text-faint">
+                <Loader2 size={16} className="animate-spin" />
+              </div>
+            )}
+            {abilitiesError && (
+              <div className="flex flex-col items-center gap-2 py-8 text-text-faint">
+                <AlertCircle size={16} className="text-status-error" />
+                <span className="text-[10px]">Failed to load abilities</span>
+                <button
+                  onClick={() => refetchAbilities()}
+                  className="text-[10px] text-accent-primary hover:underline">
+                  Retry
+                </button>
+              </div>
+            )}
+            {abilities?.map(a => (
               <button
-                key={a.name}
-                onClick={() => setActiveMain('ability-detail')}
+                key={a.id}
+                onClick={() => { setActiveAbilityId(a.id); setActiveMain('ability-detail'); }}
                 className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-bg-hover transition border-l-2 border-transparent hover:border-border-muted">
                 <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${a.active ? 'bg-status-success' : 'bg-text-faint'}`} />
                 <div className="min-w-0 flex-1">
@@ -261,6 +272,11 @@ export function LeftSidebar() {
                 </div>
               </button>
             ))}
+            {abilities && abilities.length === 0 && (
+              <div className="px-4 py-8 text-center text-[10px] text-text-faint">
+                No abilities yet
+              </div>
+            )}
           </div>
         </>
       )}
