@@ -12,6 +12,7 @@ Started: Sun Mar 22 17:15:36 UTC 2026
 - LocalhostRunner is per-project; route layer uses a Map<projectId, LocalhostRunner> in server/routes/localhost.ts
 - McpConnectionManager is a singleton managing named connections; use `connect(config)` / `disconnect(name)` / `listConnections()` / `getConnection(name)`
 - MCP process auto-restart: on unexpected exit, retry up to 3 times (MAX_RETRIES), tracked via `restartCount`
+- WSL utilities in `server/utils/wsl.ts`; re-export from `server/utils/index.ts` — use `isWSL()` / `getVSCodeCommand()` / `resolveWSLPath()`
 - WebSocket log streaming uses `broadcast("devserver:log", { projectId, line })` from ws/handler.ts
 - Client API hooks go in `src/api/<resource>.ts` using TanStack React Query (`useQuery`, `useMutation`)
 - `apiFetch` from `src/api/client.ts` is the fetch wrapper for all API calls
@@ -151,4 +152,18 @@ Started: Sun Mar 22 17:15:36 UTC 2026
   - POST returns 409 Conflict when connection name already exists (McpConnectionManager.connect returns `{ success: false }` for duplicates)
   - Route pattern: validate body fields with early return + 400, then delegate to the service class
   - For routes that create a resource, return 201 + the created resource (not just `{ success: true }`)
+---
+
+## 2026-03-22 ~21:00 - US-010
+- Created `server/utils/wsl.ts` with `isWSL()`, `getVSCodeCommand()`, `resolveWSLPath()` functions
+- Created `server/utils/index.ts` barrel export
+- `isWSL()` reads `/proc/version` and caches the result; checks for Microsoft/WSL strings
+- `getVSCodeCommand()` returns `code.exe` on WSL, `code` otherwise
+- `resolveWSLPath()` converts `C:\foo\bar` to `/mnt/c/foo/bar`
+- Files changed: `server/utils/wsl.ts` (new), `server/utils/index.ts` (new)
+- **Learnings for future iterations:**
+  - `server/utils/` is a new directory — first util module in the project
+  - `isWSL()` caches via module-level variable to avoid repeated filesystem reads
+  - `resolveWSLPath` only transforms paths matching `X:\...` pattern; non-Windows paths pass through unchanged
+  - US-011 will import `getVSCodeCommand` from `server/utils/index.js` (note `.js` extension for ESM resolution)
 ---
