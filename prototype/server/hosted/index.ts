@@ -7,3 +7,4 @@ export {
   defaultSandboxConfig,
 } from "./firecracker-types.js";
 export { SandboxManager } from "./sandbox-manager.js";
+export { registerAuthMiddleware } from "./auth-middleware.js";

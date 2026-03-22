@@ -24,6 +24,7 @@ import { metricsRoutes } from "./routes/metrics.js";
 import { usageRoutes } from "./routes/usage.js";
 import { logRoutes } from "./routes/logs.js";
 import { agentRoutes } from "./routes/agents.js";
+import { registerAuthMiddleware } from "./hosted/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -47,6 +48,9 @@ await server.register(fastifyStatic, {
   root: resolve(__dirname, "../dist"),
   wildcard: false,
 });
+
+// Auth middleware (no-op in local mode, active in remote/hosted)
+registerAuthMiddleware(server);
 
 // API routes
 await server.register(projectRoutes);
