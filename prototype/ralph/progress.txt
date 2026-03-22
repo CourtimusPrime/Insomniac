@@ -112,3 +112,18 @@ Started: Sun Mar 22 19:11:30 UTC 2026
   - Use `min-h-0` on flex children with `flex-1` to allow them to shrink properly in nested flex layouts
   - The proxy endpoint requires `?projectId=` query param to identify which dev server to proxy to
 ---
+
+## 2026-03-22 - US-008
+- Added Screenshot button to Browser tab toolbar (Camera icon, accent-primary styled)
+- Button triggers `useScreenshot` mutation; on success shows screenshot in preview overlay
+- Overlay appears over the iframe with Copy, Save, and Close buttons
+- Copy to clipboard uses `navigator.clipboard.write` with `ClipboardItem` for image/png
+- Save downloads as PNG via a temporary anchor element with `data:` URI
+- Screenshot preview state (`screenshotPreview`) holds the base64 string, null when closed
+- Files changed: `src/components/shell/BottomPanel.tsx`
+- **Learnings for future iterations:**
+  - `navigator.clipboard.write` with `ClipboardItem({ 'image/png': blob })` is the way to copy images to clipboard in modern browsers
+  - Converting base64 to blob: `fetch('data:image/png;base64,...').then(r => r.blob())` is clean and avoids manual ArrayBuffer conversion
+  - Overlay pattern: use `absolute inset-0` on a parent with `relative` class to create a full-coverage overlay within a container
+  - The screenshot preview uses the iframe container as its positioning context (added `relative` to the iframe wrapper div)
+---
