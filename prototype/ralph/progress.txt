@@ -80,3 +80,19 @@ Started: Sun Mar 22 17:46:01 UTC 2026
   - `activeAbilityId` in layout store is the bridge between sidebar click and AbilityDetailView (US-006 will consume it)
   - `typeBadge` returns undefined for unknown types — the className handles that gracefully
 ---
+
+## 2026-03-22 - US-006
+- Replaced hardcoded AbilityDetailView with real API data from `useAbility(id)` hook
+- Reads `activeAbilityId` from layout store, fetches ability via API
+- Displays all fields: name, type, version, active status, config (JSON pretty-printed), assigned agents placeholder
+- Added active/inactive toggle button using `useUpdateAbility()` mutation
+- Added delete button with confirmation dialog using `useDeleteAbility()` mutation — navigates back on success
+- Added loading spinner, error state with retry, and empty state when no ability selected
+- Added back button to return to pipeline view
+- Files changed: src/components/views/AbilityDetailView.tsx
+- **Learnings for future iterations:**
+  - The `typeIcon` and `typeBadge` helpers can be extracted/shared — LeftSidebar and AbilityDetailView both define similar mappings
+  - After delete, reset `activeAbilityId` to null and navigate to `pipeline` view via `setActiveMain`
+  - `useAbility(id)` returns `undefined` data when `id` is null (disabled query) — check for `!activeAbilityId` before rendering
+  - The config field is a JSON object — display with `JSON.stringify(config, null, 2)` in a `<pre>` block
+---
