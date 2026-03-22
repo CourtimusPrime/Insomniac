@@ -3,6 +3,12 @@ Started: Sun Mar 22 15:42:51 UTC 2026
 
 ## Codebase Patterns
 - Server typechecks with `npx tsc --noEmit -p tsconfig.server.json` (separate from frontend tsconfig)
+- Frontend typechecks with `npx tsc --noEmit` (uses tsconfig.json, includes `src/` only)
+- Frontend API hooks pattern: `src/api/<resource>.ts` with interfaces + useQuery/useMutation hooks, using `apiFetch` from `src/api/client.ts`
+- Query keys follow `["resource", id]` pattern — e.g. `["pipelines", projectId]`, `["pipelineStages", pipelineId]`
+- Use `enabled: !!param` in useQuery to skip fetching when the param is null
+- `useProjectsStore((s) => s.activeProjectId)` gives the currently selected project ID
+- Pipeline stages from API have `agentId` (not agent name) and `description` (not `note`)
 - Server code uses `.js` extensions in imports despite being `.ts` files (ESM convention)
 - Server runs via `tsx` — no compilation step needed
 - DB schema uses drizzle-orm with SQLite (better-sqlite3)
@@ -30,6 +36,11 @@ Started: Sun Mar 22 15:42:51 UTC 2026
 - Fire-and-forget async with `.finally()` to clean up engine references: `engine.run().finally(() => runningEngines.delete(id))`
 - Use `and()` from `drizzle-orm` for compound WHERE clauses: `and(eq(col1, val1), eq(col2, val2))`
 - Stage sub-resource routes live in `server/routes/pipelines.ts` alongside pipeline routes (no separate file)
+- Use `isNull()` from `drizzle-orm` for NULL checks in WHERE clauses
+- Decision "pending" state is `resolution IS NULL` — no separate status column
+- WebSocket events for decisions: `decision:created`, `decision:resolved` — broadcast via `broadcast()` from `server/ws/handler.ts`
+- Frontend mutation hooks: `useMutation` with `mutationFn` + `onSuccess` that invalidates related query keys via `useQueryClient`
+- Button enable/disable: use `isPending` from `useMutation` to prevent double-click during in-flight requests
 
 ---
 
@@ -182,4 +193,58 @@ Started: Sun Mar 22 15:42:51 UTC 2026
   - Default sortOrder for new stages: query existing stages and use max + 1
   - DELETE returns 204 with no body — Fastify handles `return undefined` correctly for this
   - The `skipped` status is set via a dedicated endpoint, not as a general status update — keeps the API intent-driven
+---
+
+## 2026-03-22 - US-011
+- Created `server/routes/decisions.ts` as a Fastify plugin with decision queue API endpoints
+- Endpoints: GET /api/decisions?projectId (pending only), POST /api/decisions (create), PUT /api/decisions/:id (resolve)
+- GET filters for pending decisions using `isNull(decisions.resolution)`
+- POST broadcasts `decision:created` WebSocket event when a new decision is created
+- PUT resolves a decision with chosen option or free-text, broadcasts `decision:resolved` WebSocket event
+- `autoDecide` flag prefixes resolution with `[auto-decide]` marker for agent-initiated resolutions
+- Guards: 404 for missing decision, 409 for already-resolved decision
+- Registered routes in `server/index.ts` via `server.register(decisionRoutes)`
+- Files changed: server/routes/decisions.ts (new), server/index.ts, ralph/prd.json, ralph/progress.txt
+- **Learnings for future iterations:**
+  - Decisions schema already existed in `server/db/schema/decisions.ts` — no migration needed
+  - `isNull()` from drizzle-orm is used for NULL checks in WHERE clauses
+  - `options` column uses `{ mode: "json" }` — drizzle handles JSON serialization/deserialization automatically
+  - `resolvedAt` uses `{ mode: "timestamp" }` — pass a JS `Date` object, drizzle stores as unix epoch integer
+  - WebSocket broadcast events: `decision:created` and `decision:resolved` — frontend should listen for both
+  - Pending decisions = `resolution IS NULL` (not a separate status column)
+---
+
+## 2026-03-22 - US-012
+- Created `src/api/pipelines.ts` with `Pipeline` and `PipelineStage` interfaces, `usePipelines(projectId)` and `usePipelineStages(pipelineId)` hooks
+- Rewrote `PipelineView.tsx` to fetch real data via API hooks instead of hardcoded `PIPELINE_STAGES` array
+- Added loading state (spinner), error state, no-project, and no-pipeline empty states
+- Added `error` and `skipped` status styling (color, icon, badge) that was missing from the hardcoded version
+- Extracted `StageRow` component for cleaner rendering
+- Removed hardcoded `PIPELINE_STAGES` array entirely
+- Files changed: src/api/pipelines.ts (new), src/components/views/PipelineView.tsx
+- **Learnings for future iterations:**
+  - Pipeline stages DB schema has `agentId` (FK to agents table) not an agent name — UI shows raw agentId or fallback
+  - DB schema has `description` where the old hardcoded UI used `note` — map accordingly
+  - `usePipelines` returns all pipelines for a project — PipelineView uses the first one (`pipelines?.[0]`)
+  - `useQuery` `enabled` option prevents fetching when params are null — chain with `??` null for conditional queries
+  - `SkipForward` from lucide-react works well as the skipped stage icon
+  - Manual browser verification needed — no dev-browser tools configured in this session
+---
+
+## 2026-03-22 - US-013
+- Added `PipelineToolbar` component with Pause, Resume, Cancel buttons and pipeline status badge
+- Added `usePausePipeline`, `useResumePipeline`, `useCancelPipeline` mutation hooks to `src/api/pipelines.ts`
+- Toolbar shows above pipeline stages with conditionally enabled buttons based on pipeline status
+- Pause enabled only when running, Resume only when paused, Cancel when running or paused
+- All buttons disabled while any mutation is pending (prevents double-clicks)
+- Mutations invalidate the `["pipelines", projectId]` query on success to refresh status
+- Status badge shows pipeline state with matching color scheme (idle/running/completed/error/paused/cancelled)
+- Files changed: src/api/pipelines.ts, src/components/views/PipelineView.tsx
+- **Learnings for future iterations:**
+  - Mutation hooks take `projectId` param to invalidate the correct query key on success
+  - `isPending` from useMutation is the v5 replacement for `isLoading` — use it to disable buttons during in-flight requests
+  - WebSocket-driven real-time updates are deferred to US-016 — for now, query invalidation on mutation success refreshes the UI
+  - `Pipeline` type was already exported from `src/api/pipelines.ts` — import it with `import type` for the toolbar props
+  - Toolbar uses `activeProjectId!` non-null assertion because it's only rendered when `activePipeline` exists, which requires a non-null projectId
+  - Manual browser verification needed — no dev-browser tools configured in this session
 ---
