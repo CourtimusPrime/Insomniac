@@ -1,29 +1,14 @@
 import {
-  Play, CheckCircle2, AlertCircle,
+  CheckCircle2, AlertCircle,
   Terminal, BarChart2, Heart, ChevronRight,
-  Cpu, Globe, Sparkles,
-  ArrowRight, Circle, BookOpen
+  Globe, Circle
 } from 'lucide-react';
 import { LeftToolbar } from './components/shell/LeftToolbar';
 import { LeftSidebar } from './components/shell/LeftSidebar';
+import { MainView } from './components/shell/MainView';
 import { useLayoutStore } from './stores/layout';
-import { useProjectsStore } from './stores/projects';
 
 // --- DATA ---
-
-const PIPELINE_STAGES = [
-  { name: 'Scaffold architecture', agent: 'Prototyper', model: 'Gemini Flash', status: 'done', note: 'Component tree and data models generated.' },
-  { name: 'Implement core logic', agent: 'Claude Code', model: 'Claude Sonnet 4', status: 'running', note: 'Building memory management module. 67% complete.' },
-  { name: 'Write test suite', agent: 'Claude Code', model: 'Claude Sonnet 4', status: 'queued', note: 'Waiting for implementation to complete.' },
-  { name: 'Security audit', agent: 'Auditor', model: 'Claude Sonnet 4', status: 'needs-you', note: 'Hash algorithm collision flagged. Decision required.' },
-  { name: 'Deploy preview', agent: 'Vercel MCP', model: '—', status: 'queued', note: 'Will deploy to preview URL on test pass.' },
-];
-
-const BACKSEAT = [
-  { type: 'security', severity: 'critical', file: 'src/auth/hash.rs', msg: 'SHA-1 collision risk in password hashing. Recommend SHA-256 or Argon2.' },
-  { type: 'performance', severity: 'warning', file: 'src/mem/gc.rs', msg: 'Garbage collector called synchronously in hot path. Consider async scheduling.' },
-  { type: 'coverage', severity: 'info', file: 'src/net/socket.rs', msg: '4 exported functions have no test coverage.' },
-];
 
 const TIMELINE = [
   { label: 'Initialize repo', done: true },
@@ -38,37 +23,11 @@ const AGENTS = [
   { name: 'Auditor', task: 'Awaiting decision', pct: 0, model: 'Sonnet 4', blocked: true },
 ];
 
-// --- HELPERS ---
-
-const stageColor = (s: string) => ({
-  done: 'border-status-success/30 bg-status-success/5',
-  running: 'border-accent-primary/50 bg-accent-primary/8',
-  queued: 'border-border-muted bg-transparent opacity-50',
-  'needs-you': 'border-status-warning/60 bg-status-warning/8',
-}[s]);
-
-const stageIcon = (s: string) => {
-  if (s === 'done') return <CheckCircle2 size={14} className="text-status-success shrink-0" />;
-  if (s === 'running') return <Circle size={14} className="text-accent-primary shrink-0 animate-pulse fill-accent-primary" />;
-  if (s === 'needs-you') return <AlertCircle size={14} className="text-status-warning shrink-0" />;
-  return <Circle size={14} className="text-text-faint shrink-0" />;
-};
-
-const severityColor = (s: string) => ({
-  critical: 'text-status-error bg-status-error/10 border-status-error/30',
-  warning: 'text-status-warning bg-status-warning/10 border-status-warning/30',
-  info: 'text-sky-400 bg-sky-500/10 border-sky-500/30',
-}[s]);
-
 // --- APP ---
 
 export default function InsomniacApp() {
-  const activeMain = useLayoutStore((s) => s.activeMain);
-  const setActiveMain = useLayoutStore((s) => s.setActiveMain);
   const activeTab = useLayoutStore((s) => s.activeTab);
   const setActiveTab = useLayoutStore((s) => s.setActiveTab);
-  const activeProject = useProjectsStore((s) => s.activeProject);
-  const projects = useProjectsStore((s) => s.projects);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-bg-default text-text-default font-sans">
@@ -82,156 +41,9 @@ export default function InsomniacApp() {
       {/* MAIN VIEW */}
       <main className="flex-1 flex flex-col overflow-hidden">
 
-        {/* Project header */}
-        <div className="px-6 py-3 border-b border-border-default flex items-center gap-4 shrink-0">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-bold text-text-primary font-heading">{activeProject}</h1>
-              <span className="text-[10px] px-2 py-0.5 rounded-full border border-accent-primary/30 bg-accent-primary/5 text-accent-primary">
-                {projects.find(p => p.name === activeProject)?.status}
-              </span>
-            </div>
-            <p className="text-[11px] text-text-muted mt-0.5">Decentralized OS kernel · Rust · 3 agents running</p>
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            {(['pipeline', 'graph', 'backseat'] as const).map(view => (
-              <button
-                key={view}
-                onClick={() => setActiveMain(view)}
-                className={`px-3 py-1.5 text-[11px] rounded transition capitalize ${
-                  activeMain === view
-                    ? 'bg-accent-primary/15 text-accent-primary'
-                    : 'text-text-muted hover:text-text-default hover:bg-bg-hover'
-                }`}>
-                {view === 'backseat' ? 'Backseat Driver' : view}
-              </button>
-            ))}
-          </div>
-        </div>
-
         <div className="flex-1 flex overflow-hidden">
           {/* Main content area */}
-          <div className="flex-1 overflow-y-auto">
-
-            {/* PIPELINE VIEW */}
-            {activeMain === 'pipeline' && (
-              <div className="p-5 space-y-2 max-w-2xl">
-                {PIPELINE_STAGES.map((stage, i) => (
-                  <div key={i} className={`rounded-lg border px-4 py-3 flex items-start gap-3 ${stageColor(stage.status)}`}>
-                    <div className="mt-0.5">{stageIcon(stage.status)}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-text-primary">{stage.name}</span>
-                        {stage.status === 'needs-you' && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-status-warning/20 text-status-warning border border-status-warning/30">needs you</span>
-                        )}
-                        {stage.status === 'running' && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-primary/20 text-accent-primary border border-accent-primary/30">running</span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-text-muted mt-0.5">{stage.agent} · {stage.model}</div>
-                      <div className="text-[11px] text-text-secondary mt-1">{stage.note}</div>
-                    </div>
-                    {stage.status === 'needs-you' && (
-                      <button className="shrink-0 px-2.5 py-1 text-[10px] bg-status-warning/20 hover:bg-status-warning/30 text-status-warning rounded border border-status-warning/30 transition">
-                        Decide
-                      </button>
-                    )}
-                  </div>
-                ))}
-                {/* Steering input */}
-                <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg border border-border-muted bg-bg-base">
-                  <ArrowRight size={13} className="text-accent-primary shrink-0" />
-                  <input
-                    className="flex-1 bg-transparent text-xs text-text-default placeholder-text-faint outline-none"
-                    placeholder="Steer the pipeline — 'skip Stripe for now', 'add dark mode first'…"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* GRAPH VIEW */}
-            {activeMain === 'graph' && (
-              <div className="p-5 h-full flex items-center justify-center">
-                <div className="text-center space-y-3">
-                  <div className="w-12 h-12 rounded-xl bg-accent-primary/10 border border-accent-primary/30 flex items-center justify-center mx-auto">
-                    <Cpu size={20} className="text-accent-primary" />
-                  </div>
-                  <div className="text-sm text-text-primary font-medium font-heading">Agent Chain Editor</div>
-                  <div className="text-xs text-text-muted max-w-xs">
-                    Visual ReactFlow canvas for building and connecting agent pipelines. Drag agents, assign Abilities, define conditions.
-                  </div>
-                  <button className="px-4 py-2 text-xs bg-accent-primary/15 hover:bg-accent-primary/25 text-accent-primary border border-accent-primary/30 rounded-lg transition">
-                    Open chain editor
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* BACKSEAT DRIVER VIEW */}
-            {activeMain === 'backseat' && (
-              <div className="p-5 space-y-3 max-w-2xl">
-                <div className="flex items-center gap-2 mb-4">
-                  <Sparkles size={14} className="text-accent-secondary" />
-                  <span className="text-xs text-text-secondary">Monitoring <span className="text-text-primary">{activeProject}</span> · Last scan 2m ago · {BACKSEAT.length} recommendations</span>
-                </div>
-                {BACKSEAT.map((r, i) => (
-                  <div key={i} className={`rounded-lg border px-4 py-3 ${severityColor(r.severity)}`}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold border ${severityColor(r.severity)}`}>{r.severity}</span>
-                          <span className="text-[10px] text-text-muted">{r.type}</span>
-                          <span className="text-[10px] font-mono text-text-muted">{r.file}</span>
-                        </div>
-                        <p className="text-xs text-text-default">{r.msg}</p>
-                      </div>
-                      <button className="shrink-0 px-3 py-1.5 text-[11px] bg-bg-hover hover:bg-bg-surface text-text-default rounded border border-border-muted transition flex items-center gap-1.5">
-                        <Play size={10} />
-                        Run this
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* ABILITY DETAIL VIEW */}
-            {activeMain === 'ability-detail' && (
-              <div className="p-5 max-w-xl space-y-4">
-                <div className="flex items-center gap-3 pb-4 border-b border-border-default">
-                  <div className="w-10 h-10 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                    <BookOpen size={16} className="text-violet-400" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-text-primary font-heading">Playwright Tests</div>
-                    <div className="text-[10px] text-text-muted mt-0.5">Skill · Installed · v2.1.0</div>
-                  </div>
-                  <div className="ml-auto">
-                    <span className="text-[10px] px-2 py-1 rounded bg-status-success/15 text-status-success border border-status-success/30">Active</span>
-                  </div>
-                </div>
-                <p className="text-xs text-text-secondary leading-relaxed">Enables agents to write and execute Playwright end-to-end tests against a running dev server. Exposes browser navigation, assertion, and screenshot tools.</p>
-                <div>
-                  <div className="text-[10px] uppercase tracking-widest text-text-faint mb-2">Assigned to</div>
-                  <div className="flex gap-2">
-                    {['Claude Code (tester)', 'Auditor'].map(a => (
-                      <span key={a} className="text-[11px] px-2 py-1 rounded bg-bg-hover text-text-default border border-border-muted">{a}</span>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-widest text-text-faint mb-2">Recent invocations</div>
-                  <div className="space-y-1">
-                    {['navigate("/dashboard")', 'click("#login-btn")', 'assertText("Welcome back")'].map(inv => (
-                      <div key={inv} className="text-[11px] font-mono text-text-muted px-2 py-1 bg-bg-base rounded">{inv}</div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-          </div>
+          <MainView />
 
           {/* RIGHT SIDEBAR */}
           <aside className="w-72 border-l border-border-default flex flex-col shrink-0 overflow-hidden">
