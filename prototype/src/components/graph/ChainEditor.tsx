@@ -24,6 +24,7 @@ import { AgentNode, type AgentNodeData } from './AgentNode';
 import { CustomEdge } from './CustomEdge';
 import { AddNodeMenu } from './AddNodeMenu';
 import { NodeInspector } from './NodeInspector';
+import { ChainToolbar } from './ChainToolbar';
 
 const nodeTypes = { agent: AgentNode };
 const edgeTypes = { custom: CustomEdge };
@@ -226,6 +227,58 @@ function ChainEditorInner() {
     [screenToFlowPosition],
   );
 
+  /* ── Auto-layout: left-to-right grid ── */
+  const handleAutoLayout = useCallback(() => {
+    const colWidth = 280;
+    const rowHeight = 160;
+    const maxPerCol = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
+
+    setNodes((nds) =>
+      nds.map((n, i) => ({
+        ...n,
+        position: {
+          x: Math.floor(i / maxPerCol) * colWidth,
+          y: (i % maxPerCol) * rowHeight,
+        },
+      })),
+    );
+  }, [nodes.length, setNodes]);
+
+  /* ── Clear all edges ── */
+  const handleClearEdges = useCallback(() => {
+    setEdges([]);
+  }, [setEdges]);
+
+  /* ── Export chain as JSON ── */
+  const handleExportJSON = useCallback(() => {
+    const chain = {
+      version: 1,
+      nodes: nodes.map((n) => ({
+        id: n.id,
+        type: (n.data as AgentNodeData).nodeType,
+        label: (n.data as AgentNodeData).label,
+        model: (n.data as AgentNodeData).model ?? null,
+        systemPrompt: (n.data as AgentNodeData).systemPrompt ?? null,
+        status: (n.data as AgentNodeData).status ?? 'pending',
+        abilities: (n.data as AgentNodeData).abilities ?? [],
+        position: n.position,
+      })),
+      edges: edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        condition: (e.data as { condition?: string })?.condition ?? 'always',
+      })),
+    };
+    const blob = new Blob([JSON.stringify(chain, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '.insomniac-chain.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [nodes, edges]);
+
   const proOptions = useMemo(() => ({ hideAttribution: true }), []);
 
   const isEmpty = nodes.length === 0;
@@ -233,19 +286,12 @@ function ChainEditorInner() {
   return (
     <div className="h-full w-full relative flex flex-col" style={{ background: '#0a0d13' }}>
       {/* Toolbar */}
-      <div
-        className="flex items-center gap-2 px-3 py-2 border-b shrink-0"
-        style={{ borderColor: '#1e2a3a', background: '#0d1117' }}
-      >
-        <button
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-medium text-text-primary border transition-colors hover:bg-white/5"
-          style={{ borderColor: '#1e2a3a' }}
-          onClick={handleToolbarAdd}
-        >
-          <Plus size={13} />
-          Add node
-        </button>
-      </div>
+      <ChainToolbar
+        onAddNode={handleToolbarAdd}
+        onAutoLayout={handleAutoLayout}
+        onClearEdges={handleClearEdges}
+        onExportJSON={handleExportJSON}
+      />
 
       {/* Canvas + Inspector */}
       <div className="flex-1 relative">
