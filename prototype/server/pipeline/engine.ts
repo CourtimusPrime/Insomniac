@@ -4,6 +4,7 @@ import { pipelines, pipelineStages, agents } from "../db/schema/index.js";
 import { createAgent, getTransportSetting } from "../agents/index.js";
 import type { AgentAdapter, AgentConfig } from "../agents/types.js";
 import { broadcast } from "../ws/handler.js";
+import { HooksEngine } from "../hooks/engine.js";
 
 type PipelineRow = typeof pipelines.$inferSelect;
 type StageRow = typeof pipelineStages.$inferSelect;
@@ -15,6 +16,7 @@ export class PipelineEngine {
   private pauseRequested = false;
   private cancelRequested = false;
   private activeAgents: AgentAdapter[] = [];
+  private hooksEngine = new HooksEngine();
 
   constructor(pipelineId: string) {
     this.pipelineId = pipelineId;
@@ -77,6 +79,7 @@ export class PipelineEngine {
       // Only mark completed if we weren't interrupted
       if (!this.shouldStop()) {
         this.updatePipelineStatus("completed");
+        this.hooksEngine.fire("on-pipeline-complete", this.hookContext({ status: "completed" }));
       }
     } catch (err) {
       if (!this.cancelRequested) {
@@ -156,6 +159,7 @@ export class PipelineEngine {
       // Only mark completed if we weren't interrupted
       if (!this.shouldStop()) {
         this.updatePipelineStatus("completed");
+        this.hooksEngine.fire("on-pipeline-complete", this.hookContext({ status: "completed" }));
       }
     } catch (err) {
       if (!this.cancelRequested) {
@@ -247,6 +251,9 @@ export class PipelineEngine {
     // Set stage status to running
     this.updateStageStatus(stage.id, "running");
 
+    // Fire pre-stage hook
+    this.hooksEngine.fire("pre-stage", this.hookContext({ stageId: stage.id }));
+
     let agent: AgentAdapter | null = null;
 
     try {
@@ -262,10 +269,20 @@ export class PipelineEngine {
       await agent.getResponse();
 
       this.updateStageStatus(stage.id, "done");
+
+      // Fire post-stage hook with success context
+      this.hooksEngine.fire("post-stage", this.hookContext({ stageId: stage.id, status: "done" }));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[PipelineEngine] Stage "${stage.name}" failed: ${message}`);
       this.updateStageStatus(stage.id, "error");
+
+      // Fire post-stage hook with failure context
+      this.hooksEngine.fire("post-stage", this.hookContext({ stageId: stage.id, status: "error", error: message }));
+
+      // Fire on-agent-error hook
+      this.hooksEngine.fire("on-agent-error", this.hookContext({ stageId: stage.id, status: "error", error: message }));
+
       throw err;
     } finally {
       // Remove from active agents and clean up
@@ -310,6 +327,17 @@ export class PipelineEngine {
    */
   private shouldStop(): boolean {
     return this.pauseRequested || this.cancelRequested;
+  }
+
+  /**
+   * Builds a HookContext for the current pipeline, optionally including stage info.
+   */
+  private hookContext(extra?: { stageId?: string; status?: string; error?: string }) {
+    return {
+      pipelineId: this.pipelineId,
+      projectId: this.pipeline?.projectId ?? undefined,
+      ...extra,
+    };
   }
 
   /**
