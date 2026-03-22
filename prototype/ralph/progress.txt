@@ -15,6 +15,9 @@ Started: Sun Mar 22 17:46:01 UTC 2026
 - Use `innerJoin` on junction tables to return related entity data in GET endpoints
 - Frontend API hooks live in `src/api/*.ts`, follow pattern: export interface + useX query + useMutateX with invalidateQueries
 - `apiFetch` defaults to `Content-Type: application/json`; override header for raw text endpoints
+- Layout store (`src/stores/layout.ts`) holds `activeAbilityId` for passing selected ability to detail views
+- Sidebar loading/error pattern: match the projects panel (Loader2 spinner, AlertCircle + retry button)
+- `typeBadge` helper in LeftSidebar maps ability types to color classes (skill=violet, plugin=emerald, mcp=cyan)
 
 ---
 
@@ -63,4 +66,17 @@ Started: Sun Mar 22 17:46:01 UTC 2026
   - `useAbility(id)` uses `enabled: !!id` pattern for conditional fetching (same as usePipelines)
   - The import-skill endpoint expects `text/plain` Content-Type, not `application/json` — override the default header from apiFetch
   - Ability interface mirrors the DB schema: id, workspaceId, name, type, active, config, version, createdAt
+---
+
+## 2026-03-22 - US-005
+- Replaced hardcoded ABILITIES array in LeftSidebar with `useAbilities()` hook from `src/api/abilities.ts`
+- Added loading spinner and error state with retry button (matching the projects panel pattern)
+- Added empty state ("No abilities yet") when abilities array is empty
+- Added `activeAbilityId` state to layout store so clicking an ability sets the ID before navigating to detail view
+- Added `plugin` type to `typeBadge` helper (emerald color)
+- Files changed: src/components/shell/LeftSidebar.tsx, src/stores/layout.ts
+- **Learnings for future iterations:**
+  - The abilities panel mirrors the projects panel pattern for loading/error states — copy that pattern
+  - `activeAbilityId` in layout store is the bridge between sidebar click and AbilityDetailView (US-006 will consume it)
+  - `typeBadge` returns undefined for unknown types — the className handles that gracefully
 ---
