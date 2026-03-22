@@ -3,6 +3,9 @@ import { eq, and, isNull } from "drizzle-orm";
 import { db } from "../db/connection.js";
 import { decisions } from "../db/schema/index.js";
 import { broadcast } from "../ws/handler.js";
+import { HooksEngine } from "../hooks/engine.js";
+
+const hooksEngine = new HooksEngine();
 
 export async function decisionRoutes(server: FastifyInstance) {
   // GET /api/decisions?projectId=X — list pending decisions for a project
@@ -91,6 +94,13 @@ export async function decisionRoutes(server: FastifyInstance) {
         .get();
 
       broadcast("decision:created", created);
+
+      // Fire on-decision hook
+      hooksEngine.fire("on-decision", {
+        pipelineId: stageId,
+        projectId,
+        stageId,
+      });
 
       reply.code(201);
       return created;
