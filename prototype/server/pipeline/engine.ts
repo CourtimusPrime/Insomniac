@@ -142,7 +142,7 @@ export class PipelineEngine {
       for (const group of groups) {
         if (this.shouldStop()) break;
         // Filter out already-done stages within the group
-        const pending = group.filter((s) => s.status !== "done");
+        const pending = group.filter((s) => s.status !== "done" && s.status !== "skipped");
         if (pending.length === 0) continue;
         await this.executeStageGroup(pending);
       }
@@ -327,7 +327,7 @@ export class PipelineEngine {
    */
   private updateStageStatus(
     stageId: string,
-    status: "queued" | "running" | "done" | "needs-you" | "error",
+    status: "queued" | "running" | "done" | "needs-you" | "error" | "skipped",
   ): void {
     db.update(pipelineStages)
       .set({ status })

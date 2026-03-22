@@ -13,7 +13,7 @@ export const pipelineStages = sqliteTable("pipeline_stages", {
   agentId: text("agent_id"),
   model: text("model"),
   status: text("status", {
-    enum: ["queued", "running", "done", "needs-you", "error"],
+    enum: ["queued", "running", "done", "needs-you", "error", "skipped"],
   })
     .notNull()
     .default("queued"),

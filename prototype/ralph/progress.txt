@@ -7,7 +7,7 @@ Started: Sun Mar 22 15:42:51 UTC 2026
 - Server runs via `tsx` — no compilation step needed
 - DB schema uses drizzle-orm with SQLite (better-sqlite3)
 - Existing agent DB schema in `server/db/schema/agents.ts` has status enum: idle, working, paused, error
-- Pipeline stages have status enum: queued, running, done, needs-you, error
+- Pipeline stages have status enum: queued, running, done, needs-you, error, skipped
 - WebSocket broadcast utility in `server/ws/handler.ts` — use `broadcast(event, data)`
 - Agent adapters use lazy process init — constructor takes config, process spawns on first `sendMessage()`
 - Agent adapters use a pending message queue + resolver pattern for async response consumption
@@ -22,6 +22,14 @@ Started: Sun Mar 22 15:42:51 UTC 2026
 - Adding enum values to drizzle SQLite text columns only changes TS types — no DB migration needed
 - Parallel stages: `groupStagesBySortOrder()` groups by sortOrder, `executeStageGroup()` runs groups via `Promise.allSettled`
 - Checkpointing is at group level (in `executeStageGroup`), not individual stage level
+- PipelineEngine `pause()` is sync (sets flag), `cancel()` is async (aborts agents) — callers need to match
+- Pipeline status enum: idle, running, completed, error, paused, cancelled
+- PipelineEngine instances are stateful — keep a reference to call `pause()`/`cancel()` on a running pipeline
+- Fastify route plugin pattern: export async function, register with `server.register()`, use schema objects for validation
+- Running engines tracked in `runningEngines` Map in `server/routes/pipelines.ts` — needed for pause/cancel control
+- Fire-and-forget async with `.finally()` to clean up engine references: `engine.run().finally(() => runningEngines.delete(id))`
+- Use `and()` from `drizzle-orm` for compound WHERE clauses: `and(eq(col1, val1), eq(col2, val2))`
+- Stage sub-resource routes live in `server/routes/pipelines.ts` alongside pipeline routes (no separate file)
 
 ---
 
@@ -125,4 +133,53 @@ Started: Sun Mar 22 15:42:51 UTC 2026
   - For single-stage groups, the fast path avoids `Promise.allSettled` overhead
   - Resume with parallel groups: need to re-group remaining stages and filter 'done' within each group, not just skip by index
   - `Map` preserves insertion order in JS, but we sort explicitly anyway for clarity
+---
+
+## 2026-03-22 - US-008
+- Added `pause()` method: sets `pauseRequested` flag, updates pipeline status to 'paused', execution loop breaks after current group completes
+- Added `cancel()` method: sets `cancelRequested` flag, updates status to 'cancelled', aborts all active agents immediately
+- Added `shouldStop()` private helper checked between stage groups in `run()` and `resume()`
+- Tracks active agents in `activeAgents` array — populated in `executeStage()`, cleaned up in finally block
+- Added 'cancelled' to pipeline status enum in `server/db/schema/pipelines.ts`
+- `resume()` now resets interrupt flags before executing
+- All state changes persisted to DB and broadcast via WebSocket
+- Files changed: server/pipeline/engine.ts, server/db/schema/pipelines.ts
+- **Learnings for future iterations:**
+  - `pause()` is sync (just sets a flag + DB update), `cancel()` is async (needs to await agent aborts)
+  - Cancel takes precedence over pause — if cancel is set, pause is ignored
+  - `resume()` must reset both flags so a previously paused/cancelled pipeline can run again
+  - Active agent tracking uses array push/filter rather than Set because AgentAdapter doesn't need to be hashable
+  - Error handler checks `cancelRequested` to avoid overwriting 'cancelled' status with 'error'
+---
+
+## 2026-03-22 - US-009
+- Created `server/routes/pipelines.ts` as a Fastify plugin with all pipeline API endpoints
+- Endpoints: GET /api/pipelines?projectId, POST /api/pipelines (create with stages), POST /:id/run, /:id/pause, /:id/resume, /:id/cancel
+- Registered routes in `server/index.ts` via `server.register(pipelineRoutes)`
+- `runningEngines` Map tracks active PipelineEngine instances for pause/cancel control
+- Run and resume use fire-and-forget pattern with `.finally()` cleanup
+- Input validation via Fastify JSON schema on all POST bodies
+- Files changed: server/routes/pipelines.ts (new), server/index.ts
+- **Learnings for future iterations:**
+  - Fastify route plugins: export async function taking `FastifyInstance`, register with `server.register()`
+  - JSON schema validation goes in `schema.body` / `schema.querystring` option object
+  - For async background tasks (pipeline execution), fire-and-forget with `engine.run().finally()` — don't await in the handler
+  - Running engines need a module-level Map registry — PipelineEngine is stateful and the same instance must be used for pause/cancel
+  - Resume creates a new PipelineEngine instance (old one is gone after pause) — engine reloads state from DB
+  - Guard against double-run with status check: return 409 if already running
+---
+
+## 2026-03-22 - US-010
+- Added pipeline stages CRUD endpoints to `server/routes/pipelines.ts`
+- Endpoints: GET /:id/stages, POST /:id/stages, PUT /:pipelineId/stages/:stageId, DELETE /:pipelineId/stages/:stageId, POST /:pipelineId/stages/:stageId/skip
+- Added `skipped` to stage status enum in schema and engine
+- Updated engine `resume()` to also skip stages with status `skipped`
+- Input validation on all POST/PUT bodies via Fastify JSON schema
+- Files changed: server/routes/pipelines.ts, server/db/schema/pipeline-stages.ts, server/pipeline/engine.ts, ralph/prd.json, ralph/progress.txt
+- **Learnings for future iterations:**
+  - Stage endpoints use `and()` from drizzle-orm for compound WHERE (pipelineId + stageId) to prevent cross-pipeline access
+  - When adding a new status value, update both the schema enum AND the engine's `updateStageStatus` type union
+  - Default sortOrder for new stages: query existing stages and use max + 1
+  - DELETE returns 204 with no body — Fastify handles `return undefined` correctly for this
+  - The `skipped` status is set via a dedicated endpoint, not as a general status update — keeps the API intent-driven
 ---

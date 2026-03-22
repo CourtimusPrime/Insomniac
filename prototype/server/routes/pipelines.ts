@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { db } from "../db/connection.js";
 import { pipelines, pipelineStages } from "../db/schema/index.js";
 import { PipelineEngine } from "../pipeline/engine.js";
@@ -215,6 +215,243 @@ export async function pipelineRoutes(server: FastifyInstance) {
       await engine.cancel();
       runningEngines.delete(id);
       return { pipelineId: id, status: "cancelled" };
+    },
+  );
+
+  // ── Pipeline Stages ───────────────────────────────────────────────
+
+  // GET /api/pipelines/:id/stages — list stages for a pipeline in sortOrder
+  server.get<{ Params: { id: string } }>(
+    "/api/pipelines/:id/stages",
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const pipeline = db
+        .select()
+        .from(pipelines)
+        .where(eq(pipelines.id, id))
+        .get();
+
+      if (!pipeline) {
+        reply.code(404);
+        return { error: "Pipeline not found" };
+      }
+
+      return db
+        .select()
+        .from(pipelineStages)
+        .where(eq(pipelineStages.pipelineId, id))
+        .orderBy(asc(pipelineStages.sortOrder))
+        .all();
+    },
+  );
+
+  // POST /api/pipelines/:id/stages — add a new stage to a pipeline
+  server.post<{
+    Params: { id: string };
+    Body: {
+      name: string;
+      agentId?: string;
+      model?: string;
+      description?: string;
+      sortOrder?: number;
+    };
+  }>(
+    "/api/pipelines/:id/stages",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["name"],
+          additionalProperties: false,
+          properties: {
+            name: { type: "string", minLength: 1, maxLength: 200 },
+            agentId: { type: "string" },
+            model: { type: "string", maxLength: 100 },
+            description: { type: "string", maxLength: 2000 },
+            sortOrder: { type: "integer", minimum: 0 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const pipeline = db
+        .select()
+        .from(pipelines)
+        .where(eq(pipelines.id, id))
+        .get();
+
+      if (!pipeline) {
+        reply.code(404);
+        return { error: "Pipeline not found" };
+      }
+
+      const { name, agentId, model, description, sortOrder } = request.body;
+
+      // Default sortOrder to one past the current max
+      let order = sortOrder;
+      if (order === undefined) {
+        const existing = db
+          .select()
+          .from(pipelineStages)
+          .where(eq(pipelineStages.pipelineId, id))
+          .orderBy(asc(pipelineStages.sortOrder))
+          .all();
+        order = existing.length > 0
+          ? existing[existing.length - 1].sortOrder + 1
+          : 0;
+      }
+
+      const stageId = crypto.randomUUID();
+      db.insert(pipelineStages)
+        .values({ id: stageId, pipelineId: id, name, agentId, model, description, sortOrder: order })
+        .run();
+
+      const created = db
+        .select()
+        .from(pipelineStages)
+        .where(eq(pipelineStages.id, stageId))
+        .get();
+
+      reply.code(201);
+      return created;
+    },
+  );
+
+  // PUT /api/pipelines/:pipelineId/stages/:stageId — update a stage
+  server.put<{
+    Params: { pipelineId: string; stageId: string };
+    Body: {
+      name?: string;
+      agentId?: string;
+      model?: string;
+      description?: string;
+      sortOrder?: number;
+    };
+  }>(
+    "/api/pipelines/:pipelineId/stages/:stageId",
+    {
+      schema: {
+        body: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            name: { type: "string", minLength: 1, maxLength: 200 },
+            agentId: { type: "string" },
+            model: { type: "string", maxLength: 100 },
+            description: { type: "string", maxLength: 2000 },
+            sortOrder: { type: "integer", minimum: 0 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { pipelineId, stageId } = request.params;
+
+      const stage = db
+        .select()
+        .from(pipelineStages)
+        .where(
+          and(
+            eq(pipelineStages.id, stageId),
+            eq(pipelineStages.pipelineId, pipelineId),
+          ),
+        )
+        .get();
+
+      if (!stage) {
+        reply.code(404);
+        return { error: "Stage not found" };
+      }
+
+      const updates: Record<string, unknown> = {};
+      const body = request.body;
+      if (body.name !== undefined) updates.name = body.name;
+      if (body.agentId !== undefined) updates.agentId = body.agentId;
+      if (body.model !== undefined) updates.model = body.model;
+      if (body.description !== undefined) updates.description = body.description;
+      if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder;
+
+      if (Object.keys(updates).length > 0) {
+        db.update(pipelineStages)
+          .set(updates)
+          .where(eq(pipelineStages.id, stageId))
+          .run();
+      }
+
+      return db
+        .select()
+        .from(pipelineStages)
+        .where(eq(pipelineStages.id, stageId))
+        .get();
+    },
+  );
+
+  // DELETE /api/pipelines/:pipelineId/stages/:stageId — remove a stage
+  server.delete<{ Params: { pipelineId: string; stageId: string } }>(
+    "/api/pipelines/:pipelineId/stages/:stageId",
+    async (request, reply) => {
+      const { pipelineId, stageId } = request.params;
+
+      const stage = db
+        .select()
+        .from(pipelineStages)
+        .where(
+          and(
+            eq(pipelineStages.id, stageId),
+            eq(pipelineStages.pipelineId, pipelineId),
+          ),
+        )
+        .get();
+
+      if (!stage) {
+        reply.code(404);
+        return { error: "Stage not found" };
+      }
+
+      db.delete(pipelineStages)
+        .where(eq(pipelineStages.id, stageId))
+        .run();
+
+      reply.code(204);
+      return;
+    },
+  );
+
+  // POST /api/pipelines/:pipelineId/stages/:stageId/skip — mark stage as skipped
+  server.post<{ Params: { pipelineId: string; stageId: string } }>(
+    "/api/pipelines/:pipelineId/stages/:stageId/skip",
+    async (request, reply) => {
+      const { pipelineId, stageId } = request.params;
+
+      const stage = db
+        .select()
+        .from(pipelineStages)
+        .where(
+          and(
+            eq(pipelineStages.id, stageId),
+            eq(pipelineStages.pipelineId, pipelineId),
+          ),
+        )
+        .get();
+
+      if (!stage) {
+        reply.code(404);
+        return { error: "Stage not found" };
+      }
+
+      db.update(pipelineStages)
+        .set({ status: "skipped" })
+        .where(eq(pipelineStages.id, stageId))
+        .run();
+
+      return db
+        .select()
+        .from(pipelineStages)
+        .where(eq(pipelineStages.id, stageId))
+        .get();
     },
   );
 }
