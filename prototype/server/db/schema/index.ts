@@ -1,1 +1,2 @@
-// Schema barrel export — tables will be added in subsequent stories
+export { workspaces } from "./workspaces.js";
+export { projects } from "./projects.js";
