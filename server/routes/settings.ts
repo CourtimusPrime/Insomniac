@@ -4,9 +4,13 @@ import { db } from "../db/connection.js";
 import { settings, workspaces } from "../db/schema/index.js";
 import { SlackNotifier } from "../integrations/slack.js";
 
-function getDefaultWorkspaceId(): string | undefined {
+function getOrCreateDefaultWorkspaceId(): string {
   const ws = db.select().from(workspaces).limit(1).get();
-  return ws?.id;
+  if (ws) return ws.id;
+
+  const id = crypto.randomUUID();
+  db.insert(workspaces).values({ id, name: "Default" }).run();
+  return id;
 }
 
 const slackNotifier = new SlackNotifier();
@@ -16,11 +20,7 @@ export async function settingsRoutes(server: FastifyInstance) {
   server.get<{ Params: { key: string } }>(
     "/api/settings/:key",
     async (request, reply) => {
-      const workspaceId = getDefaultWorkspaceId();
-      if (!workspaceId) {
-        reply.code(404);
-        return { error: "No workspace found" };
-      }
+      const workspaceId = getOrCreateDefaultWorkspaceId();
 
       const row = db
         .select()
@@ -55,11 +55,7 @@ export async function settingsRoutes(server: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const workspaceId = getDefaultWorkspaceId();
-      if (!workspaceId) {
-        reply.code(404);
-        return { error: "No workspace found" };
-      }
+      const workspaceId = getOrCreateDefaultWorkspaceId();
 
       const key = request.params.key;
       const { value, category } = request.body;
@@ -72,7 +68,7 @@ export async function settingsRoutes(server: FastifyInstance) {
 
       if (existing) {
         db.update(settings)
-          .set({ value: JSON.stringify(value), category: category ?? existing.category })
+          .set({ value, category: category ?? existing.category })
           .where(eq(settings.id, existing.id))
           .run();
       } else {
@@ -80,7 +76,7 @@ export async function settingsRoutes(server: FastifyInstance) {
           .values({
             workspaceId,
             key,
-            value: JSON.stringify(value),
+            value,
             category: category ?? "notifications",
           })
           .run();

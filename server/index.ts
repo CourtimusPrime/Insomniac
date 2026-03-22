@@ -43,6 +43,7 @@ await server.register(cors, {
     "http://localhost:4321",
     "http://localhost:5173",
   ],
+  methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"],
 });
 
 // WebSocket support
