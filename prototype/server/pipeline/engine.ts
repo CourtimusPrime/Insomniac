@@ -5,6 +5,7 @@ import { createAgent, getTransportSetting } from "../agents/index.js";
 import type { AgentAdapter, AgentConfig } from "../agents/types.js";
 import { broadcast } from "../ws/handler.js";
 import { HooksEngine } from "../hooks/engine.js";
+import { type FileAccessAdapter, createFileAccessAdapter } from "../hosted/file-access-factory.js";
 
 type PipelineRow = typeof pipelines.$inferSelect;
 type StageRow = typeof pipelineStages.$inferSelect;
@@ -17,9 +18,12 @@ export class PipelineEngine {
   private cancelRequested = false;
   private activeAgents: AgentAdapter[] = [];
   private hooksEngine = new HooksEngine();
+  /** File access adapter — filesystem in local mode, GitHub in hosted mode */
+  readonly fileAccess: FileAccessAdapter;
 
-  constructor(pipelineId: string) {
+  constructor(pipelineId: string, options?: { fileAccess?: FileAccessAdapter }) {
     this.pipelineId = pipelineId;
+    this.fileAccess = options?.fileAccess ?? createFileAccessAdapter({});
   }
 
   /**

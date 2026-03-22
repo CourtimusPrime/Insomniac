@@ -24,8 +24,15 @@ import { metricsRoutes } from "./routes/metrics.js";
 import { usageRoutes } from "./routes/usage.js";
 import { logRoutes } from "./routes/logs.js";
 import { agentRoutes } from "./routes/agents.js";
+import { authRoutes } from "./routes/auth.js";
+import { sandboxRoutes } from "./routes/sandboxes.js";
+import { registerAuthMiddleware } from "./hosted/index.js";
+import { validatePlatformForSandbox } from "./config/platform-check.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Validate platform supports configured sandbox mode (throws on fatal mismatch)
+await validatePlatformForSandbox();
 
 const server = Fastify({ logger: true });
 
@@ -47,6 +54,15 @@ await server.register(fastifyStatic, {
   root: resolve(__dirname, "../dist"),
   wildcard: false,
 });
+
+// Auth middleware (no-op in local mode, active in remote/hosted)
+registerAuthMiddleware(server);
+
+// Auth routes (only active in hosted/remote mode)
+await server.register(authRoutes);
+
+// Sandbox routes (only active in hosted mode)
+await server.register(sandboxRoutes);
 
 // API routes
 await server.register(projectRoutes);
