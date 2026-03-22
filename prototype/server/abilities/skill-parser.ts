@@ -42,6 +42,9 @@ export function parseSkillMd(raw: string): ParsedSkill {
   if (!name) {
     throw new Error("Invalid SKILL.md: missing 'name' in frontmatter");
   }
+  if (name.length > 200) {
+    throw new Error("Invalid SKILL.md: name must be 200 characters or fewer");
+  }
 
   return {
     name,
