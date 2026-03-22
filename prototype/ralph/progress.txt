@@ -43,6 +43,7 @@ Started: Sun Mar 22 15:42:51 UTC 2026
 - Button enable/disable: use `isPending` from `useMutation` to prevent double-click during in-flight requests
 - Decision query key: `["decisions", projectId]` — invalidate after resolving a decision
 - When a component needs its own mutation state (e.g., each decision card), extract it as a separate component with its own hooks
+- Steer endpoint pattern: route-over-existing-ops, no new engine methods needed — parse keyword, delegate to DB/engine
 
 ---
 
@@ -266,5 +267,26 @@ Started: Sun Mar 22 15:42:51 UTC 2026
   - "Let agent decide" uses the first option as fallback resolution text, prefixed with `[auto-decide]` by the server
   - `DecisionCard` is a separate component (not inline) because each card needs its own `useResolveDecision` mutation state
   - Real-time WebSocket updates for decisions deferred to US-016 — for now, query invalidation on mutation success refreshes the UI
+  - Manual browser verification needed — no dev-browser tools configured in this session
+---
+
+## 2026-03-22 - US-015
+- Created `POST /api/pipelines/:id/steer` endpoint in `server/routes/pipelines.ts`
+- Endpoint parses simple commands: `pause`, `resume`, `cancel`, `skip [stage name]`, `add [stage name]`
+- Returns `{ action: string, result: string }` response with descriptive feedback
+- Skip command uses fuzzy matching (`includes`) on stage names (case-insensitive)
+- Add command appends a new stage at the end of the pipeline (max sortOrder + 1)
+- Created `useSteerPipeline(projectId)` mutation hook in `src/api/pipelines.ts`
+- Mutation invalidates both `pipelines` and `pipelineStages` queries on success (since skip/add modify stages)
+- Extracted `SteeringInput` component in `PipelineView.tsx` — wraps input in a `<form>` for Enter-to-submit
+- Input clears after submission, disabled while mutation is pending
+- Loading spinner shown during pending state
+- Files changed: server/routes/pipelines.ts, src/api/pipelines.ts, src/components/views/PipelineView.tsx
+- **Learnings for future iterations:**
+  - Steer endpoint is a router over the existing engine/DB operations — no new engine methods needed
+  - Fuzzy stage matching with `includes()` is good enough for keyword steering; exact match would miss partial names
+  - `<form onSubmit>` is better than `onKeyDown` for Enter submission — handles form semantics correctly
+  - `useSteerPipeline` invalidates `["pipelineStages"]` without a specific ID — invalidates all stage queries since skip/add can change any
+  - Full NLP steering deferred to M2 (AI provider integration) — current implementation is keyword-only
   - Manual browser verification needed — no dev-browser tools configured in this session
 ---

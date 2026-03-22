@@ -253,7 +253,7 @@
                 "Verify in browser using dev-browser skill"
             ],
             "priority": 15,
-            "passes": false,
+            "passes": true,
             "notes": "Full NLP steering will come later with AI provider integration (M2). For now, simple keyword parsing."
         },
         {
