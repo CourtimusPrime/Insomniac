@@ -167,41 +167,129 @@ function findDevicon(slug: string): string | null {
   return null
 }
 
+// --- Fallback: Simple Icons CDN slug map ---
+const SI_SLUG_MAP: Record<string, string> = {
+  mistral: 'mistralai',
+  gemini: 'googlegemini',
+  java: 'openjdk',
+  csharp: 'dotnet',
+  vue: 'vuedotjs',
+  nodejs: 'nodedotjs',
+  nextjs: 'nextdotjs',
+  cpp: 'cplusplus',
+  tailwind: 'tailwindcss',
+  materialui: 'mui',
+  shadcn: 'shadcnui',
+  solidjs: 'solid',
+  sveltekit: 'svelte',
+  rails: 'rubyonrails',
+  cassandra: 'apachecassandra',
+  firestore: 'firebase',
+  openapi: 'openapiinitiative',
+  googlecloud: 'googlecloud',
+  gitlabcicd: 'gitlab',
+  argocd: 'argo',
+  intellij: 'intellijidea',
+  chrome: 'googlechrome',
+  sublime: 'sublimetext',
+  emacs: 'gnuemacs',
+  zed: 'zedindustries',
+  reactnative: 'react',
+  cockroachdb: 'cockroachlabs',
+  rollup: 'rollupdotjs',
+  raspberrypi: 'raspberrypi',
+}
+
+// --- Fallback: gilbarbara/logos slug map ---
+const GB_SLUG_MAP: Record<string, string> = {
+  azure: 'microsoft-azure',
+  vscode: 'visual-studio-code',
+  aws: 'aws',
+  dynamodb: 'aws-dynamodb',
+  stability: 'stability-ai',
+  windows: 'microsoft-windows',
+  fly: 'fly',
+  bunny: 'bunny-net',
+  neon: 'neon-icon',
+}
+
+async function fetchFromSimpleIcons(slug: string, destDir: string): Promise<boolean> {
+  const siSlug = SI_SLUG_MAP[slug] ?? slug
+  const base = 'https://cdn.simpleicons.org'
+
+  const res = await fetch(`${base}/${siSlug}`)
+  if (!res.ok) return false
+
+  // Simple Icons supports color variants
+  const variants: [string, string | null][] = [
+    ['original.svg', null],
+    ['light.svg', '000000'],
+    ['dark.svg', 'ffffff'],
+  ]
+
+  for (const [filename, color] of variants) {
+    const url = color ? `${base}/${siSlug}/${color}` : `${base}/${siSlug}`
+    const r = await fetch(url)
+    if (!r.ok) continue
+    const svg = await r.text()
+    await Bun.write(`${destDir}/${filename}`, svg)
+    console.log(`  \x1b[32m✓\x1b[0m ${destDir.split('/').pop()}/${filename} \x1b[2m(simpleicons)\x1b[0m`)
+  }
+  return true
+}
+
+async function fetchFromGilbarbara(slug: string, destDir: string): Promise<boolean> {
+  const gbSlug = GB_SLUG_MAP[slug] ?? slug
+  const base = 'https://cdn.jsdelivr.net/gh/gilbarbara/logos@main/logos'
+
+  const res = await fetch(`${base}/${gbSlug}.svg`)
+  if (!res.ok) return false
+
+  const svg = await res.text()
+  await Bun.write(`${destDir}/original.svg`, svg)
+  console.log(`  \x1b[32m✓\x1b[0m ${slug}/original.svg \x1b[2m(gilbarbara)\x1b[0m`)
+  return true
+}
+
 let ok = 0, fail = 0
 
 for (const slug of slugs) {
-  const devSlug = findDevicon(slug)
-
-  if (!devSlug) {
-    console.log(`\x1b[31m✗ ${slug}\x1b[0m (not in devicon)`)
-    fail++
-    continue
-  }
-
-  const srcDir = `${SRC_DIR}/${devSlug}`
   const destDir = `${OUT_DIR}/${slug}`
-  const files = readdirSync(srcDir).filter(f => f.endsWith('.svg'))
 
   // Clean existing folder for a fresh install
   if (existsSync(destDir)) {
     rmSync(destDir, { recursive: true })
   }
 
-  // Copy SVGs, renaming to consistent names:
-  //   {name}-original.svg         → original.svg
-  //   {name}-original-wordmark.svg → original-wordmark.svg
-  //   {name}-plain.svg            → plain.svg
-  //   {name}-plain-wordmark.svg   → plain-wordmark.svg
-  let copied = 0
-  for (const file of files) {
-    // Strip the icon name prefix: "react-original.svg" → "original.svg"
-    const renamed = file.replace(`${devSlug}-`, '')
-    cpSync(`${srcDir}/${file}`, `${destDir}/${renamed}`)
-    console.log(`  \x1b[32m✓\x1b[0m ${slug}/${renamed}`)
-    copied++
+  // 1. Try devicon (local, full-color originals + plain variants)
+  const devSlug = findDevicon(slug)
+  if (devSlug) {
+    const srcDir = `${SRC_DIR}/${devSlug}`
+    const files = readdirSync(srcDir).filter(f => f.endsWith('.svg'))
+
+    for (const file of files) {
+      const renamed = file.replace(`${devSlug}-`, '')
+      cpSync(`${srcDir}/${file}`, `${destDir}/${renamed}`)
+      console.log(`  \x1b[32m✓\x1b[0m ${slug}/${renamed}`)
+    }
+    ok++
+    continue
   }
 
-  if (copied > 0) ok++
+  // 2. Fallback: Simple Icons CDN (monochrome with color variants)
+  if (await fetchFromSimpleIcons(slug, destDir)) {
+    ok++
+    continue
+  }
+
+  // 3. Fallback: gilbarbara/logos (single full-color SVG)
+  if (await fetchFromGilbarbara(slug, destDir)) {
+    ok++
+    continue
+  }
+
+  console.log(`\x1b[31m✗ ${slug}\x1b[0m (not found in any source)`)
+  fail++
 }
 
 console.log(`\nDone: ${ok} installed, ${fail} not found`)
