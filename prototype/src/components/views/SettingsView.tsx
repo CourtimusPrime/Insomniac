@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Loader2, AlertCircle, Shield, Cpu, CheckCircle2, XCircle, Plus, X, Bell, Send, Webhook, Trash2, KeyRound, Pin, PinOff, Check } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Loader2, AlertCircle, Shield, Cpu, CheckCircle2, XCircle, Plus, X, Bell, Send, Webhook, Trash2, KeyRound, Pin, PinOff, Check, Upload, Keyboard, Settings2 } from 'lucide-react';
 import { useProviders, useAddProvider, useProviderModels, type Provider, type ProviderName } from '../../api/providers';
 import { useProjects } from '../../api/projects';
 import { useSetting, useSaveSetting, useTestSlackWebhook } from '../../api/settings';
@@ -9,7 +9,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useLayoutStore } from '../../stores/layout';
 import { getThemeById, mapVSCodeColors } from '../../themes';
 
-type SettingsTab = 'providers' | 'notifications' | 'hooks' | 'credentials' | 'themes';
+type SettingsTab = 'providers' | 'notifications' | 'hooks' | 'credentials' | 'themes' | 'import';
 
 const PROVIDER_OPTIONS: { value: ProviderName; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' },
@@ -925,9 +925,343 @@ function ThemesTab() {
   );
 }
 
+// --- VS Code Import ---
+
+interface VSCodeKeybinding {
+  key: string;
+  command: string;
+  when?: string;
+}
+
+interface ParsedEditorSettings {
+  fontSize?: number;
+  fontFamily?: string;
+  tabSize?: number;
+  insertSpaces?: boolean;
+}
+
+// Mapping from VS Code commands to Insomniac equivalents
+const KEYBINDING_MAP: Record<string, string> = {
+  'workbench.action.files.save': 'Save file',
+  'workbench.action.files.saveAll': 'Save all files',
+  'editor.action.formatDocument': 'Format document',
+  'workbench.action.quickOpen': 'Quick open',
+  'workbench.action.showCommands': 'Command palette',
+  'workbench.action.toggleSidebarVisibility': 'Toggle sidebar',
+  'workbench.action.togglePanel': 'Toggle panel',
+  'editor.action.commentLine': 'Toggle line comment',
+  'editor.action.blockComment': 'Toggle block comment',
+  'workbench.action.terminal.toggleTerminal': 'Toggle terminal',
+  'editor.action.clipboardCutAction': 'Cut',
+  'editor.action.clipboardCopyAction': 'Copy',
+  'editor.action.clipboardPasteAction': 'Paste',
+  'editor.action.selectAll': 'Select all',
+  'workbench.action.findInFiles': 'Search in files',
+  'editor.action.startFindReplaceAction': 'Find and replace',
+  'workbench.action.closeActiveEditor': 'Close tab',
+  'workbench.action.splitEditor': 'Split editor',
+  'editor.action.revealDefinition': 'Go to definition',
+};
+
+function extractEditorSettings(json: Record<string, unknown>): ParsedEditorSettings {
+  const settings: ParsedEditorSettings = {};
+  if (typeof json['editor.fontSize'] === 'number') settings.fontSize = json['editor.fontSize'];
+  if (typeof json['editor.fontFamily'] === 'string') settings.fontFamily = json['editor.fontFamily'];
+  if (typeof json['editor.tabSize'] === 'number') settings.tabSize = json['editor.tabSize'];
+  if (typeof json['editor.insertSpaces'] === 'boolean') settings.insertSpaces = json['editor.insertSpaces'];
+  return settings;
+}
+
+function ImportTab() {
+  const saveSetting = useSaveSetting();
+
+  const [keybindings, setKeybindings] = useState<VSCodeKeybinding[] | null>(null);
+  const [editorSettings, setEditorSettings] = useState<ParsedEditorSettings | null>(null);
+  const [keybindingsError, setKeybindingsError] = useState<string | null>(null);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [applied, setApplied] = useState(false);
+
+  const keybindingsRef = useRef<HTMLInputElement>(null);
+  const settingsRef = useRef<HTMLInputElement>(null);
+
+  function handleKeybindingsUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    setKeybindingsError(null);
+    setKeybindings(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        // VS Code keybindings.json may have comments — strip them
+        const cleaned = text.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        const parsed = JSON.parse(cleaned);
+        if (!Array.isArray(parsed)) {
+          setKeybindingsError('Expected an array of keybindings');
+          return;
+        }
+        setKeybindings(parsed as VSCodeKeybinding[]);
+      } catch {
+        setKeybindingsError('Invalid JSON file. Please upload a valid keybindings.json.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function handleSettingsUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    setSettingsError(null);
+    setEditorSettings(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const cleaned = text.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        const parsed = JSON.parse(cleaned);
+        if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+          setSettingsError('Expected a JSON object');
+          return;
+        }
+        const extracted = extractEditorSettings(parsed as Record<string, unknown>);
+        if (Object.keys(extracted).length === 0) {
+          setSettingsError('No recognized editor settings found (fontSize, fontFamily, tabSize, insertSpaces).');
+          return;
+        }
+        setEditorSettings(extracted);
+      } catch {
+        setSettingsError('Invalid JSON file. Please upload a valid settings.json.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function applyEditorSettings() {
+    if (!editorSettings) return;
+    const entries = Object.entries(editorSettings) as [string, string | number | boolean][];
+    let completed = 0;
+    for (const [key, value] of entries) {
+      saveSetting.mutate(
+        { key: `editor_${key}`, value, category: 'editor' },
+        {
+          onSuccess: () => {
+            completed++;
+            if (completed === entries.length) {
+              setApplied(true);
+              setTimeout(() => setApplied(false), 3000);
+            }
+          },
+        },
+      );
+    }
+  }
+
+  const mappedBindings = keybindings?.filter(kb => KEYBINDING_MAP[kb.command]);
+  const unmappedBindings = keybindings?.filter(kb => !KEYBINDING_MAP[kb.command]);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-xs font-bold font-heading text-text-primary">Import from VS Code</h3>
+        <p className="text-[11px] text-text-muted mt-0.5">
+          Import your keyboard shortcuts and editor settings from VS Code. Only recognized settings will be applied — your Insomniac defaults are preserved for everything else.
+        </p>
+      </div>
+
+      {/* Keybindings Import */}
+      <div className="rounded-lg border border-border-default p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Keyboard size={14} className="text-accent-primary" />
+          <span className="text-xs font-medium font-heading text-text-primary">Keyboard Shortcuts</span>
+        </div>
+        <p className="text-[11px] text-text-muted">
+          Upload your VS Code <code className="px-1 py-0.5 rounded bg-bg-surface text-text-primary">keybindings.json</code> to see which shortcuts can be mapped.
+        </p>
+        <input
+          ref={keybindingsRef}
+          type="file"
+          accept=".json"
+          onChange={handleKeybindingsUpload}
+          className="hidden"
+        />
+        <button
+          onClick={() => keybindingsRef.current?.click()}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] rounded border border-dashed border-border-default text-text-muted hover:text-accent-primary hover:border-accent-primary transition"
+        >
+          <Upload size={12} />
+          Upload keybindings.json
+        </button>
+
+        {keybindingsError && (
+          <div className="text-[11px] text-status-error flex items-center gap-1">
+            <AlertCircle size={12} />
+            {keybindingsError}
+          </div>
+        )}
+
+        {/* Mapped shortcuts table */}
+        {mappedBindings && mappedBindings.length > 0 && (
+          <div className="space-y-2">
+            <span className="text-[11px] font-medium text-text-primary">Mapped Shortcuts ({mappedBindings.length})</span>
+            <div className="border border-border-default rounded overflow-hidden">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="bg-bg-surface border-b border-border-default">
+                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">VS Code Shortcut</th>
+                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">VS Code Command</th>
+                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">Insomniac Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mappedBindings.map((kb, i) => (
+                    <tr key={i} className="border-b border-border-default last:border-0">
+                      <td className="px-3 py-1.5 text-text-primary font-mono">{kb.key}</td>
+                      <td className="px-3 py-1.5 text-text-muted">{kb.command}</td>
+                      <td className="px-3 py-1.5 text-status-success">{KEYBINDING_MAP[kb.command]}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Unmapped shortcuts */}
+        {unmappedBindings && unmappedBindings.length > 0 && (
+          <div className="space-y-2">
+            <span className="text-[11px] font-medium text-text-muted">Unmapped Shortcuts ({unmappedBindings.length})</span>
+            <p className="text-[10px] text-text-faint">
+              These VS Code shortcuts have no Insomniac equivalent yet.
+            </p>
+            <div className="border border-border-default rounded overflow-hidden max-h-40 overflow-y-auto">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="bg-bg-surface border-b border-border-default sticky top-0">
+                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">Shortcut</th>
+                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">Command</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unmappedBindings.map((kb, i) => (
+                    <tr key={i} className="border-b border-border-default last:border-0">
+                      <td className="px-3 py-1.5 text-text-faint font-mono">{kb.key}</td>
+                      <td className="px-3 py-1.5 text-text-faint">{kb.command}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {keybindings && keybindings.length === 0 && (
+          <div className="text-[11px] text-text-muted">No keybindings found in the uploaded file.</div>
+        )}
+      </div>
+
+      {/* Settings Import */}
+      <div className="rounded-lg border border-border-default p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Settings2 size={14} className="text-accent-primary" />
+          <span className="text-xs font-medium font-heading text-text-primary">Editor Settings</span>
+        </div>
+        <p className="text-[11px] text-text-muted">
+          Upload your VS Code <code className="px-1 py-0.5 rounded bg-bg-surface text-text-primary">settings.json</code> to import editor preferences.
+        </p>
+        <input
+          ref={settingsRef}
+          type="file"
+          accept=".json"
+          onChange={handleSettingsUpload}
+          className="hidden"
+        />
+        <button
+          onClick={() => settingsRef.current?.click()}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] rounded border border-dashed border-border-default text-text-muted hover:text-accent-primary hover:border-accent-primary transition"
+        >
+          <Upload size={12} />
+          Upload settings.json
+        </button>
+
+        {settingsError && (
+          <div className="text-[11px] text-status-error flex items-center gap-1">
+            <AlertCircle size={12} />
+            {settingsError}
+          </div>
+        )}
+
+        {editorSettings && (
+          <div className="space-y-3">
+            <span className="text-[11px] font-medium text-text-primary">Detected Settings</span>
+            <div className="border border-border-default rounded overflow-hidden">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="bg-bg-surface border-b border-border-default">
+                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">Setting</th>
+                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {editorSettings.fontSize !== undefined && (
+                    <tr className="border-b border-border-default">
+                      <td className="px-3 py-1.5 text-text-primary">Font Size</td>
+                      <td className="px-3 py-1.5 text-text-muted font-mono">{editorSettings.fontSize}px</td>
+                    </tr>
+                  )}
+                  {editorSettings.fontFamily !== undefined && (
+                    <tr className="border-b border-border-default">
+                      <td className="px-3 py-1.5 text-text-primary">Font Family</td>
+                      <td className="px-3 py-1.5 text-text-muted font-mono">{editorSettings.fontFamily}</td>
+                    </tr>
+                  )}
+                  {editorSettings.tabSize !== undefined && (
+                    <tr className="border-b border-border-default">
+                      <td className="px-3 py-1.5 text-text-primary">Tab Size</td>
+                      <td className="px-3 py-1.5 text-text-muted font-mono">{editorSettings.tabSize}</td>
+                    </tr>
+                  )}
+                  {editorSettings.insertSpaces !== undefined && (
+                    <tr className="border-b border-border-default last:border-0">
+                      <td className="px-3 py-1.5 text-text-primary">Insert Spaces</td>
+                      <td className="px-3 py-1.5 text-text-muted font-mono">{editorSettings.insertSpaces ? 'Yes' : 'No'}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={applyEditorSettings}
+                disabled={saveSetting.isPending}
+                className="px-3 py-1.5 text-[11px] rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50"
+              >
+                {saveSetting.isPending ? 'Applying...' : 'Apply Settings'}
+              </button>
+              {applied && (
+                <span className="text-[11px] text-status-success flex items-center gap-1">
+                  <CheckCircle2 size={12} />
+                  Settings applied!
+                </span>
+              )}
+            </div>
+
+            <p className="text-[10px] text-text-faint">
+              Only the settings shown above will be imported. All other Insomniac defaults remain unchanged.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'providers', label: 'Providers' },
   { id: 'themes', label: 'Themes' },
+  { id: 'import', label: 'Import' },
   { id: 'hooks', label: 'Hooks' },
   { id: 'credentials', label: 'Credentials' },
   { id: 'notifications', label: 'Notifications' },
@@ -962,6 +1296,7 @@ export function SettingsView() {
       {/* Tab content */}
       {activeTab === 'providers' && <ProvidersTab />}
       {activeTab === 'themes' && <ThemesTab />}
+      {activeTab === 'import' && <ImportTab />}
       {activeTab === 'hooks' && <HooksTab />}
       {activeTab === 'credentials' && <CredentialsTab />}
       {activeTab === 'notifications' && <NotificationsTab />}
