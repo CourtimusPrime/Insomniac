@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square, RefreshCw, X, Camera, Copy, Download, Info, AlertTriangle, AlertCircle, Trash2
+  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square, RefreshCw, X, Camera, Copy, Download, Info, AlertTriangle, AlertCircle, Trash2, Loader2, CheckCircle, XCircle
 } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
@@ -65,24 +65,40 @@ export function BottomPanel() {
   const [consoleEntries, setConsoleEntries] = useState<{ level: 'info' | 'warn' | 'error'; timestamp: string; message: string }[]>([]);
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
-  // Listen for browser:console WebSocket events
+  // Agent activity entries from WebSocket
+  const [agentActions, setAgentActions] = useState<{ id: string; action: string; status: 'pending' | 'done' | 'error'; timestamp: string; error?: string }[]>([]);
+  const actionsEndRef = useRef<HTMLDivElement>(null);
+
+  // Listen for browser:console and browser:agent-action WebSocket events
   useEffect(() => {
-    function onConsoleMessage(evt: MessageEvent) {
+    function onBrowserMessage(evt: MessageEvent) {
       try {
-        const msg = JSON.parse(evt.data) as { event: string; data?: { level?: string; timestamp?: string; message?: string } };
+        const msg = JSON.parse(evt.data) as { event: string; data?: Record<string, unknown> };
         if (msg.event === 'browser:console' && msg.data) {
           const level = msg.data.level === 'warn' ? 'warn' : msg.data.level === 'error' ? 'error' : 'info';
           setConsoleEntries((prev) => [...prev.slice(-199), {
             level: level as 'info' | 'warn' | 'error',
-            timestamp: msg.data!.timestamp ?? new Date().toISOString(),
-            message: msg.data!.message ?? '',
+            timestamp: (msg.data!.timestamp as string) ?? new Date().toISOString(),
+            message: (msg.data!.message as string) ?? '',
           }]);
+        }
+        if (msg.event === 'browser:agent-action' && msg.data) {
+          const { id, action, status, timestamp, error } = msg.data as { id: string; action: string; status: 'pending' | 'done' | 'error'; timestamp: string; error?: string };
+          setAgentActions((prev) => {
+            const idx = prev.findIndex((a) => a.id === id);
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], status, error };
+              return updated;
+            }
+            return [...prev.slice(-99), { id, action, status, timestamp, error }];
+          });
         }
       } catch { /* ignore */ }
     }
 
     const ws = new WebSocket('ws://localhost:4321/ws');
-    ws.addEventListener('message', onConsoleMessage);
+    ws.addEventListener('message', onBrowserMessage);
     return () => { ws.close(); };
   }, []);
 
@@ -93,6 +109,15 @@ export function BottomPanel() {
 
   const handleClearConsole = useCallback(() => {
     setConsoleEntries([]);
+  }, []);
+
+  // Auto-scroll agent activity
+  useEffect(() => {
+    actionsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [agentActions]);
+
+  const handleClearActions = useCallback(() => {
+    setAgentActions([]);
   }, []);
 
   const [logs, setLogs] = useState<string[]>([]);
@@ -349,35 +374,69 @@ export function BottomPanel() {
                       </div>
                     )}
                   </div>
-                  {/* Console sub-panel */}
-                  <div className="flex-1 min-h-0 border border-border-default rounded mt-1 flex flex-col bg-bg-base">
-                    <div className="flex items-center justify-between px-2 py-1 border-b border-border-default shrink-0">
-                      <span className="text-[10px] text-text-muted font-medium">Console</span>
-                      <button
-                        onClick={handleClearConsole}
-                        className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
-                        title="Clear console"
-                      >
-                        <Trash2 size={10} />
-                      </button>
+                  {/* Console + Agent Activity side by side */}
+                  <div className="flex-1 min-h-0 flex flex-row gap-1 mt-1">
+                    {/* Console sub-panel */}
+                    <div className="flex-1 min-h-0 border border-border-default rounded flex flex-col bg-bg-base">
+                      <div className="flex items-center justify-between px-2 py-1 border-b border-border-default shrink-0">
+                        <span className="text-[10px] text-text-muted font-medium">Console</span>
+                        <button
+                          onClick={handleClearConsole}
+                          className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
+                          title="Clear console"
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto px-2 py-1 font-mono text-[10px] space-y-0.5">
+                        {consoleEntries.length === 0 ? (
+                          <div className="text-text-faint italic py-1">No console output</div>
+                        ) : (
+                          consoleEntries.map((entry, i) => (
+                            <div key={i} className={`flex items-start gap-1.5 ${
+                              entry.level === 'error' ? 'text-status-error' : entry.level === 'warn' ? 'text-amber-400' : 'text-text-muted'
+                            }`}>
+                              {entry.level === 'error' ? <AlertCircle size={10} className="shrink-0 mt-px" /> :
+                               entry.level === 'warn' ? <AlertTriangle size={10} className="shrink-0 mt-px" /> :
+                               <Info size={10} className="shrink-0 mt-px" />}
+                              <span className="text-text-faint shrink-0">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                              <span className="whitespace-pre-wrap break-all">{entry.message}</span>
+                            </div>
+                          ))
+                        )}
+                        <div ref={consoleEndRef} />
+                      </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto px-2 py-1 font-mono text-[10px] space-y-0.5">
-                      {consoleEntries.length === 0 ? (
-                        <div className="text-text-faint italic py-1">No console output</div>
-                      ) : (
-                        consoleEntries.map((entry, i) => (
-                          <div key={i} className={`flex items-start gap-1.5 ${
-                            entry.level === 'error' ? 'text-status-error' : entry.level === 'warn' ? 'text-amber-400' : 'text-text-muted'
-                          }`}>
-                            {entry.level === 'error' ? <AlertCircle size={10} className="shrink-0 mt-px" /> :
-                             entry.level === 'warn' ? <AlertTriangle size={10} className="shrink-0 mt-px" /> :
-                             <Info size={10} className="shrink-0 mt-px" />}
-                            <span className="text-text-faint shrink-0">{new Date(entry.timestamp).toLocaleTimeString()}</span>
-                            <span className="whitespace-pre-wrap break-all">{entry.message}</span>
-                          </div>
-                        ))
-                      )}
-                      <div ref={consoleEndRef} />
+                    {/* Agent Activity sub-panel */}
+                    <div className="flex-1 min-h-0 border border-border-default rounded flex flex-col bg-bg-base">
+                      <div className="flex items-center justify-between px-2 py-1 border-b border-border-default shrink-0">
+                        <span className="text-[10px] text-text-muted font-medium">Agent Activity</span>
+                        <button
+                          onClick={handleClearActions}
+                          className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
+                          title="Clear activity"
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto px-2 py-1 font-mono text-[10px] space-y-0.5">
+                        {agentActions.length === 0 ? (
+                          <div className="text-text-faint italic py-1">No agent activity</div>
+                        ) : (
+                          agentActions.map((entry) => (
+                            <div key={entry.id} className="flex items-start gap-1.5">
+                              {entry.status === 'pending' ? <Loader2 size={10} className="shrink-0 mt-px animate-spin text-accent-primary" /> :
+                               entry.status === 'done' ? <CheckCircle size={10} className="shrink-0 mt-px text-status-success" /> :
+                               <XCircle size={10} className="shrink-0 mt-px text-status-error" />}
+                              <span className="text-text-faint shrink-0">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                              <span className={`whitespace-pre-wrap break-all ${entry.status === 'error' ? 'text-status-error' : 'text-text-muted'}`}>
+                                {entry.action}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                        <div ref={actionsEndRef} />
+                      </div>
                     </div>
                   </div>
                 </div>

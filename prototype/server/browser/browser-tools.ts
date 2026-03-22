@@ -1,4 +1,5 @@
 import type { BrowserEngine } from "./types.js";
+import { broadcast } from "../ws/handler.js";
 
 // ---------------------------------------------------------------------------
 // MCP-compatible tool definition types
@@ -226,8 +227,30 @@ const toolHandlers: Record<
   },
 };
 
+// ---------------------------------------------------------------------------
+// Agent action broadcasting
+// ---------------------------------------------------------------------------
+
+let actionCounter = 0;
+
+function describeAction(toolName: string, args: ToolArgs): string {
+  switch (toolName) {
+    case "navigate": return `navigating to ${args.url}`;
+    case "click": return `clicking ${args.selector}`;
+    case "fill": return `filling ${args.selector}`;
+    case "screenshot": return "capturing screenshot";
+    case "assertText": return `asserting text matches '${args.expected}'`;
+    case "assertElement": return `asserting element ${args.selector} exists`;
+    case "getConsoleErrors": return "getting console errors";
+    case "evaluateScript": return "evaluating script";
+    case "waitForSelector": return `waiting for ${args.selector}`;
+    default: return toolName;
+  }
+}
+
 /**
  * Execute a browser tool by name using the given BrowserEngine.
+ * Broadcasts 'browser:agent-action' WebSocket events for each action.
  */
 export async function executeBrowserTool(
   engine: BrowserEngine,
@@ -238,13 +261,38 @@ export async function executeBrowserTool(
   if (!handler) {
     return { success: false, error: `Unknown browser tool: ${toolName}` };
   }
+
+  const actionId = `action-${++actionCounter}`;
+  const description = describeAction(toolName, args);
+  const timestamp = new Date().toISOString();
+
+  broadcast("browser:agent-action", {
+    id: actionId,
+    action: description,
+    status: "pending",
+    timestamp,
+  });
+
   try {
-    return await handler(engine, args);
+    const result = await handler(engine, args);
+    broadcast("browser:agent-action", {
+      id: actionId,
+      action: description,
+      status: result.success ? "done" : "error",
+      timestamp,
+      error: result.error,
+    });
+    return result;
   } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : String(err),
-    };
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    broadcast("browser:agent-action", {
+      id: actionId,
+      action: description,
+      status: "error",
+      timestamp,
+      error: errorMsg,
+    });
+    return { success: false, error: errorMsg };
   }
 }
 
