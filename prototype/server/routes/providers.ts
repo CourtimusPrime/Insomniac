@@ -1,4 +1,6 @@
 import type { FastifyInstance } from "fastify";
+import { db } from "../db/connection.js";
+import { providers, workspaces } from "../db/schema/index.js";
 import { ProviderRegistry } from "../providers/registry.js";
 import { getModelsForProvider } from "../providers/models.js";
 import { OllamaProvider } from "../providers/ollama.js";
@@ -12,9 +14,44 @@ const PROVIDER_NAMES = [
   "custom",
 ] as const;
 
+const SEED_PROVIDERS: {
+  name: (typeof PROVIDER_NAMES)[number];
+  displayName: string;
+  baseUrl?: string;
+}[] = [
+  { name: "anthropic", displayName: "Anthropic" },
+  { name: "openai", displayName: "OpenAI" },
+  { name: "google", displayName: "Google" },
+  { name: "openrouter", displayName: "OpenRouter" },
+  { name: "ollama", displayName: "Ollama", baseUrl: "http://localhost:11434" },
+];
+
+async function seedProvidersIfEmpty() {
+  const existing = db.select().from(providers).all();
+  if (existing.length > 0) return;
+
+  // Get default workspace (already created by projectRoutes which registers first)
+  const workspace = db.select().from(workspaces).limit(1).get();
+  if (!workspace) return;
+
+  for (const seed of SEED_PROVIDERS) {
+    db.insert(providers)
+      .values({
+        workspaceId: workspace.id,
+        name: seed.name,
+        displayName: seed.displayName,
+        baseUrl: seed.baseUrl,
+        isActive: false,
+      })
+      .run();
+  }
+}
+
 const registry = new ProviderRegistry();
 
 export async function providerRoutes(server: FastifyInstance) {
+  // Seed default providers on first run
+  await seedProvidersIfEmpty();
   // GET /api/providers — list all providers (no decrypted keys)
   server.get("/api/providers", async () => {
     return registry.listProviders();
