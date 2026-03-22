@@ -35,6 +35,8 @@ Started: Sun Mar 22 18:31:48 UTC 2026
 - Per-item mutation state: track with `installedIds` Set + `errorIds` Record, use `mutation.variables?.id` for loading state
 - Sidebar-to-view state sharing: use layout store for cross-component filter state (e.g., `marketplaceCategory`)
 - Export types from layout store when other components need them (e.g., `MarketplaceCategory`)
+- Overlay/modal pattern: centered absolute overlay with bg-black/40 backdrop, click-outside + Escape close, same styling as AddNodeMenu (#111827 bg, #1e2a3a borders)
+- Apply template pattern (UI): call mutation for server persistence + deserialize chainDefinition locally via setNodes/setEdges to avoid network round-trip
 ---
 
 ## 2026-03-22 - US-001
@@ -168,5 +170,20 @@ Started: Sun Mar 22 18:31:48 UTC 2026
   - Export types from stores when needed by other components (`export type MarketplaceCategory`)
   - Use `useEffect` to sync local component state with store state for bidirectional updates
   - The MarketplaceSidebar fetches all items (limit: 50) and sorts client-side for the "popular" section
+  - Browser verification needed — no dev-browser available in this session
+---
+
+## 2026-03-22 - US-010
+- Added TemplatePicker overlay component to ChainEditor.tsx — shows all templates (built-in + user-created) in a centered modal with category badges
+- Modified empty state to include "Start from template" button with "or" divider below existing "Add your first agent node" prompt
+- Added "Load template" button to ChainToolbar (accessible from toolbar even when chain has nodes)
+- Clicking a template calls useApplyTemplate() for server persistence and directly deserializes the chainDefinition into local ReactFlow nodes/edges
+- Files changed: src/components/graph/ChainEditor.tsx, src/components/graph/ChainToolbar.tsx
+- **Learnings for future iterations:**
+  - TemplatePicker uses the same click-outside + Escape close pattern as AddNodeMenu
+  - Template's `chainDefinition` is typed as `unknown` in the Template interface — cast to `ChainDefinition` when deserializing
+  - When applying a template, set nodes/edges locally AND call the mutation for server persistence — avoids waiting for network round-trip
+  - The auto-save mechanism (1s debounce) will fire after local state update, saving the same chain data — harmless duplicate
+  - Hide empty state when template picker is open (`!showTemplatePicker` condition) to avoid visual overlap
   - Browser verification needed — no dev-browser available in this session
 ---
