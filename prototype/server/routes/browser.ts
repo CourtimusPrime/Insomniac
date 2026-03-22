@@ -1,9 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { request as httpRequest } from "node:http";
+import { eq } from "drizzle-orm";
 import { PlaywrightAdapter } from "../browser/index.js";
 import type { BrowserEngine } from "../browser/index.js";
 import { getRunnerForProject } from "./localhost.js";
 import { broadcast } from "../ws/handler.js";
+import { db } from "../db/connection.js";
+import { projects } from "../db/schema/index.js";
+import { pipelines, pipelineStages } from "../db/schema/index.js";
 
 /** Singleton browser instance shared across all routes. */
 let engine: BrowserEngine | null = null;
@@ -180,6 +184,67 @@ export async function browserRoutes(server: FastifyInstance): Promise<void> {
 
         proxyReq.end();
       });
+    },
+  );
+
+  // POST /api/browser/inspect-in-agent — send an element to the agent for fixing
+  server.post<{
+    Body: { selector: string; description: string; projectId: string };
+  }>(
+    "/api/browser/inspect-in-agent",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["selector", "description", "projectId"],
+          additionalProperties: false,
+          properties: {
+            selector: { type: "string", minLength: 1 },
+            description: { type: "string", minLength: 1 },
+            projectId: { type: "string", minLength: 1 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { selector, description, projectId } = request.body;
+
+      // Look up the project to get its workspaceId
+      const project = db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .get();
+
+      if (!project) {
+        reply.code(404);
+        return { error: "Project not found" };
+      }
+
+      // Create a pipeline with a single "inspect fix" stage
+      const pipelineId = crypto.randomUUID();
+      db.insert(pipelines)
+        .values({
+          id: pipelineId,
+          projectId,
+          workspaceId: project.workspaceId,
+          name: `Inspect: ${selector}`,
+        })
+        .run();
+
+      const stageId = crypto.randomUUID();
+      db.insert(pipelineStages)
+        .values({
+          id: stageId,
+          pipelineId,
+          name: "Fix element",
+          description: `Fix this element: ${selector} — ${description}`,
+          sortOrder: 0,
+        })
+        .run();
+
+      reply.code(201);
+      return { stageId, pipelineId };
     },
   );
 }

@@ -78,3 +78,24 @@ export function useCloseBrowser() {
     },
   });
 }
+
+export interface InspectInAgentParams {
+  selector: string;
+  description: string;
+  projectId: string;
+}
+
+export interface InspectInAgentResult {
+  stageId: string;
+  pipelineId: string;
+}
+
+export function useInspectInAgent() {
+  return useMutation({
+    mutationFn: (params: InspectInAgentParams) =>
+      apiFetch<InspectInAgentResult>("/api/browser/inspect-in-agent", {
+        method: "POST",
+        body: JSON.stringify(params),
+      }),
+  });
+}

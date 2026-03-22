@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square, RefreshCw, X, Camera, Copy, Download, Info, AlertTriangle, AlertCircle, Trash2, Loader2, CheckCircle, XCircle
+  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square, RefreshCw, X, Camera, Copy, Download, Info, AlertTriangle, AlertCircle, Trash2, Loader2, CheckCircle, XCircle, Crosshair
 } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
 import { useDevServerStatus, useStartDevServer, useStopDevServer } from '../../api/localhost';
-import { useBrowserStatus, useLaunchBrowser, useNavigate, useScreenshot, useCloseBrowser } from '../../api/browser';
+import { useBrowserStatus, useLaunchBrowser, useNavigate, useScreenshot, useCloseBrowser, useInspectInAgent } from '../../api/browser';
 
 export function BottomPanel() {
   const activeTab = useLayoutStore((s) => s.activeTab);
@@ -24,9 +24,15 @@ export function BottomPanel() {
   const screenshot = useScreenshot();
   const closeBrowser = useCloseBrowser();
 
+  const inspectInAgent = useInspectInAgent();
+
   const [browserUrl, setBrowserUrl] = useState('');
   const [iframeKey, setIframeKey] = useState(0);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [showInspectDialog, setShowInspectDialog] = useState(false);
+  const [inspectSelector, setInspectSelector] = useState('');
+  const [inspectDescription, setInspectDescription] = useState('');
+  const [inspectConfirmation, setInspectConfirmation] = useState<string | null>(null);
 
   const handleNavigate = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +66,25 @@ export function BottomPanel() {
     link.download = `screenshot-${Date.now()}.png`;
     link.click();
   }, [screenshotPreview]);
+
+  const handleInspectSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inspectSelector.trim() || !inspectDescription.trim() || !activeProjectId) return;
+    inspectInAgent.mutate(
+      { selector: inspectSelector.trim(), description: inspectDescription.trim(), projectId: activeProjectId },
+      {
+        onSuccess: (data) => {
+          setInspectConfirmation(`Stage created (${data.stageId.slice(0, 8)}…)`);
+          setInspectSelector('');
+          setInspectDescription('');
+          setTimeout(() => {
+            setShowInspectDialog(false);
+            setInspectConfirmation(null);
+          }, 2000);
+        },
+      },
+    );
+  }, [inspectSelector, inspectDescription, activeProjectId, inspectInAgent]);
 
   // Browser console entries from WebSocket
   const [consoleEntries, setConsoleEntries] = useState<{ level: 'info' | 'warn' | 'error'; timestamp: string; message: string }[]>([]);
@@ -311,6 +336,14 @@ export function BottomPanel() {
                   >
                     <Camera size={10} /> {screenshot.isPending ? 'Capturing…' : 'Screenshot'}
                   </button>
+                  <button
+                    onClick={() => setShowInspectDialog(true)}
+                    disabled={!browserStatus?.running}
+                    className="flex items-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition disabled:opacity-50"
+                    title="Inspect in agent"
+                  >
+                    <Crosshair size={10} /> Inspect
+                  </button>
                   {!browserStatus?.running ? (
                     <button
                       onClick={() => launchBrowser.mutate()}
@@ -340,6 +373,52 @@ export function BottomPanel() {
                       title="Dev Browser Preview"
                       sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                     />
+                    {/* Inspect in agent dialog overlay */}
+                    {showInspectDialog && (
+                      <div className="absolute inset-0 bg-bg-base/95 flex flex-col items-center justify-center gap-3 z-10">
+                        <div className="text-xs text-text-primary font-medium">Inspect in Agent</div>
+                        {inspectConfirmation ? (
+                          <div className="flex items-center gap-1.5 text-status-success text-[11px]">
+                            <CheckCircle size={12} /> {inspectConfirmation}
+                          </div>
+                        ) : (
+                          <form onSubmit={handleInspectSubmit} className="flex flex-col gap-2 w-64">
+                            <input
+                              value={inspectSelector}
+                              onChange={(e) => setInspectSelector(e.target.value)}
+                              placeholder="CSS selector (e.g. #submit-btn)"
+                              className="bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
+                            />
+                            <input
+                              value={inspectDescription}
+                              onChange={(e) => setInspectDescription(e.target.value)}
+                              placeholder="What's wrong? (e.g. button is misaligned)"
+                              className="bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="submit"
+                                disabled={!inspectSelector.trim() || !inspectDescription.trim() || inspectInAgent.isPending}
+                                className="flex-1 flex items-center justify-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition disabled:opacity-50"
+                              >
+                                {inspectInAgent.isPending ? <Loader2 size={10} className="animate-spin" /> : <Crosshair size={10} />}
+                                {inspectInAgent.isPending ? 'Sending…' : 'Send to Agent'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setShowInspectDialog(false); setInspectConfirmation(null); }}
+                                className="flex items-center gap-1 text-[10px] px-2 py-1 bg-bg-hover text-text-muted border border-border-default rounded hover:bg-bg-base transition"
+                              >
+                                <X size={10} /> Cancel
+                              </button>
+                            </div>
+                            {inspectInAgent.isError && (
+                              <div className="text-status-error text-[10px]">{inspectInAgent.error?.message}</div>
+                            )}
+                          </form>
+                        )}
+                      </div>
+                    )}
                     {/* Screenshot preview overlay */}
                     {screenshotPreview && (
                       <div className="absolute inset-0 bg-bg-base/95 flex flex-col items-center justify-center gap-3 z-10">
