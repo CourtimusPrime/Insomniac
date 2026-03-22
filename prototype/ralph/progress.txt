@@ -39,3 +39,14 @@ Started: Sun Mar 22 17:46:01 UTC 2026
   - Composite primary keys need `primaryKey` imported from `drizzle-orm/sqlite-core`
   - Stage routes validate stage belongs to pipeline before any operation (pipelineId + stageId AND check)
 ---
+
+## 2026-03-22 - US-003
+- Created `server/abilities/skill-parser.ts` with `parseSkillMd(content)` — parses YAML frontmatter (name, description, trigger) and body content
+- Added `POST /api/abilities/import-skill` endpoint to abilities routes, accepting raw markdown string body
+- Endpoint parses SKILL.md, creates an Ability record with type "skill" and config `{ trigger, content }`
+- Files changed: server/abilities/skill-parser.ts (created), server/routes/abilities.ts (added import + endpoint)
+- **Learnings for future iterations:**
+  - Fastify can accept `{ type: "string" }` body schema for raw text/markdown payloads
+  - No need for a YAML library — simple key:value frontmatter can be parsed with string splitting
+  - The import-skill endpoint reuses the existing `workspaceId` from the route plugin closure
+---
