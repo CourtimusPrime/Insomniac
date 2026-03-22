@@ -31,6 +31,8 @@ Started: Sun Mar 22 17:46:01 UTC 2026
 - Inject callback props (onOpen, onDelete) into nodes via a `useMemo` wrapper — keeps refs fresh without re-creating nodes
 - `useNodesState<Node>([])` returns generic `Node`; cast to `Node<AgentNodeData>` when passing to typed components
 - NodeInspector lives in `src/components/graph/NodeInspector.tsx`; opens via `inspectedNodeId` state in ChainEditor
+- ChainToolbar is a pure presentational component — action callbacks are passed as props from ChainEditorInner
+- Export JSON uses Blob + createObjectURL + anchor click pattern for file downloads
 
 ---
 
@@ -194,4 +196,19 @@ Started: Sun Mar 22 17:46:01 UTC 2026
   - NodeInspector syncs local form state from props via `useEffect` keyed on `node.id` — handles switching between nodes
   - Edge condition updates use `setEdges` map to modify `data.condition` on the matching edge
   - `useAbilities()` hook provides the full list for the ability picker; filter out already-assigned and inactive abilities
+---
+
+## 2026-03-22 - US-012
+- Created `src/components/graph/ChainToolbar.tsx` — presentational toolbar with 4 buttons: Add node, Auto-layout, Clear edges, Export JSON
+- Auto-layout arranges nodes in a left-to-right grid using sqrt-based column distribution (colWidth=280, rowHeight=160)
+- Clear edges calls `setEdges([])` — removes all edges leaving nodes in place
+- Export JSON serializes chain as `{ version, nodes[], edges[] }` and triggers download as `.insomniac-chain.json`
+- Extracted inline toolbar from ChainEditor, replaced with `<ChainToolbar>` component
+- Export JSON button pushed to right side of toolbar via flex spacer
+- Files changed: src/components/graph/ChainToolbar.tsx (created), src/components/graph/ChainEditor.tsx
+- **Learnings for future iterations:**
+  - Toolbar is pure presentational — all action logic stays in ChainEditorInner and is passed via props
+  - File download pattern: `new Blob()` → `URL.createObjectURL()` → programmatic anchor click → `URL.revokeObjectURL()`
+  - Auto-layout uses `Math.ceil(Math.sqrt(n))` for rows-per-column to produce roughly square grids
+  - When removing an import used in JSX, check all usages in the file — `Plus` was still used in empty state overlay
 ---
