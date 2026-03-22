@@ -8,3 +8,8 @@ export {
 } from "./firecracker-types.js";
 export { SandboxManager } from "./sandbox-manager.js";
 export { registerAuthMiddleware } from "./auth-middleware.js";
+export {
+  type FileAccessAdapter,
+  type FileEntry,
+  createFileAccessAdapter,
+} from "./file-access-factory.js";
