@@ -523,6 +523,9 @@ export async function pipelineRoutes(server: FastifyInstance) {
       const addMatch = message.match(/^add\s+(.+)$/i);
       if (addMatch) {
         const stageName = addMatch[1];
+        if (stageName.length > 200) {
+          return { action: "error", result: "Stage name too long (max 200 characters)" };
+        }
         const existing = db
           .select()
           .from(pipelineStages)

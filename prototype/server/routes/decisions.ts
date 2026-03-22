@@ -42,7 +42,7 @@ export async function decisionRoutes(server: FastifyInstance) {
       agentId?: string;
       stageId?: string;
       question: string;
-      options?: unknown[];
+      options?: string[];
     };
   }>(
     "/api/decisions",
@@ -60,7 +60,8 @@ export async function decisionRoutes(server: FastifyInstance) {
             question: { type: "string", minLength: 1, maxLength: 2000 },
             options: {
               type: "array",
-              items: {},
+              maxItems: 10,
+              items: { type: "string", minLength: 1, maxLength: 500 },
             },
           },
         },
