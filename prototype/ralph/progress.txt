@@ -10,6 +10,8 @@ Started: Sun Mar 22 19:11:30 UTC 2026
 - `getRunnerForProject(projectId)` is exported from `server/routes/localhost.ts` to access dev server state from other modules
 - Fastify wildcard routes use `server.get<{ Params: { "*": string } }>("/path/*", ...)` — access via `request.params["*"]`
 - Frontend API hooks live in `src/api/*.ts` — use `apiFetch` from `./client`, TanStack Query `useQuery`/`useMutation`, and `queryClient.invalidateQueries` on success
+- WebSocket broadcast pattern: import `broadcast` from `server/ws/handler.js`, call `broadcast(eventName, data)` to push events to all connected clients
+- Playwright `ConsoleMessage.type()` returns `'warning'` not `'warn'` — map accordingly when normalizing levels
 ---
 
 ## 2026-03-22 - US-001
@@ -126,4 +128,23 @@ Started: Sun Mar 22 19:11:30 UTC 2026
   - Converting base64 to blob: `fetch('data:image/png;base64,...').then(r => r.blob())` is clean and avoids manual ArrayBuffer conversion
   - Overlay pattern: use `absolute inset-0` on a parent with `relative` class to create a full-coverage overlay within a container
   - The screenshot preview uses the iframe container as its positioning context (added `relative` to the iframe wrapper div)
+---
+
+## 2026-03-22 - US-009
+- Added Console sub-panel below the browser preview in the Browser tab
+- Server-side: Added `ConsoleEntry` type and `onConsole(callback)` to `BrowserEngine` interface
+- PlaywrightAdapter captures Playwright `page.on('console')` events and forwards them via callback
+- Browser routes wire up `onConsole` to `broadcast('browser:console', entry)` via WebSocket
+- Frontend: WebSocket listener for `browser:console` events populates console entries state
+- Each entry shows: level icon (Info/AlertTriangle/AlertCircle), timestamp, message text
+- Color-coded: info=text-muted, warn=amber-400, error=status-error
+- Clear button (Trash2 icon) resets the console log
+- Layout splits iframe (flex-[2]) and console (flex-1) vertically within the browser tab
+- Files changed: `server/browser/types.ts`, `server/browser/playwright-adapter.ts`, `server/browser/index.ts`, `server/routes/browser.ts`, `src/components/shell/BottomPanel.tsx`
+- **Learnings for future iterations:**
+  - Playwright `ConsoleMessage.type()` returns `'warning'` (not `'warn'`) — must map to our `'warn'` level
+  - Register `onConsole` callback BEFORE `launch()` to avoid missing early console messages during page load
+  - Use `flex-[2]` vs `flex-1` to create a 2:1 split in flex containers without hardcoded heights
+  - The BottomPanel Browser tab now opens a second WebSocket for `browser:console` events, separate from the `devserver:log` listener
+  - Browser console state is not project-scoped (unlike dev server logs) since there's only one browser singleton
 ---
