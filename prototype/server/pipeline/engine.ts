@@ -72,6 +72,66 @@ export class PipelineEngine {
   }
 
   /**
+   * Resumes the pipeline from the stage after the last checkpoint.
+   * Skips stages that already have status 'done'.
+   */
+  async resume(): Promise<void> {
+    this.load();
+
+    if (!this.pipeline) {
+      throw new Error(`Pipeline not found: ${this.pipelineId}`);
+    }
+
+    if (this.stages.length === 0) {
+      throw new Error(`Pipeline has no stages: ${this.pipelineId}`);
+    }
+
+    // Find the index to resume from
+    const startIndex = this.getResumeIndex();
+
+    // Set pipeline status to running
+    this.updatePipelineStatus("running");
+
+    try {
+      for (let i = startIndex; i < this.stages.length; i++) {
+        const stage = this.stages[i];
+        // Skip stages that are already done
+        if (stage.status === "done") {
+          continue;
+        }
+        await this.executeStage(stage);
+      }
+      // All stages complete
+      this.updatePipelineStatus("completed");
+    } catch (err) {
+      this.updatePipelineStatus("error");
+      throw err;
+    }
+  }
+
+  /**
+   * Determines the stage index to resume from based on the checkpoint.
+   * Returns the index of the stage after the checkpointed stage,
+   * or 0 if no checkpoint exists.
+   */
+  private getResumeIndex(): number {
+    if (!this.pipeline?.checkpointStageId) {
+      return 0;
+    }
+
+    const checkpointIndex = this.stages.findIndex(
+      (s) => s.id === this.pipeline!.checkpointStageId,
+    );
+
+    if (checkpointIndex === -1) {
+      return 0;
+    }
+
+    // Start from the stage after the checkpoint
+    return checkpointIndex + 1;
+  }
+
+  /**
    * Executes a single pipeline stage: spawns an agent, sends the prompt,
    * waits for the response, and updates the stage status.
    */
@@ -93,6 +153,9 @@ export class PipelineEngine {
       await agent.getResponse();
 
       this.updateStageStatus(stage.id, "done");
+
+      // Checkpoint after successful completion
+      this.updateCheckpoint(stage.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[PipelineEngine] Stage "${stage.name}" failed: ${message}`);
@@ -139,7 +202,7 @@ export class PipelineEngine {
    * Updates the pipeline status in the database and broadcasts a WebSocket event.
    */
   private updatePipelineStatus(
-    status: "idle" | "running" | "completed" | "error",
+    status: "idle" | "running" | "completed" | "error" | "paused",
   ): void {
     db.update(pipelines)
       .set({ status, updatedAt: new Date() })
@@ -169,5 +232,15 @@ export class PipelineEngine {
       stageId,
       status,
     });
+  }
+
+  /**
+   * Updates the pipeline's checkpoint to the given stage ID.
+   */
+  private updateCheckpoint(stageId: string): void {
+    db.update(pipelines)
+      .set({ checkpointStageId: stageId, updatedAt: new Date() })
+      .where(eq(pipelines.id, this.pipelineId))
+      .run();
   }
 }
