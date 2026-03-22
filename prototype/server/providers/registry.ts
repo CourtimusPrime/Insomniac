@@ -130,7 +130,7 @@ export class ProviderRegistry {
     if (config.displayName !== undefined)
       updates.displayName = config.displayName;
     if (config.baseUrl !== undefined) updates.baseUrl = config.baseUrl;
-    if (config.apiKey !== undefined)
+    if (config.apiKey !== undefined && config.apiKey.length > 0)
       updates.apiKeyEncrypted = encryptApiKey(config.apiKey);
     if (config.isActive !== undefined) updates.isActive = config.isActive;
 

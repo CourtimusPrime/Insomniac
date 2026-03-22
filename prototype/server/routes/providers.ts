@@ -150,7 +150,14 @@ export async function providerRoutes(server: FastifyInstance) {
   server.get<{ Querystring: { baseUrl?: string } }>(
     "/api/providers/ollama/models",
     async (_request, reply) => {
-      const baseUrl = _request.query.baseUrl || undefined;
+      const rawUrl = _request.query.baseUrl || "http://localhost:11434";
+      // SSRF protection: only allow http/https to localhost
+      let parsed: URL;
+      try { parsed = new URL(rawUrl); } catch { reply.code(400); return { error: "Invalid baseUrl" }; }
+      if (!["http:", "https:"].includes(parsed.protocol)) { reply.code(400); return { error: "Only http/https allowed" }; }
+      const allowedHosts = ["localhost", "127.0.0.1", "::1", ...(process.env.OLLAMA_ALLOWED_HOSTS?.split(",") ?? [])];
+      if (!allowedHosts.includes(parsed.hostname)) { reply.code(400); return { error: "baseUrl host not permitted" }; }
+      const baseUrl = parsed.origin;
       const ollama = new OllamaProvider(baseUrl);
       try {
         const models = await ollama.fetchModels();

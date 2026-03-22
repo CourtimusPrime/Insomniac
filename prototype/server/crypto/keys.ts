@@ -9,25 +9,35 @@ const SECRET_PATH = resolve(DATA_DIR, ".secret");
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // 96-bit IV recommended for GCM
-const SALT = Buffer.from("insomniac-api-key-salt", "utf8");
+const SALT_PATH = resolve(DATA_DIR, ".salt");
+
+function getSalt(): Buffer {
+  if (existsSync(SALT_PATH)) return readFileSync(SALT_PATH);
+  const salt = randomBytes(32);
+  mkdirSync(DATA_DIR, { recursive: true });
+  writeFileSync(SALT_PATH, salt, { mode: 0o600 });
+  return salt;
+}
 
 function getSecret(): Buffer {
+  const salt = getSalt();
+
   // Env var takes precedence
   if (process.env.INSOMNIAC_SECRET) {
-    return scryptSync(process.env.INSOMNIAC_SECRET, SALT, 32);
+    return scryptSync(process.env.INSOMNIAC_SECRET, salt, 32);
   }
 
   // Read or generate file-based secret
   if (existsSync(SECRET_PATH)) {
     const raw = readFileSync(SECRET_PATH, "utf8").trim();
-    return scryptSync(raw, SALT, 32);
+    return scryptSync(raw, salt, 32);
   }
 
   // Auto-generate on first run
   const generated = randomBytes(32).toString("hex");
   mkdirSync(DATA_DIR, { recursive: true });
   writeFileSync(SECRET_PATH, generated, { mode: 0o600 });
-  return scryptSync(generated, SALT, 32);
+  return scryptSync(generated, salt, 32);
 }
 
 let _cachedKey: Buffer | null = null;
