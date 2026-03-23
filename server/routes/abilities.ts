@@ -1,10 +1,10 @@
-import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { workspaces, abilities } from "../db/schema/index.js";
-import { parseSkillMd } from "../abilities/skill-parser.js";
+import { eq } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { parseSkillMd } from '../abilities/skill-parser.js';
+import { db } from '../db/connection.js';
+import { abilities, workspaces } from '../db/schema/index.js';
 
-const DEFAULT_WORKSPACE_NAME = "Default";
+const DEFAULT_WORKSPACE_NAME = 'Default';
 
 async function getOrCreateDefaultWorkspace(): Promise<string> {
   const existing = db
@@ -24,7 +24,7 @@ export async function abilityRoutes(server: FastifyInstance) {
   const workspaceId = await getOrCreateDefaultWorkspace();
 
   // GET /api/abilities — list all abilities for the default workspace
-  server.get("/api/abilities", async () => {
+  server.get('/api/abilities', async () => {
     return db
       .select()
       .from(abilities)
@@ -34,7 +34,7 @@ export async function abilityRoutes(server: FastifyInstance) {
 
   // GET /api/abilities/:id — get a single ability with full config
   server.get<{ Params: { id: string } }>(
-    "/api/abilities/:id",
+    '/api/abilities/:id',
     async (request, reply) => {
       const { id } = request.params;
 
@@ -46,7 +46,7 @@ export async function abilityRoutes(server: FastifyInstance) {
 
       if (!ability) {
         reply.code(404);
-        return { error: "Ability not found" };
+        return { error: 'Ability not found' };
       }
 
       return ability;
@@ -57,25 +57,25 @@ export async function abilityRoutes(server: FastifyInstance) {
   server.post<{
     Body: {
       name: string;
-      type: "skill" | "plugin" | "mcp";
+      type: 'skill' | 'plugin' | 'mcp';
       config?: Record<string, unknown>;
       version?: string;
       active?: boolean;
     };
   }>(
-    "/api/abilities",
+    '/api/abilities',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["name", "type"],
+          type: 'object',
+          required: ['name', 'type'],
           additionalProperties: false,
           properties: {
-            name: { type: "string", minLength: 1, maxLength: 200 },
-            type: { type: "string", enum: ["skill", "plugin", "mcp"] },
-            config: { type: "object" },
-            version: { type: "string", maxLength: 50 },
-            active: { type: "boolean" },
+            name: { type: 'string', minLength: 1, maxLength: 200 },
+            type: { type: 'string', enum: ['skill', 'plugin', 'mcp'] },
+            config: { type: 'object' },
+            version: { type: 'string', maxLength: 50 },
+            active: { type: 'boolean' },
           },
         },
       },
@@ -112,24 +112,24 @@ export async function abilityRoutes(server: FastifyInstance) {
     Params: { id: string };
     Body: {
       name?: string;
-      type?: "skill" | "plugin" | "mcp";
+      type?: 'skill' | 'plugin' | 'mcp';
       config?: Record<string, unknown>;
       version?: string;
       active?: boolean;
     };
   }>(
-    "/api/abilities/:id",
+    '/api/abilities/:id',
     {
       schema: {
         body: {
-          type: "object",
+          type: 'object',
           additionalProperties: false,
           properties: {
-            name: { type: "string", minLength: 1, maxLength: 200 },
-            type: { type: "string", enum: ["skill", "plugin", "mcp"] },
-            config: { type: "object" },
-            version: { type: "string", maxLength: 50 },
-            active: { type: "boolean" },
+            name: { type: 'string', minLength: 1, maxLength: 200 },
+            type: { type: 'string', enum: ['skill', 'plugin', 'mcp'] },
+            config: { type: 'object' },
+            version: { type: 'string', maxLength: 50 },
+            active: { type: 'boolean' },
           },
         },
       },
@@ -145,7 +145,7 @@ export async function abilityRoutes(server: FastifyInstance) {
 
       if (!existing) {
         reply.code(404);
-        return { error: "Ability not found" };
+        return { error: 'Ability not found' };
       }
 
       const { name, type, config, version, active } = request.body;
@@ -157,23 +157,16 @@ export async function abilityRoutes(server: FastifyInstance) {
       if (active !== undefined) updates.active = active;
 
       if (Object.keys(updates).length > 0) {
-        db.update(abilities)
-          .set(updates)
-          .where(eq(abilities.id, id))
-          .run();
+        db.update(abilities).set(updates).where(eq(abilities.id, id)).run();
       }
 
-      return db
-        .select()
-        .from(abilities)
-        .where(eq(abilities.id, id))
-        .get();
+      return db.select().from(abilities).where(eq(abilities.id, id)).get();
     },
   );
 
   // DELETE /api/abilities/:id — remove an ability
   server.delete<{ Params: { id: string } }>(
-    "/api/abilities/:id",
+    '/api/abilities/:id',
     async (request, reply) => {
       const { id } = request.params;
 
@@ -185,7 +178,7 @@ export async function abilityRoutes(server: FastifyInstance) {
 
       if (!existing) {
         reply.code(404);
-        return { error: "Ability not found" };
+        return { error: 'Ability not found' };
       }
 
       db.delete(abilities).where(eq(abilities.id, id)).run();
@@ -195,14 +188,14 @@ export async function abilityRoutes(server: FastifyInstance) {
 
   // POST /api/abilities/import-skill — import a Claude SKILL.md as an ability
   server.post<{ Body: string }>(
-    "/api/abilities/import-skill",
+    '/api/abilities/import-skill',
     {
       schema: {
-        body: { type: "string", maxLength: 50000 },
+        body: { type: 'string', maxLength: 50000 },
       },
     },
     async (request, reply) => {
-      let parsed;
+      let parsed: ReturnType<typeof parseSkillMd>;
       try {
         parsed = parseSkillMd(request.body);
       } catch (err) {

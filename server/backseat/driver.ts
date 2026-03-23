@@ -1,13 +1,13 @@
-import { readdir, readFile, stat } from "node:fs/promises";
-import { join, relative, extname, basename, dirname } from "node:path";
-import { eq, and } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { settings, workspaces } from "../db/schema/index.js";
-import { broadcast } from "../ws/handler.js";
+import { readdir, readFile } from 'node:fs/promises';
+import { basename, extname, join, relative } from 'node:path';
+import { and, eq } from 'drizzle-orm';
+import { db } from '../db/connection.js';
+import { settings, workspaces } from '../db/schema/index.js';
+import { broadcast } from '../ws/handler.js';
 
 export interface Recommendation {
-  type: "security" | "performance" | "quality" | "coverage" | "architecture";
-  severity: "critical" | "warning" | "info";
+  type: 'security' | 'performance' | 'quality' | 'coverage' | 'architecture';
+  severity: 'critical' | 'warning' | 'info';
   file: string;
   line?: number;
   message: string;
@@ -20,36 +20,36 @@ interface ScanInterval {
 const DEFAULT_SCAN_INTERVAL_MINUTES = 30;
 
 const SKIP_DIRS = new Set([
-  "node_modules",
-  ".git",
-  "dist",
-  "build",
-  ".next",
-  ".turbo",
-  "coverage",
-  ".cache",
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  '.next',
+  '.turbo',
+  'coverage',
+  '.cache',
 ]);
 
 const SCANNABLE_EXTENSIONS = new Set([
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".rs",
-  ".py",
-  ".go",
-  ".java",
-  ".c",
-  ".cpp",
-  ".h",
-  ".hpp",
-  ".rb",
-  ".php",
-  ".swift",
-  ".kt",
-  ".cs",
-  ".vue",
-  ".svelte",
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.rs',
+  '.py',
+  '.go',
+  '.java',
+  '.c',
+  '.cpp',
+  '.h',
+  '.hpp',
+  '.rb',
+  '.php',
+  '.swift',
+  '.kt',
+  '.cs',
+  '.vue',
+  '.svelte',
 ]);
 
 export class BackseatDriver {
@@ -70,12 +70,12 @@ export class BackseatDriver {
 
       let content: string;
       try {
-        content = await readFile(filePath, "utf-8");
+        content = await readFile(filePath, 'utf-8');
       } catch {
         continue;
       }
 
-      const lines = content.split("\n");
+      const lines = content.split('\n');
 
       this.checkTodoFixme(relPath, lines, recommendations);
       this.checkSecurityPatterns(relPath, lines, recommendations);
@@ -85,7 +85,7 @@ export class BackseatDriver {
 
     this.checkMissingTests(projectPath, sourceFiles, recommendations);
 
-    broadcast("backseat:recommendations", {
+    broadcast('backseat:recommendations', {
       projectPath,
       recommendations,
       scannedAt: new Date().toISOString(),
@@ -134,7 +134,7 @@ export class BackseatDriver {
       .where(
         and(
           eq(settings.workspaceId, ws.id),
-          eq(settings.key, "backseat.scanInterval"),
+          eq(settings.key, 'backseat.scanInterval'),
         ),
       )
       .get();
@@ -142,7 +142,7 @@ export class BackseatDriver {
     if (!row || !row.value) return DEFAULT_SCAN_INTERVAL_MINUTES;
 
     const parsed = row.value as ScanInterval;
-    return typeof parsed.minutes === "number" && parsed.minutes > 0
+    return typeof parsed.minutes === 'number' && parsed.minutes > 0
       ? parsed.minutes
       : DEFAULT_SCAN_INTERVAL_MINUTES;
   }
@@ -150,11 +150,8 @@ export class BackseatDriver {
   /**
    * Recursively collect source files from the project directory.
    */
-  private async collectFiles(
-    dir: string,
-    results: string[],
-  ): Promise<void> {
-    let entries;
+  private async collectFiles(dir: string, results: string[]): Promise<void> {
+    let entries: import('node:fs').Dirent[];
     try {
       entries = await readdir(dir, { withFileTypes: true });
     } catch {
@@ -162,14 +159,17 @@ export class BackseatDriver {
     }
 
     for (const entry of entries) {
-      if (entry.name.startsWith(".") && entry.name !== ".") continue;
+      if (entry.name.startsWith('.') && entry.name !== '.') continue;
       if (SKIP_DIRS.has(entry.name)) continue;
 
       const fullPath = join(dir, entry.name);
 
       if (entry.isDirectory()) {
         await this.collectFiles(fullPath, results);
-      } else if (entry.isFile() && SCANNABLE_EXTENSIONS.has(extname(entry.name))) {
+      } else if (
+        entry.isFile() &&
+        SCANNABLE_EXTENSIONS.has(extname(entry.name))
+      ) {
         results.push(fullPath);
       }
     }
@@ -187,18 +187,22 @@ export class BackseatDriver {
       const line = lines[i];
       const upper = line.toUpperCase();
 
-      if (upper.includes("TODO")) {
+      if (upper.includes('TODO')) {
         recommendations.push({
-          type: "quality",
-          severity: "info",
+          type: 'quality',
+          severity: 'info',
           file: relPath,
           line: i + 1,
           message: `TODO comment: ${line.trim().slice(0, 120)}`,
         });
-      } else if (upper.includes("FIXME") || upper.includes("HACK") || upper.includes("XXX")) {
+      } else if (
+        upper.includes('FIXME') ||
+        upper.includes('HACK') ||
+        upper.includes('XXX')
+      ) {
         recommendations.push({
-          type: "quality",
-          severity: "warning",
+          type: 'quality',
+          severity: 'warning',
           file: relPath,
           line: i + 1,
           message: `FIXME/HACK comment needs attention: ${line.trim().slice(0, 120)}`,
@@ -219,35 +223,41 @@ export class BackseatDriver {
       const line = lines[i];
 
       // Hardcoded secrets
-      if (/(?:password|secret|api_?key|token)\s*[:=]\s*["'][^"']{8,}["']/i.test(line)) {
+      if (
+        /(?:password|secret|api_?key|token)\s*[:=]\s*["'][^"']{8,}["']/i.test(
+          line,
+        )
+      ) {
         recommendations.push({
-          type: "security",
-          severity: "critical",
+          type: 'security',
+          severity: 'critical',
           file: relPath,
           line: i + 1,
-          message: "Possible hardcoded secret or credential detected.",
+          message: 'Possible hardcoded secret or credential detected.',
         });
       }
 
       // eval() usage
-      if (/\beval\s*\(/.test(line) && !line.trimStart().startsWith("//")) {
+      if (/\beval\s*\(/.test(line) && !line.trimStart().startsWith('//')) {
         recommendations.push({
-          type: "security",
-          severity: "critical",
+          type: 'security',
+          severity: 'critical',
           file: relPath,
           line: i + 1,
-          message: "Use of eval() is a security risk. Consider safer alternatives.",
+          message:
+            'Use of eval() is a security risk. Consider safer alternatives.',
         });
       }
 
       // innerHTML assignment
       if (/\.innerHTML\s*=/.test(line)) {
         recommendations.push({
-          type: "security",
-          severity: "warning",
+          type: 'security',
+          severity: 'warning',
           file: relPath,
           line: i + 1,
-          message: "Direct innerHTML assignment may cause XSS. Use textContent or a sanitization library.",
+          message:
+            'Direct innerHTML assignment may cause XSS. Use textContent or a sanitization library.',
         });
       }
     }
@@ -267,31 +277,33 @@ export class BackseatDriver {
       // Synchronous file operations in non-config files
       if (
         /\b(readFileSync|writeFileSync|readdirSync|statSync)\b/.test(line) &&
-        !relPath.includes("config") &&
-        !relPath.includes("setup")
+        !relPath.includes('config') &&
+        !relPath.includes('setup')
       ) {
         recommendations.push({
-          type: "performance",
-          severity: "warning",
+          type: 'performance',
+          severity: 'warning',
           file: relPath,
           line: i + 1,
-          message: "Synchronous file I/O can block the event loop. Consider using the async version.",
+          message:
+            'Synchronous file I/O can block the event loop. Consider using the async version.',
         });
       }
 
       // console.log in non-test files
       if (
         /\bconsole\.log\s*\(/.test(line) &&
-        !relPath.includes("test") &&
-        !relPath.includes("spec") &&
-        !line.trimStart().startsWith("//")
+        !relPath.includes('test') &&
+        !relPath.includes('spec') &&
+        !line.trimStart().startsWith('//')
       ) {
         recommendations.push({
-          type: "quality",
-          severity: "info",
+          type: 'quality',
+          severity: 'info',
           file: relPath,
           line: i + 1,
-          message: "console.log left in code. Consider using a proper logger or removing.",
+          message:
+            'console.log left in code. Consider using a proper logger or removing.',
         });
       }
     }
@@ -308,8 +320,8 @@ export class BackseatDriver {
     // Check for very long files
     if (lines.length > 500) {
       recommendations.push({
-        type: "architecture",
-        severity: "info",
+        type: 'architecture',
+        severity: 'info',
         file: relPath,
         message: `File has ${lines.length} lines. Consider splitting into smaller modules.`,
       });
@@ -321,26 +333,28 @@ export class BackseatDriver {
       if (leadingSpaces >= 24) {
         // 6+ levels of indentation (4 spaces each)
         recommendations.push({
-          type: "quality",
-          severity: "warning",
+          type: 'quality',
+          severity: 'warning',
           file: relPath,
           line: i + 1,
-          message: "Deeply nested code detected. Consider extracting into helper functions.",
+          message:
+            'Deeply nested code detected. Consider extracting into helper functions.',
         });
         break; // Only report once per file
       }
     }
 
     // Check for any/unknown type assertions in TS files
-    if (relPath.endsWith(".ts") || relPath.endsWith(".tsx")) {
+    if (relPath.endsWith('.ts') || relPath.endsWith('.tsx')) {
       for (let i = 0; i < lines.length; i++) {
         if (/as\s+any\b/.test(lines[i])) {
           recommendations.push({
-            type: "quality",
-            severity: "info",
+            type: 'quality',
+            severity: 'info',
             file: relPath,
             line: i + 1,
-            message: "'as any' type assertion bypasses type safety. Consider proper typing.",
+            message:
+              "'as any' type assertion bypasses type safety. Consider proper typing.",
           });
         }
       }
@@ -359,20 +373,20 @@ export class BackseatDriver {
       sourceFiles
         .filter(
           (f) =>
-            f.includes(".test.") ||
-            f.includes(".spec.") ||
-            f.includes("__tests__"),
+            f.includes('.test.') ||
+            f.includes('.spec.') ||
+            f.includes('__tests__'),
         )
-        .map((f) => basename(f).replace(/\.(test|spec)\./, ".")),
+        .map((f) => basename(f).replace(/\.(test|spec)\./, '.')),
     );
 
     const srcFiles = sourceFiles.filter(
       (f) =>
-        !f.includes(".test.") &&
-        !f.includes(".spec.") &&
-        !f.includes("__tests__") &&
-        !f.includes("node_modules") &&
-        !basename(f).startsWith("index."),
+        !f.includes('.test.') &&
+        !f.includes('.spec.') &&
+        !f.includes('__tests__') &&
+        !f.includes('node_modules') &&
+        !basename(f).startsWith('index.'),
     );
 
     // Only report up to 10 missing test files to avoid noise
@@ -384,8 +398,8 @@ export class BackseatDriver {
       if (!testFiles.has(fileName)) {
         const relPath = relative(projectPath, filePath);
         recommendations.push({
-          type: "coverage",
-          severity: "info",
+          type: 'coverage',
+          severity: 'info',
           file: relPath,
           message: `No test file found for ${fileName}. Consider adding tests.`,
         });

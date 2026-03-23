@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { useQuery } from '@tanstack/react-query';
+import { apiFetch } from './client';
 
 export interface SystemMetrics {
   cpu: number;
@@ -13,7 +13,7 @@ export interface SessionUsage {
 }
 
 export type SystemInfo = {
-  mode: "local" | "remote" | "hosted";
+  mode: 'local' | 'remote' | 'hosted';
   version: string;
   platform: string;
 };
@@ -25,8 +25,8 @@ export type AuthUser = {
 
 export function useAuthUser(enabled: boolean) {
   return useQuery<AuthUser>({
-    queryKey: ["authUser"],
-    queryFn: () => apiFetch<AuthUser>("/api/auth/me"),
+    queryKey: ['authUser'],
+    queryFn: () => apiFetch<AuthUser>('/api/auth/me'),
     enabled,
     staleTime: 60_000,
     retry: false,
@@ -35,24 +35,24 @@ export function useAuthUser(enabled: boolean) {
 
 export function useSystemInfo() {
   return useQuery<SystemInfo>({
-    queryKey: ["systemInfo"],
-    queryFn: () => apiFetch<SystemInfo>("/api/system/info"),
+    queryKey: ['systemInfo'],
+    queryFn: () => apiFetch<SystemInfo>('/api/system/info'),
     staleTime: 60_000,
   });
 }
 
 export function useSystemMetrics() {
   return useQuery<SystemMetrics>({
-    queryKey: ["systemMetrics"],
-    queryFn: () => apiFetch<SystemMetrics>("/api/system/metrics"),
+    queryKey: ['systemMetrics'],
+    queryFn: () => apiFetch<SystemMetrics>('/api/system/metrics'),
     refetchInterval: 2000,
   });
 }
 
 export function useSessionUsage() {
   return useQuery<SessionUsage>({
-    queryKey: ["sessionUsage"],
-    queryFn: () => apiFetch<SessionUsage>("/api/usage/session"),
+    queryKey: ['sessionUsage'],
+    queryFn: () => apiFetch<SessionUsage>('/api/usage/session'),
     refetchInterval: 2000,
   });
 }

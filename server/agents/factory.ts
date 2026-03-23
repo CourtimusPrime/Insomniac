@@ -1,15 +1,15 @@
-import { spawn } from "node:child_process";
-import { eq, and } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { settings } from "../db/schema/index.js";
-import type { AgentAdapter, AgentConfig } from "./types.js";
-import { StdioAdapter } from "./stdio-adapter.js";
-import { McpAdapter } from "./mcp-adapter.js";
+import { spawn } from 'node:child_process';
+import { and, eq } from 'drizzle-orm';
+import { db } from '../db/connection.js';
+import { settings } from '../db/schema/index.js';
+import { McpAdapter } from './mcp-adapter.js';
+import { StdioAdapter } from './stdio-adapter.js';
+import type { AgentAdapter, AgentConfig } from './types.js';
 
-const TRANSPORT_SETTING_KEY = "claude_code.transport";
+const TRANSPORT_SETTING_KEY = 'claude_code.transport';
 const MCP_PROBE_TIMEOUT_MS = 2000;
 
-type Transport = AgentConfig["transport"];
+type Transport = AgentConfig['transport'];
 
 /**
  * Reads the transport preference from the settings table.
@@ -28,10 +28,10 @@ export function getTransportSetting(workspaceId: string): Transport {
     .get();
 
   const value = row?.value as string | null;
-  if (value === "mcp" || value === "stdio" || value === "auto") {
+  if (value === 'mcp' || value === 'stdio' || value === 'auto') {
     return value;
   }
-  return "auto";
+  return 'auto';
 }
 
 /**
@@ -43,11 +43,11 @@ export function getTransportSetting(workspaceId: string): Transport {
  */
 export async function createAgent(config: AgentConfig): Promise<AgentAdapter> {
   switch (config.transport) {
-    case "stdio":
+    case 'stdio':
       return new StdioAdapter(config);
-    case "mcp":
+    case 'mcp':
       return new McpAdapter(config);
-    case "auto":
+    case 'auto':
       return autoDetect(config);
   }
 }
@@ -62,7 +62,9 @@ async function autoDetect(config: AgentConfig): Promise<AgentAdapter> {
   if (mcpAvailable) {
     return new McpAdapter(config);
   }
-  console.log(`[AgentFactory] MCP unavailable for "${config.name}", falling back to stdio`);
+  console.log(
+    `[AgentFactory] MCP unavailable for "${config.name}", falling back to stdio`,
+  );
   return new StdioAdapter(config);
 }
 
@@ -74,8 +76,8 @@ async function autoDetect(config: AgentConfig): Promise<AgentAdapter> {
 function probeMcpSupport(): Promise<boolean> {
   return new Promise((resolve) => {
     try {
-      const proc = spawn("claude", ["--mcp-server"], {
-        stdio: ["pipe", "pipe", "pipe"],
+      const proc = spawn('claude', ['--mcp-server'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env },
       });
 
@@ -84,16 +86,16 @@ function probeMcpSupport(): Promise<boolean> {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        proc.kill("SIGTERM");
+        proc.kill('SIGTERM');
         resolve(result);
       };
 
       // If the process stays alive for the timeout, MCP is likely available
       const timer = setTimeout(() => settle(true), MCP_PROBE_TIMEOUT_MS);
 
-      proc.on("error", () => settle(false));
+      proc.on('error', () => settle(false));
 
-      proc.on("exit", (code) => {
+      proc.on('exit', (code) => {
         // Immediate exit with non-zero = MCP not supported
         if (code !== null && code !== 0) {
           settle(false);

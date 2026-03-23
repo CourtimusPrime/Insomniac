@@ -1,7 +1,6 @@
-import { eq } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { templates } from "../db/schema/index.js";
-import { workspaces } from "../db/schema/index.js";
+import { eq } from 'drizzle-orm';
+import { db } from '../db/connection.js';
+import { templates, workspaces } from '../db/schema/index.js';
 
 /* ------------------------------------------------------------------ */
 /*  Chain definition helper types (matches src/api/projects.ts)       */
@@ -36,17 +35,15 @@ interface ChainDefinition {
 /* ------------------------------------------------------------------ */
 
 const NODE_LABELS: Record<string, string> = {
-  trigger: "Trigger",
-  prototyper: "Prototyper",
-  builder: "Builder",
-  tester: "Tester",
-  reviewer: "Reviewer",
-  auditor: "Auditor",
+  trigger: 'Trigger',
+  prototyper: 'Prototyper',
+  builder: 'Builder',
+  tester: 'Tester',
+  reviewer: 'Reviewer',
+  auditor: 'Auditor',
 };
 
-function buildChain(
-  steps: string[],
-): ChainDefinition {
+function buildChain(steps: string[]): ChainDefinition {
   const X_START = 40;
   const X_GAP = 280;
   const Y = 180;
@@ -57,7 +54,7 @@ function buildChain(
     label: NODE_LABELS[type] ?? type,
     model: null,
     systemPrompt: null,
-    status: "pending",
+    status: 'pending',
     abilities: [],
     position: { x: X_START + i * X_GAP, y: Y },
   }));
@@ -68,7 +65,7 @@ function buildChain(
       id: `e${i + 1}`,
       source: nodes[i].id,
       target: nodes[i + 1].id,
-      condition: "on-success",
+      condition: 'on-success',
     });
   }
 
@@ -82,7 +79,7 @@ function buildChain(
 interface BuiltInTemplate {
   name: string;
   description: string;
-  category: "workflow" | "agent-config" | "template" | "mcp-adapter";
+  category: 'workflow' | 'agent-config' | 'template' | 'mcp-adapter';
   chainDefinition: ChainDefinition;
   author: string;
   version: string;
@@ -90,65 +87,65 @@ interface BuiltInTemplate {
 
 export const BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
   {
-    name: "Full Stack Build",
+    name: 'Full Stack Build',
     description:
-      "End-to-end build pipeline: trigger kicks off a builder, then tests are run, and finally a code review.",
-    category: "workflow",
-    chainDefinition: buildChain(["trigger", "builder", "tester", "reviewer"]),
-    author: "Insomniac",
-    version: "1.0.0",
+      'End-to-end build pipeline: trigger kicks off a builder, then tests are run, and finally a code review.',
+    category: 'workflow',
+    chainDefinition: buildChain(['trigger', 'builder', 'tester', 'reviewer']),
+    author: 'Insomniac',
+    version: '1.0.0',
   },
   {
-    name: "Security Audit",
+    name: 'Security Audit',
     description:
-      "Quick security scan: trigger feeds code directly to an auditor for vulnerability analysis.",
-    category: "workflow",
-    chainDefinition: buildChain(["trigger", "auditor"]),
-    author: "Insomniac",
-    version: "1.0.0",
+      'Quick security scan: trigger feeds code directly to an auditor for vulnerability analysis.',
+    category: 'workflow',
+    chainDefinition: buildChain(['trigger', 'auditor']),
+    author: 'Insomniac',
+    version: '1.0.0',
   },
   {
-    name: "Code Review",
+    name: 'Code Review',
     description:
-      "Standalone code review pipeline: trigger sends code to a reviewer for quality checks.",
-    category: "workflow",
-    chainDefinition: buildChain(["trigger", "reviewer"]),
-    author: "Insomniac",
-    version: "1.0.0",
+      'Standalone code review pipeline: trigger sends code to a reviewer for quality checks.',
+    category: 'workflow',
+    chainDefinition: buildChain(['trigger', 'reviewer']),
+    author: 'Insomniac',
+    version: '1.0.0',
   },
   {
-    name: "Rapid Prototype",
+    name: 'Rapid Prototype',
     description:
-      "Fast prototyping: trigger starts a prototyper that hands off to a builder for implementation.",
-    category: "workflow",
-    chainDefinition: buildChain(["trigger", "prototyper", "builder"]),
-    author: "Insomniac",
-    version: "1.0.0",
+      'Fast prototyping: trigger starts a prototyper that hands off to a builder for implementation.',
+    category: 'workflow',
+    chainDefinition: buildChain(['trigger', 'prototyper', 'builder']),
+    author: 'Insomniac',
+    version: '1.0.0',
   },
   {
-    name: "Test Suite",
+    name: 'Test Suite',
     description:
-      "Focused testing pipeline: trigger sends code directly to a tester for comprehensive test execution.",
-    category: "workflow",
-    chainDefinition: buildChain(["trigger", "tester"]),
-    author: "Insomniac",
-    version: "1.0.0",
+      'Focused testing pipeline: trigger sends code directly to a tester for comprehensive test execution.',
+    category: 'workflow',
+    chainDefinition: buildChain(['trigger', 'tester']),
+    author: 'Insomniac',
+    version: '1.0.0',
   },
   {
-    name: "Full Pipeline",
+    name: 'Full Pipeline',
     description:
-      "Complete pipeline with every stage: prototype, build, test, review, and audit.",
-    category: "workflow",
+      'Complete pipeline with every stage: prototype, build, test, review, and audit.',
+    category: 'workflow',
     chainDefinition: buildChain([
-      "trigger",
-      "prototyper",
-      "builder",
-      "tester",
-      "reviewer",
-      "auditor",
+      'trigger',
+      'prototyper',
+      'builder',
+      'tester',
+      'reviewer',
+      'auditor',
     ]),
-    author: "Insomniac",
-    version: "1.0.0",
+    author: 'Insomniac',
+    version: '1.0.0',
   },
 ];
 
@@ -156,7 +153,7 @@ export const BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
 /*  Seed function — inserts built-in templates on first run           */
 /* ------------------------------------------------------------------ */
 
-const DEFAULT_WORKSPACE_NAME = "Default";
+const DEFAULT_WORKSPACE_NAME = 'Default';
 
 async function getOrCreateDefaultWorkspace(): Promise<string> {
   const existing = db

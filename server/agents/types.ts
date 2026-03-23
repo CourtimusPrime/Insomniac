@@ -1,8 +1,8 @@
-export type AgentStatus = "idle" | "working" | "error" | "disconnected";
+export type AgentStatus = 'idle' | 'working' | 'error' | 'disconnected';
 
 export type AgentMessage = {
   id: string;
-  type: "tool_call" | "tool_result" | "message";
+  type: 'tool_call' | 'tool_result' | 'message';
   payload: unknown;
 };
 
@@ -11,7 +11,7 @@ export type AgentConfig = {
   model: string;
   provider: string;
   systemPrompt: string;
-  transport: "mcp" | "stdio" | "auto";
+  transport: 'mcp' | 'stdio' | 'auto';
 };
 
 export interface AgentAdapter {

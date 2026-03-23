@@ -1,1 +1,1 @@
-export { isWSL, getVSCodeCommand, resolveWSLPath } from "./wsl.js";
+export { getVSCodeCommand, isWSL, resolveWSLPath } from './wsl.js';

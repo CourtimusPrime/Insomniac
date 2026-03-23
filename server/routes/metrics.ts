@@ -1,9 +1,9 @@
-import type { FastifyInstance } from "fastify";
-import { cpus, platform } from "node:os";
-import { sql } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { usageRecords } from "../db/schema/index.js";
-import { getDeploymentConfig } from "../config/deployment.js";
+import { cpus, platform } from 'node:os';
+import { sql } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { getDeploymentConfig } from '../config/deployment.js';
+import { db } from '../db/connection.js';
+import { usageRecords } from '../db/schema/index.js';
 
 let prevCpuUsage = process.cpuUsage();
 let prevTime = Date.now();
@@ -21,7 +21,10 @@ function getCpuPercent(): number {
   const numCores = cpus().length || 1;
 
   // Percentage of a single core (capped at 100)
-  const percent = Math.min(100, Math.round((totalCpuUs / elapsedUs / numCores) * 100));
+  const percent = Math.min(
+    100,
+    Math.round((totalCpuUs / elapsedUs / numCores) * 100),
+  );
 
   prevCpuUsage = process.cpuUsage();
   prevTime = currentTime;
@@ -31,7 +34,7 @@ function getCpuPercent(): number {
 
 export async function metricsRoutes(server: FastifyInstance): Promise<void> {
   // System metrics: CPU, RAM, uptime
-  server.get("/api/system/metrics", async () => {
+  server.get('/api/system/metrics', async () => {
     const mem = process.memoryUsage();
     return {
       cpu: getCpuPercent(),
@@ -41,17 +44,17 @@ export async function metricsRoutes(server: FastifyInstance): Promise<void> {
   });
 
   // System info: deployment mode, version, platform
-  server.get("/api/system/info", async () => {
+  server.get('/api/system/info', async () => {
     const config = getDeploymentConfig();
     return {
       mode: config.mode,
-      version: "0.1.0",
+      version: '0.1.0',
       platform: platform(),
     };
   });
 
   // Session usage: tokens and cost from usage_records table
-  server.get("/api/usage/session", async () => {
+  server.get('/api/usage/session', async () => {
     const result = db
       .select({
         totalTokens: sql<number>`coalesce(sum(${usageRecords.inputTokens} + ${usageRecords.outputTokens}), 0)`,

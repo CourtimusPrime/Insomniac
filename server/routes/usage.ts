@@ -1,11 +1,11 @@
-import type { FastifyInstance } from "fastify";
-import { sql, desc, eq } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { usageRecords } from "../db/schema/index.js";
+import { desc, sql } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { db } from '../db/connection.js';
+import { usageRecords } from '../db/schema/index.js';
 
 export async function usageRoutes(server: FastifyInstance): Promise<void> {
   // GET /api/usage/summary — total tokens, cost, most active agent, most used model
-  server.get("/api/usage/summary", async () => {
+  server.get('/api/usage/summary', async () => {
     const totals = db
       .select({
         totalInputTokens: sql<number>`coalesce(sum(${usageRecords.inputTokens}), 0)`,
@@ -38,7 +38,8 @@ export async function usageRoutes(server: FastifyInstance): Promise<void> {
       .get();
 
     return {
-      totalTokens: (totals?.totalInputTokens ?? 0) + (totals?.totalOutputTokens ?? 0),
+      totalTokens:
+        (totals?.totalInputTokens ?? 0) + (totals?.totalOutputTokens ?? 0),
       totalInputTokens: totals?.totalInputTokens ?? 0,
       totalOutputTokens: totals?.totalOutputTokens ?? 0,
       estimatedCost: totals?.estimatedCost ?? 0,
@@ -49,7 +50,7 @@ export async function usageRoutes(server: FastifyInstance): Promise<void> {
 
   // GET /api/usage/timeline — time-series grouped by provider/model
   server.get<{ Querystring: { hours?: string } }>(
-    "/api/usage/timeline",
+    '/api/usage/timeline',
     async (request) => {
       const hours = Number(request.query.hours) || 24;
       const cutoff = Math.floor(Date.now() / 1000) - hours * 3600;
@@ -80,16 +81,17 @@ export async function usageRoutes(server: FastifyInstance): Promise<void> {
 
   // GET /api/usage/breakdown — grouped by provider, model, agent, or project
   server.get<{ Querystring: { groupBy?: string } }>(
-    "/api/usage/breakdown",
+    '/api/usage/breakdown',
     async (request) => {
-      const groupBy = request.query.groupBy ?? "provider";
+      const groupBy = request.query.groupBy ?? 'provider';
 
-      const groupColumn = {
-        provider: usageRecords.provider,
-        model: usageRecords.model,
-        agent: usageRecords.agentName,
-        project: usageRecords.projectId,
-      }[groupBy] ?? usageRecords.provider;
+      const groupColumn =
+        {
+          provider: usageRecords.provider,
+          model: usageRecords.model,
+          agent: usageRecords.agentName,
+          project: usageRecords.projectId,
+        }[groupBy] ?? usageRecords.provider;
 
       const rows = db
         .select({
@@ -111,9 +113,9 @@ export async function usageRoutes(server: FastifyInstance): Promise<void> {
 
   // GET /api/usage/export?format=csv — CSV export
   server.get<{ Querystring: { format?: string } }>(
-    "/api/usage/export",
+    '/api/usage/export',
     async (request, reply) => {
-      const format = request.query.format ?? "csv";
+      const format = request.query.format ?? 'csv';
 
       const rows = db
         .select()
@@ -121,43 +123,43 @@ export async function usageRoutes(server: FastifyInstance): Promise<void> {
         .orderBy(desc(usageRecords.createdAt))
         .all();
 
-      if (format === "csv") {
+      if (format === 'csv') {
         const headers = [
-          "id",
-          "workspaceId",
-          "projectId",
-          "pipelineId",
-          "stageId",
-          "agentName",
-          "model",
-          "provider",
-          "inputTokens",
-          "outputTokens",
-          "toolCalls",
-          "estimatedCost",
-          "createdAt",
+          'id',
+          'workspaceId',
+          'projectId',
+          'pipelineId',
+          'stageId',
+          'agentName',
+          'model',
+          'provider',
+          'inputTokens',
+          'outputTokens',
+          'toolCalls',
+          'estimatedCost',
+          'createdAt',
         ];
-        const csvLines = [headers.join(",")];
+        const csvLines = [headers.join(',')];
 
         for (const row of rows) {
           csvLines.push(
             headers
               .map((h) => {
                 const val = row[h as keyof typeof row];
-                if (val === null || val === undefined) return "";
+                if (val === null || val === undefined) return '';
                 if (val instanceof Date) return val.toISOString();
                 return String(val);
               })
-              .join(","),
+              .join(','),
           );
         }
 
-        reply.header("Content-Type", "text/csv");
+        reply.header('Content-Type', 'text/csv');
         reply.header(
-          "Content-Disposition",
-          "attachment; filename=usage-export.csv",
+          'Content-Disposition',
+          'attachment; filename=usage-export.csv',
         );
-        return csvLines.join("\n");
+        return csvLines.join('\n');
       }
 
       // Default: JSON

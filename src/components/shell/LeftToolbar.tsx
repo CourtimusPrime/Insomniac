@@ -1,14 +1,18 @@
-import { Layers, Github, Zap, Store, Settings } from 'lucide-react';
-import { ThemeSwitcher } from '../ThemeSwitcher';
-import { useLayoutStore } from '../../stores/layout';
+import { Github, Layers, Settings, Store, Zap } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
+import { useLayoutStore } from '../../stores/layout';
 import { getThemeById, mapVSCodeColors } from '../../themes';
+import { ThemeSwitcher } from '../ThemeSwitcher';
 
 const toolbarItems = [
   { id: 'projects' as const, icon: <Layers size={18} />, label: 'Projects' },
   { id: 'abilities' as const, icon: <Zap size={18} />, label: 'Abilities' },
   { id: 'github' as const, icon: <Github size={18} />, label: 'GitHub' },
-  { id: 'marketplace' as const, icon: <Store size={18} />, label: 'Marketplace' },
+  {
+    id: 'marketplace' as const,
+    icon: <Store size={18} />,
+    label: 'Marketplace',
+  },
 ];
 
 export function LeftToolbar() {
@@ -17,7 +21,9 @@ export function LeftToolbar() {
   const setActiveMain = useLayoutStore((s) => s.setActiveMain);
   const activeMain = useLayoutStore((s) => s.activeMain);
   const togglePanel = useLayoutStore((s) => s.togglePanel);
-  const leftSidebarCollapsed = useLayoutStore((s) => s.collapsedPanels.leftSidebar);
+  const leftSidebarCollapsed = useLayoutStore(
+    (s) => s.collapsedPanels.leftSidebar,
+  );
   const setCollapsedPanel = useLayoutStore((s) => s.setCollapsedPanel);
   const pinnedThemes = useLayoutStore((s) => s.pinnedThemes);
   const { themeId, setThemeId } = useTheme();
@@ -29,7 +35,7 @@ export function LeftToolbar() {
           <Zap size={14} fill="white" className="text-text-primary" />
         </div>
       </div>
-      {toolbarItems.map(item => (
+      {toolbarItems.map((item) => (
         <button
           key={item.id}
           onClick={() => {
@@ -47,14 +53,15 @@ export function LeftToolbar() {
             activeToolbar === item.id
               ? 'bg-accent-primary/15 text-accent-primary'
               : 'text-text-faint hover:text-text-default hover:bg-bg-hover'
-          }`}>
+          }`}
+        >
           {item.icon}
         </button>
       ))}
       <div className="mt-auto flex flex-col items-center gap-1">
         {pinnedThemes.length > 0 && (
           <div className="flex flex-col items-center gap-1.5 mb-2 pb-2 border-b border-border-default">
-            {pinnedThemes.map(id => {
+            {pinnedThemes.map((id) => {
               const theme = getThemeById(id);
               if (!theme) return null;
               const mapped = mapVSCodeColors(theme.colors);
@@ -65,7 +72,9 @@ export function LeftToolbar() {
                   onClick={() => setThemeId(id)}
                   title={theme.name}
                   className={`w-7 h-7 rounded-full border-2 transition-all ${
-                    isActive ? 'border-accent-primary scale-110' : 'border-transparent hover:scale-110'
+                    isActive
+                      ? 'border-accent-primary scale-110'
+                      : 'border-transparent hover:scale-110'
                   }`}
                   style={{
                     background: `linear-gradient(135deg, ${mapped['bg-base']} 50%, ${mapped['accent-primary']} 50%)`,
@@ -83,7 +92,8 @@ export function LeftToolbar() {
             activeMain === 'settings'
               ? 'bg-accent-primary/15 text-accent-primary'
               : 'text-text-faint hover:text-text-default hover:bg-bg-hover'
-          }`}>
+          }`}
+        >
           <Settings size={18} />
         </button>
       </div>

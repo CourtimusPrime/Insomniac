@@ -1,7 +1,7 @@
 type GitHubFileEntry = {
   name: string;
   path: string;
-  type: "file" | "dir";
+  type: 'file' | 'dir';
   sha: string;
 };
 
@@ -16,7 +16,7 @@ type GitHubContentResponse = {
 
 export class GitHubFileAdapter {
   private token: string;
-  private baseUrl = "https://api.github.com";
+  private baseUrl = 'https://api.github.com';
 
   constructor(token: string) {
     this.token = token;
@@ -25,8 +25,8 @@ export class GitHubFileAdapter {
   private headers(): Record<string, string> {
     return {
       Authorization: `Bearer ${this.token}`,
-      Accept: "application/vnd.github.v3+json",
-      "Content-Type": "application/json",
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
     };
   }
 
@@ -44,16 +44,18 @@ export class GitHubFileAdapter {
     });
 
     if (!res.ok) {
-      throw new Error(`GitHub readFile failed (${res.status}): ${await res.text()}`);
+      throw new Error(
+        `GitHub readFile failed (${res.status}): ${await res.text()}`,
+      );
     }
 
     const data = (await res.json()) as GitHubContentResponse;
 
-    if (data.type !== "file" || !data.content) {
+    if (data.type !== 'file' || !data.content) {
       throw new Error(`Path is not a file: ${path}`);
     }
 
-    return Buffer.from(data.content, "base64").toString("utf-8");
+    return Buffer.from(data.content, 'base64').toString('utf-8');
   }
 
   /**
@@ -82,20 +84,22 @@ export class GitHubFileAdapter {
 
     const body: Record<string, string> = {
       message: commitMessage,
-      content: Buffer.from(content, "utf-8").toString("base64"),
+      content: Buffer.from(content, 'utf-8').toString('base64'),
     };
     if (sha) {
       body.sha = sha;
     }
 
     const res = await fetch(this.repoUrl(repo, path), {
-      method: "PUT",
+      method: 'PUT',
       headers: this.headers(),
       body: JSON.stringify(body),
     });
 
     if (!res.ok) {
-      throw new Error(`GitHub writeFile failed (${res.status}): ${await res.text()}`);
+      throw new Error(
+        `GitHub writeFile failed (${res.status}): ${await res.text()}`,
+      );
     }
   }
 
@@ -108,7 +112,9 @@ export class GitHubFileAdapter {
     });
 
     if (!res.ok) {
-      throw new Error(`GitHub listFiles failed (${res.status}): ${await res.text()}`);
+      throw new Error(
+        `GitHub listFiles failed (${res.status}): ${await res.text()}`,
+      );
     }
 
     const data = (await res.json()) as GitHubContentResponse[];
@@ -120,7 +126,7 @@ export class GitHubFileAdapter {
     return data.map((entry) => ({
       name: entry.name,
       path: entry.path,
-      type: entry.type as "file" | "dir",
+      type: entry.type as 'file' | 'dir',
       sha: entry.sha,
     }));
   }
@@ -139,13 +145,15 @@ export class GitHubFileAdapter {
     });
 
     if (!existing.ok) {
-      throw new Error(`GitHub deleteFile: file not found (${existing.status}): ${path}`);
+      throw new Error(
+        `GitHub deleteFile: file not found (${existing.status}): ${path}`,
+      );
     }
 
     const data = (await existing.json()) as GitHubContentResponse;
 
     const res = await fetch(this.repoUrl(repo, path), {
-      method: "DELETE",
+      method: 'DELETE',
       headers: this.headers(),
       body: JSON.stringify({
         message: commitMessage,
@@ -154,7 +162,9 @@ export class GitHubFileAdapter {
     });
 
     if (!res.ok) {
-      throw new Error(`GitHub deleteFile failed (${res.status}): ${await res.text()}`);
+      throw new Error(
+        `GitHub deleteFile failed (${res.status}): ${await res.text()}`,
+      );
     }
   }
 }

@@ -1,13 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from './client';
 
 export type ProviderName =
-  | "anthropic"
-  | "openai"
-  | "google"
-  | "openrouter"
-  | "ollama"
-  | "custom";
+  | 'anthropic'
+  | 'openai'
+  | 'google'
+  | 'openrouter'
+  | 'ollama'
+  | 'custom';
 
 export interface Provider {
   id: string;
@@ -33,8 +33,8 @@ export interface ModelDefinition {
 
 export function useProviders() {
   return useQuery<Provider[]>({
-    queryKey: ["providers"],
-    queryFn: () => apiFetch<Provider[]>("/api/providers"),
+    queryKey: ['providers'],
+    queryFn: () => apiFetch<Provider[]>('/api/providers'),
   });
 }
 
@@ -50,12 +50,12 @@ export function useAddProvider() {
       apiKey?: string;
       isActive?: boolean;
     }) =>
-      apiFetch<Provider>("/api/providers", {
-        method: "POST",
+      apiFetch<Provider>('/api/providers', {
+        method: 'POST',
         body: JSON.stringify(body),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["providers"] });
+      queryClient.invalidateQueries({ queryKey: ['providers'] });
     },
   });
 }
@@ -75,11 +75,11 @@ export function useUpdateProvider() {
       isActive?: boolean;
     }) =>
       apiFetch<Provider>(`/api/providers/${id}`, {
-        method: "PUT",
+        method: 'PUT',
         body: JSON.stringify(body),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["providers"] });
+      queryClient.invalidateQueries({ queryKey: ['providers'] });
     },
   });
 }
@@ -89,16 +89,16 @@ export function useDeleteProvider() {
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiFetch(`/api/providers/${id}`, { method: "DELETE" }),
+      apiFetch(`/api/providers/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["providers"] });
+      queryClient.invalidateQueries({ queryKey: ['providers'] });
     },
   });
 }
 
 export function useProviderModels(providerId: string | null) {
   return useQuery<ModelDefinition[]>({
-    queryKey: ["providerModels", providerId],
+    queryKey: ['providerModels', providerId],
     queryFn: () =>
       apiFetch<ModelDefinition[]>(`/api/providers/${providerId}/models`),
     enabled: !!providerId,

@@ -3,12 +3,12 @@
 /* ------------------------------------------------------------------ */
 
 export type MarketplaceItemType =
-  | "workflow"
-  | "agent-config"
-  | "template"
-  | "mcp-adapter";
+  | 'workflow'
+  | 'agent-config'
+  | 'template'
+  | 'mcp-adapter';
 
-export type TrustTier = "community" | "verified" | "official";
+export type TrustTier = 'community' | 'verified' | 'official';
 
 export interface MarketplaceItem {
   id: string;

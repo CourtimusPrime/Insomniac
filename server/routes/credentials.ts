@@ -1,11 +1,11 @@
-import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { credentials } from "../db/schema/credentials.js";
-import { workspaces } from "../db/schema/index.js";
-import { encryptApiKey } from "../crypto/keys.js";
+import { eq } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { encryptApiKey } from '../crypto/keys.js';
+import { db } from '../db/connection.js';
+import { credentials } from '../db/schema/credentials.js';
+import { workspaces } from '../db/schema/index.js';
 
-const DEFAULT_WORKSPACE_NAME = "Default";
+const DEFAULT_WORKSPACE_NAME = 'Default';
 
 async function getOrCreateDefaultWorkspace(): Promise<string> {
   const existing = db
@@ -26,7 +26,7 @@ function redactSecrets(
   row: typeof credentials.$inferSelect,
 ): Record<string, unknown> {
   const { clientId: _cid, clientSecret: _cs, ...safe } = row;
-  return { ...safe, clientId: "****", clientSecret: "****" };
+  return { ...safe, clientId: '****', clientSecret: '****' };
 }
 
 export async function credentialRoutes(server: FastifyInstance) {
@@ -34,7 +34,7 @@ export async function credentialRoutes(server: FastifyInstance) {
 
   // GET /api/credentials — list all credentials (secrets redacted)
   server.get<{ Querystring: { projectId?: string } }>(
-    "/api/credentials",
+    '/api/credentials',
     async (request) => {
       const { projectId } = request.query;
 
@@ -62,31 +62,31 @@ export async function credentialRoutes(server: FastifyInstance) {
       projectId?: string | null;
     };
   }>(
-    "/api/credentials",
+    '/api/credentials',
     {
       schema: {
         body: {
-          type: "object",
+          type: 'object',
           required: [
-            "name",
-            "providerName",
-            "clientId",
-            "clientSecret",
-            "redirectUri",
-            "scopes",
+            'name',
+            'providerName',
+            'clientId',
+            'clientSecret',
+            'redirectUri',
+            'scopes',
           ],
           additionalProperties: false,
           properties: {
-            name: { type: "string", minLength: 1, maxLength: 200 },
-            providerName: { type: "string", minLength: 1, maxLength: 200 },
-            clientId: { type: "string", minLength: 1 },
-            clientSecret: { type: "string", minLength: 1 },
-            redirectUri: { type: "string", minLength: 1 },
+            name: { type: 'string', minLength: 1, maxLength: 200 },
+            providerName: { type: 'string', minLength: 1, maxLength: 200 },
+            clientId: { type: 'string', minLength: 1 },
+            clientSecret: { type: 'string', minLength: 1 },
+            redirectUri: { type: 'string', minLength: 1 },
             scopes: {
-              type: "array",
-              items: { type: "string" },
+              type: 'array',
+              items: { type: 'string' },
             },
-            projectId: { type: ["string", "null"] },
+            projectId: { type: ['string', 'null'] },
           },
         },
       },
@@ -142,23 +142,23 @@ export async function credentialRoutes(server: FastifyInstance) {
       projectId?: string | null;
     };
   }>(
-    "/api/credentials/:id",
+    '/api/credentials/:id',
     {
       schema: {
         body: {
-          type: "object",
+          type: 'object',
           additionalProperties: false,
           properties: {
-            name: { type: "string", minLength: 1, maxLength: 200 },
-            providerName: { type: "string", minLength: 1, maxLength: 200 },
-            clientId: { type: "string", minLength: 1 },
-            clientSecret: { type: "string", minLength: 1 },
-            redirectUri: { type: "string", minLength: 1 },
+            name: { type: 'string', minLength: 1, maxLength: 200 },
+            providerName: { type: 'string', minLength: 1, maxLength: 200 },
+            clientId: { type: 'string', minLength: 1 },
+            clientSecret: { type: 'string', minLength: 1 },
+            redirectUri: { type: 'string', minLength: 1 },
             scopes: {
-              type: "array",
-              items: { type: "string" },
+              type: 'array',
+              items: { type: 'string' },
             },
-            projectId: { type: ["string", "null"] },
+            projectId: { type: ['string', 'null'] },
           },
         },
       },
@@ -174,7 +174,7 @@ export async function credentialRoutes(server: FastifyInstance) {
 
       if (!existing) {
         reply.code(404);
-        return { error: "Credential not found" };
+        return { error: 'Credential not found' };
       }
 
       const {
@@ -199,10 +199,7 @@ export async function credentialRoutes(server: FastifyInstance) {
 
       if (Object.keys(updates).length > 0) {
         updates.updatedAt = new Date();
-        db.update(credentials)
-          .set(updates)
-          .where(eq(credentials.id, id))
-          .run();
+        db.update(credentials).set(updates).where(eq(credentials.id, id)).run();
       }
 
       const updated = db
@@ -217,7 +214,7 @@ export async function credentialRoutes(server: FastifyInstance) {
 
   // DELETE /api/credentials/:id — remove a credential
   server.delete<{ Params: { id: string } }>(
-    "/api/credentials/:id",
+    '/api/credentials/:id',
     async (request, reply) => {
       const { id } = request.params;
 
@@ -229,7 +226,7 @@ export async function credentialRoutes(server: FastifyInstance) {
 
       if (!existing) {
         reply.code(404);
-        return { error: "Credential not found" };
+        return { error: 'Credential not found' };
       }
 
       db.delete(credentials).where(eq(credentials.id, id)).run();

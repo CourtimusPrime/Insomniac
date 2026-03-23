@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { X, Trash2, Plus } from 'lucide-react';
-import type { Node, Edge } from '@xyflow/react';
+import type { Edge, Node } from '@xyflow/react';
+import { Plus, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { type Ability, useAbilities } from '../../api/abilities';
 import { ModelSelector } from '../ui/ModelSelector';
-import { useAbilities, type Ability } from '../../api/abilities';
-import type { AgentNodeData, AgentNodeAbility } from './AgentNode';
+import type { AgentNodeAbility, AgentNodeData } from './AgentNode';
 import { edgeColors } from './CustomEdge';
 
 /* ── Edge condition options ── */
@@ -40,8 +40,12 @@ export function NodeInspector({
 }: NodeInspectorProps) {
   const [name, setName] = useState(node.data.label);
   const [model, setModel] = useState(node.data.model ?? '');
-  const [systemPrompt, setSystemPrompt] = useState(node.data.systemPrompt ?? '');
-  const [abilities, setAbilities] = useState<AgentNodeAbility[]>(node.data.abilities ?? []);
+  const [systemPrompt, setSystemPrompt] = useState(
+    node.data.systemPrompt ?? '',
+  );
+  const [abilities, setAbilities] = useState<AgentNodeAbility[]>(
+    node.data.abilities ?? [],
+  );
   const [showAbilityPicker, setShowAbilityPicker] = useState(false);
 
   const { data: allAbilities } = useAbilities();
@@ -53,7 +57,12 @@ export function NodeInspector({
     setSystemPrompt(node.data.systemPrompt ?? '');
     setAbilities(node.data.abilities ?? []);
     setShowAbilityPicker(false);
-  }, [node.id, node.data.label, node.data.model, node.data.systemPrompt, node.data.abilities]);
+  }, [
+    node.data.label,
+    node.data.model,
+    node.data.systemPrompt,
+    node.data.abilities,
+  ]);
 
   // Outgoing edges from this node
   const outgoingEdges = edges.filter((e) => e.source === node.id);
@@ -171,7 +180,9 @@ export function NodeInspector({
               ))}
             </div>
           ) : (
-            <div className="text-[10px] text-text-faint">No abilities assigned</div>
+            <div className="text-[10px] text-text-faint">
+              No abilities assigned
+            </div>
           )}
 
           {/* Add ability button / picker */}
@@ -188,8 +199,13 @@ export function NodeInspector({
               className="mt-1 rounded border overflow-hidden"
               style={{ background: '#111827', borderColor: '#1e2a3a' }}
             >
-              <div className="px-2.5 py-1.5 border-b flex items-center justify-between" style={{ borderColor: '#1e2a3a' }}>
-                <span className="text-[10px] text-text-muted font-medium">Select ability</span>
+              <div
+                className="px-2.5 py-1.5 border-b flex items-center justify-between"
+                style={{ borderColor: '#1e2a3a' }}
+              >
+                <span className="text-[10px] text-text-muted font-medium">
+                  Select ability
+                </span>
                 <button
                   onClick={() => setShowAbilityPicker(false)}
                   className="text-text-muted hover:text-text-primary"
@@ -205,7 +221,9 @@ export function NodeInspector({
                       onClick={() => handleAddAbility(ability)}
                       className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left hover:bg-white/5 transition-colors"
                     >
-                      <span className="text-[11px] text-text-primary">{ability.name}</span>
+                      <span className="text-[11px] text-text-primary">
+                        {ability.name}
+                      </span>
                       <span
                         className={`text-[9px] px-1.5 py-0.5 rounded ${abilityTypeBadge[ability.type] ?? 'bg-gray-500/20 text-gray-400'}`}
                       >
@@ -236,12 +254,17 @@ export function NodeInspector({
                     className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                     style={{
                       background:
-                        edgeColors[(edge.data as { condition?: string })?.condition ?? 'always'] ??
-                        edgeColors.always,
+                        edgeColors[
+                          (edge.data as { condition?: string })?.condition ??
+                            'always'
+                        ] ?? edgeColors.always,
                     }}
                   />
                   <select
-                    value={(edge.data as { condition?: string })?.condition ?? 'always'}
+                    value={
+                      (edge.data as { condition?: string })?.condition ??
+                      'always'
+                    }
                     onChange={(e) => onUpdateEdge(edge.id, e.target.value)}
                     className="flex-1 rounded border border-border-default bg-bg-surface px-2 py-1 text-[11px] text-text-primary outline-none focus:border-accent-primary"
                   >

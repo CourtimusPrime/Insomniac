@@ -16,33 +16,42 @@ interface SlackMessage {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  success: "#36a64f",
-  warning: "#f2c744",
-  error: "#e01e5a",
-  info: "#1264a3",
+  success: '#36a64f',
+  warning: '#f2c744',
+  error: '#e01e5a',
+  info: '#1264a3',
 };
 
 export class SlackNotifier {
   /**
    * Send a message to a Slack incoming webhook.
    */
-  async sendMessage(webhookUrl: string, message: SlackMessage): Promise<SlackResult> {
+  async sendMessage(
+    webhookUrl: string,
+    message: SlackMessage,
+  ): Promise<SlackResult> {
     try {
       const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(message),
       });
 
       if (!response.ok) {
         const body = await response.text();
-        return { success: false, error: `Slack API error (${response.status}): ${body}` };
+        return {
+          success: false,
+          error: `Slack API error (${response.status}): ${body}`,
+        };
       }
 
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      return { success: false, error: `Failed to send Slack message: ${message}` };
+      return {
+        success: false,
+        error: `Failed to send Slack message: ${message}`,
+      };
     }
   }
 
@@ -52,7 +61,7 @@ export class SlackNotifier {
   private buildFormattedMessage(
     title: string,
     body: string,
-    status: keyof typeof STATUS_COLORS
+    status: keyof typeof STATUS_COLORS,
   ): SlackMessage {
     const color = STATUS_COLORS[status] ?? STATUS_COLORS.info;
 
@@ -63,12 +72,12 @@ export class SlackNotifier {
           color,
           blocks: [
             {
-              type: "section",
-              text: { type: "mrkdwn", text: `*${title}*` },
+              type: 'section',
+              text: { type: 'mrkdwn', text: `*${title}*` },
             },
             {
-              type: "section",
-              text: { type: "mrkdwn", text: body },
+              type: 'section',
+              text: { type: 'mrkdwn', text: body },
             },
           ],
         },
@@ -82,12 +91,12 @@ export class SlackNotifier {
   async notifyPipelineComplete(
     webhookUrl: string,
     pipelineName: string,
-    details: string
+    details: string,
   ): Promise<SlackResult> {
     const message = this.buildFormattedMessage(
       `Pipeline Complete: ${pipelineName}`,
       details,
-      "success"
+      'success',
     );
     return this.sendMessage(webhookUrl, message);
   }
@@ -98,12 +107,12 @@ export class SlackNotifier {
   async notifyDecisionNeeded(
     webhookUrl: string,
     subject: string,
-    details: string
+    details: string,
   ): Promise<SlackResult> {
     const message = this.buildFormattedMessage(
       `Decision Needed: ${subject}`,
       details,
-      "warning"
+      'warning',
     );
     return this.sendMessage(webhookUrl, message);
   }
@@ -114,12 +123,12 @@ export class SlackNotifier {
   async notifyError(
     webhookUrl: string,
     errorTitle: string,
-    details: string
+    details: string,
   ): Promise<SlackResult> {
     const message = this.buildFormattedMessage(
       `Error: ${errorTitle}`,
       details,
-      "error"
+      'error',
     );
     return this.sendMessage(webhookUrl, message);
   }

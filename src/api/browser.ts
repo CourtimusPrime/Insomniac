@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from './client';
 
 export interface BrowserStatus {
   running: boolean;
@@ -16,8 +16,8 @@ export interface ScreenshotResult {
 
 export function useBrowserStatus() {
   return useQuery<BrowserStatus>({
-    queryKey: ["browser-status"],
-    queryFn: () => apiFetch<BrowserStatus>("/api/browser/status"),
+    queryKey: ['browser-status'],
+    queryFn: () => apiFetch<BrowserStatus>('/api/browser/status'),
     refetchInterval: 5000,
   });
 }
@@ -27,11 +27,11 @@ export function useLaunchBrowser() {
 
   return useMutation({
     mutationFn: () =>
-      apiFetch<{ success: boolean }>("/api/browser/launch", {
-        method: "POST",
+      apiFetch<{ success: boolean }>('/api/browser/launch', {
+        method: 'POST',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["browser-status"] });
+      queryClient.invalidateQueries({ queryKey: ['browser-status'] });
     },
   });
 }
@@ -41,12 +41,12 @@ export function useNavigate() {
 
   return useMutation({
     mutationFn: (params: NavigateParams) =>
-      apiFetch<{ success: boolean; url: string }>("/api/browser/navigate", {
-        method: "POST",
+      apiFetch<{ success: boolean; url: string }>('/api/browser/navigate', {
+        method: 'POST',
         body: JSON.stringify(params),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["browser-status"] });
+      queryClient.invalidateQueries({ queryKey: ['browser-status'] });
     },
   });
 }
@@ -56,11 +56,11 @@ export function useScreenshot() {
 
   return useMutation({
     mutationFn: () =>
-      apiFetch<ScreenshotResult>("/api/browser/screenshot", {
-        method: "POST",
+      apiFetch<ScreenshotResult>('/api/browser/screenshot', {
+        method: 'POST',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["browser-status"] });
+      queryClient.invalidateQueries({ queryKey: ['browser-status'] });
     },
   });
 }
@@ -70,11 +70,11 @@ export function useCloseBrowser() {
 
   return useMutation({
     mutationFn: () =>
-      apiFetch<{ success: boolean }>("/api/browser/close", {
-        method: "POST",
+      apiFetch<{ success: boolean }>('/api/browser/close', {
+        method: 'POST',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["browser-status"] });
+      queryClient.invalidateQueries({ queryKey: ['browser-status'] });
     },
   });
 }
@@ -93,8 +93,8 @@ export interface InspectInAgentResult {
 export function useInspectInAgent() {
   return useMutation({
     mutationFn: (params: InspectInAgentParams) =>
-      apiFetch<InspectInAgentResult>("/api/browser/inspect-in-agent", {
-        method: "POST",
+      apiFetch<InspectInAgentResult>('/api/browser/inspect-in-agent', {
+        method: 'POST',
         body: JSON.stringify(params),
       }),
   });

@@ -1,12 +1,12 @@
 /** Configuration for selecting and configuring a browser engine. */
 export interface BrowserConfig {
-  engine: "lightpanda" | "playwright";
+  engine: 'lightpanda' | 'playwright';
   headless: boolean;
 }
 
 /** A single browser console entry. */
 export interface ConsoleEntry {
-  level: "info" | "warn" | "error";
+  level: 'info' | 'warn' | 'error';
   timestamp: string;
   message: string;
 }

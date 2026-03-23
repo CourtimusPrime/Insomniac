@@ -1,34 +1,50 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import {
-  ReactFlow,
+  addEdge,
   Background,
-  Controls,
-  MiniMap,
-  useNodesState,
-  useEdgesState,
-  useReactFlow,
-  ReactFlowProvider,
-  type Node,
-  type Edge,
-  type OnConnect,
+  BackgroundVariant,
   type Connection,
   type ConnectionLineComponentProps,
-  BackgroundVariant,
-  addEdge,
+  Controls,
+  type Edge,
   getBezierPath,
+  MiniMap,
+  type Node,
+  type OnConnect,
   Position,
+  ReactFlow,
+  ReactFlowProvider,
+  useEdgesState,
+  useNodesState,
+  useReactFlow,
 } from '@xyflow/react';
+import {
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import '@xyflow/react/dist/style.css';
-import { Plus, X, Layers } from 'lucide-react';
-import { AgentNode, type AgentNodeData } from './AgentNode';
-import { CustomEdge } from './CustomEdge';
-import { AddNodeMenu } from './AddNodeMenu';
-import { NodeInspector } from './NodeInspector';
-import { ChainToolbar } from './ChainToolbar';
-import { useChain, useSaveChain, type ChainDefinition } from '../../api/projects';
+import { Layers, Plus, X } from 'lucide-react';
+import {
+  type ChainDefinition,
+  useChain,
+  useProjects,
+  useSaveChain,
+} from '../../api/projects';
+import {
+  type Template,
+  useApplyTemplate,
+  useCreateTemplate,
+  useTemplates,
+} from '../../api/templates';
 import { useProjectsStore } from '../../stores/projects';
-import { useTemplates, useApplyTemplate, useCreateTemplate, type Template } from '../../api/templates';
-import { useProjects } from '../../api/projects';
+import { AddNodeMenu } from './AddNodeMenu';
+import { AgentNode, type AgentNodeData } from './AgentNode';
+import { ChainToolbar } from './ChainToolbar';
+import { CustomEdge } from './CustomEdge';
+import { NodeInspector } from './NodeInspector';
 
 const nodeTypes = { agent: AgentNode };
 const edgeTypes = { custom: CustomEdge };
@@ -100,7 +116,12 @@ const defaultEdgeOptions = {
 };
 
 /* ── Menu state type ── */
-type MenuState = { screenX: number; screenY: number; flowX: number; flowY: number } | null;
+type MenuState = {
+  screenX: number;
+  screenY: number;
+  flowX: number;
+  flowY: number;
+} | null;
 
 /* ── Serialize chain state for persistence ── */
 function serializeChain(nodes: Node[], edges: Edge[]): ChainDefinition {
@@ -129,7 +150,10 @@ function serializeChain(nodes: Node[], edges: Edge[]): ChainDefinition {
 }
 
 /* ── Deserialize chain from API into ReactFlow state ── */
-function deserializeChain(chain: ChainDefinition): { nodes: Node<AgentNodeData>[]; edges: Edge[] } {
+function deserializeChain(chain: ChainDefinition): {
+  nodes: Node<AgentNodeData>[];
+  edges: Edge[];
+} {
   const nodes: Node<AgentNodeData>[] = chain.nodes.map((n) => ({
     id: n.id,
     type: 'agent',
@@ -200,17 +224,26 @@ function TemplatePicker({
           className="px-4 py-3 border-b flex items-center justify-between shrink-0"
           style={{ borderColor: '#1e2a3a' }}
         >
-          <div className="text-xs font-semibold text-text-primary">Load Template</div>
-          <button className="text-text-muted hover:text-text-primary transition-colors" onClick={onClose}>
+          <div className="text-xs font-semibold text-text-primary">
+            Load Template
+          </div>
+          <button
+            className="text-text-muted hover:text-text-primary transition-colors"
+            onClick={onClose}
+          >
             <X size={14} />
           </button>
         </div>
         <div className="overflow-y-auto flex-1 py-1">
           {isLoading && (
-            <div className="px-4 py-8 text-center text-xs text-text-muted">Loading templates…</div>
+            <div className="px-4 py-8 text-center text-xs text-text-muted">
+              Loading templates…
+            </div>
           )}
           {templates && templates.length === 0 && (
-            <div className="px-4 py-8 text-center text-xs text-text-muted">No templates available</div>
+            <div className="px-4 py-8 text-center text-xs text-text-muted">
+              No templates available
+            </div>
           )}
           {templates?.map((t) => (
             <button
@@ -220,7 +253,9 @@ function TemplatePicker({
               onClick={() => onSelect(t)}
             >
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-medium text-text-primary">{t.name}</span>
+                <span className="text-[11px] font-medium text-text-primary">
+                  {t.name}
+                </span>
                 {t.isBuiltIn && (
                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary font-medium">
                     Built-in
@@ -231,7 +266,9 @@ function TemplatePicker({
                 </span>
               </div>
               {t.description && (
-                <div className="text-[10px] text-text-muted mt-1 line-clamp-2">{t.description}</div>
+                <div className="text-[10px] text-text-muted mt-1 line-clamp-2">
+                  {t.description}
+                </div>
               )}
             </button>
           ))}
@@ -247,13 +284,19 @@ function SaveTemplateForm({
   onClose,
   isPending,
 }: {
-  onSave: (data: { name: string; description: string; category: 'workflow' | 'agent-config' | 'template' | 'mcp-adapter' }) => void;
+  onSave: (data: {
+    name: string;
+    description: string;
+    category: 'workflow' | 'agent-config' | 'template' | 'mcp-adapter';
+  }) => void;
   onClose: () => void;
   isPending: boolean;
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<'workflow' | 'agent-config' | 'template' | 'mcp-adapter'>('workflow');
+  const [category, setCategory] = useState<
+    'workflow' | 'agent-config' | 'template' | 'mcp-adapter'
+  >('workflow');
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -294,14 +337,21 @@ function SaveTemplateForm({
           className="px-4 py-3 border-b flex items-center justify-between shrink-0"
           style={{ borderColor: '#1e2a3a' }}
         >
-          <div className="text-xs font-semibold text-text-primary">Save as Template</div>
-          <button className="text-text-muted hover:text-text-primary transition-colors" onClick={onClose}>
+          <div className="text-xs font-semibold text-text-primary">
+            Save as Template
+          </div>
+          <button
+            className="text-text-muted hover:text-text-primary transition-colors"
+            onClick={onClose}
+          >
             <X size={14} />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-3">
           <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-1">Name</label>
+            <label className="block text-[10px] font-medium text-text-muted mb-1">
+              Name
+            </label>
             <input
               className={inputClass}
               style={{ borderColor: '#1e2a3a' }}
@@ -309,12 +359,13 @@ function SaveTemplateForm({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="My Pipeline Template"
-              autoFocus
               required
             />
           </div>
           <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-1">Description</label>
+            <label className="block text-[10px] font-medium text-text-muted mb-1">
+              Description
+            </label>
             <textarea
               className={`${inputClass} resize-none`}
               style={{ borderColor: '#1e2a3a' }}
@@ -325,7 +376,9 @@ function SaveTemplateForm({
             />
           </div>
           <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-1">Category</label>
+            <label className="block text-[10px] font-medium text-text-muted mb-1">
+              Category
+            </label>
             <select
               className={inputClass}
               style={{ borderColor: '#1e2a3a' }}
@@ -382,7 +435,8 @@ function ChainEditorInner() {
     if (!chainData) return;
     // Only load once per project (avoid overwriting user edits with stale query data)
     if (hasLoadedRef.current) return;
-    const { nodes: loadedNodes, edges: loadedEdges } = deserializeChain(chainData);
+    const { nodes: loadedNodes, edges: loadedEdges } =
+      deserializeChain(chainData);
     setNodes(loadedNodes);
     setEdges(loadedEdges);
     hasLoadedRef.current = true;
@@ -391,7 +445,7 @@ function ChainEditorInner() {
   // Reset loaded flag when project changes
   useEffect(() => {
     hasLoadedRef.current = false;
-  }, [activeProjectId]);
+  }, []);
 
   // Debounced auto-save (1s) on nodes/edges change
   useEffect(() => {
@@ -405,7 +459,7 @@ function ChainEditorInner() {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, edges, activeProjectId]);
+  }, [nodes, edges, activeProjectId, saveChain.mutate]);
 
   /* ── Apply template ── */
   const applyTemplate = useApplyTemplate();
@@ -413,7 +467,10 @@ function ChainEditorInner() {
     (template: Template) => {
       if (!activeProjectId) return;
       // Persist on server
-      applyTemplate.mutate({ templateId: template.id, projectId: activeProjectId });
+      applyTemplate.mutate({
+        templateId: template.id,
+        projectId: activeProjectId,
+      });
       // Load chain locally from the template's chainDefinition
       const chain = template.chainDefinition as ChainDefinition;
       const { nodes: newNodes, edges: newEdges } = deserializeChain(chain);
@@ -428,7 +485,11 @@ function ChainEditorInner() {
   const { data: projectsList } = useProjects();
   const createTemplate = useCreateTemplate();
   const handleSaveAsTemplate = useCallback(
-    (data: { name: string; description: string; category: 'workflow' | 'agent-config' | 'template' | 'mcp-adapter' }) => {
+    (data: {
+      name: string;
+      description: string;
+      category: 'workflow' | 'agent-config' | 'template' | 'mcp-adapter';
+    }) => {
       const workspaceId = projectsList?.[0]?.workspaceId;
       if (!workspaceId) return;
       const chain = serializeChain(nodes, edges);
@@ -470,9 +531,7 @@ function ChainEditorInner() {
     (nodeId: string, data: Partial<AgentNodeData>) => {
       setNodes((nds) =>
         nds.map((n) =>
-          n.id === nodeId
-            ? { ...n, data: { ...n.data, ...data } }
-            : n,
+          n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n,
         ),
       );
     },
@@ -512,7 +571,9 @@ function ChainEditorInner() {
 
   // The inspected node (from the raw nodes, not the callback-injected version)
   const inspectedNode = inspectedNodeId
-    ? (nodes.find((n) => n.id === inspectedNodeId) as Node<AgentNodeData> | undefined) ?? null
+    ? ((nodes.find((n) => n.id === inspectedNodeId) as
+        | Node<AgentNodeData>
+        | undefined) ?? null)
     : null;
 
   const onConnect: OnConnect = useCallback(
@@ -557,14 +618,20 @@ function ChainEditorInner() {
   /* ── Open menu via toolbar button ── */
   const handleToolbarAdd = useCallback(() => {
     // Place node at center of the viewport
-    const flowPos = screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+    const flowPos = screenToFlowPosition({
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    });
     setMenu({ screenX: 80, screenY: 48, flowX: flowPos.x, flowY: flowPos.y });
   }, [screenToFlowPosition]);
 
   /* ── Open menu via double-click on canvas ── */
   const handlePaneDoubleClick = useCallback(
     (event: MouseEvent) => {
-      const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      const flowPos = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
       const target = event.target as HTMLElement;
       const rect = target.closest('.react-flow')?.getBoundingClientRect();
       const screenX = rect ? event.clientX - rect.left : event.clientX;
@@ -617,7 +684,9 @@ function ChainEditorInner() {
         condition: (e.data as { condition?: string })?.condition ?? 'always',
       })),
     };
-    const blob = new Blob([JSON.stringify(chain, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(chain, null, 2)], {
+      type: 'application/json',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -631,7 +700,10 @@ function ChainEditorInner() {
   const isEmpty = nodes.length === 0;
 
   return (
-    <div className="h-full w-full relative flex flex-col" style={{ background: '#0a0d13' }}>
+    <div
+      className="h-full w-full relative flex flex-col"
+      style={{ background: '#0a0d13' }}
+    >
       {/* Toolbar */}
       <ChainToolbar
         onAddNode={handleToolbarAdd}
@@ -700,7 +772,8 @@ function ChainEditorInner() {
                 Add your first agent node
               </div>
               <div className="text-xs text-text-muted max-w-xs">
-                Build an agent chain by adding nodes and connecting them with edges.
+                Build an agent chain by adding nodes and connecting them with
+                edges.
               </div>
               <div className="flex items-center gap-2 justify-center pt-1">
                 <div className="h-px w-8 bg-border-default" />
@@ -738,7 +811,8 @@ function ChainEditorInner() {
 
         {/* Save success toast */}
         {saveSuccess && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg border text-[11px] font-medium text-green-400 shadow-lg"
+          <div
+            className="absolute top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg border text-[11px] font-medium text-green-400 shadow-lg"
             style={{ background: '#111827', borderColor: '#1e2a3a' }}
           >
             Template saved successfully

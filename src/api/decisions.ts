@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from './client';
 
 export interface Decision {
   id: string;
@@ -16,8 +16,9 @@ export interface Decision {
 
 export function useDecisions(projectId: string | null) {
   return useQuery<Decision[]>({
-    queryKey: ["decisions", projectId],
-    queryFn: () => apiFetch<Decision[]>(`/api/decisions?projectId=${projectId}`),
+    queryKey: ['decisions', projectId],
+    queryFn: () =>
+      apiFetch<Decision[]>(`/api/decisions?projectId=${projectId}`),
     enabled: !!projectId,
   });
 }
@@ -35,11 +36,11 @@ export function useResolveDecision(projectId: string | null) {
       autoDecide?: boolean;
     }) =>
       apiFetch(`/api/decisions/${decisionId}`, {
-        method: "PUT",
+        method: 'PUT',
         body: JSON.stringify({ resolution, autoDecide }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["decisions", projectId] });
+      queryClient.invalidateQueries({ queryKey: ['decisions', projectId] });
     },
   });
 }

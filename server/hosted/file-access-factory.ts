@@ -1,12 +1,12 @@
-import { readFile, writeFile, readdir, unlink, mkdir, stat } from "node:fs/promises";
-import { join, dirname } from "node:path";
-import { getDeploymentConfig } from "../config/deployment.js";
-import { GitHubFileAdapter } from "./github-file-adapter.js";
+import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { getDeploymentConfig } from '../config/deployment.js';
+import { GitHubFileAdapter } from './github-file-adapter.js';
 
 export type FileEntry = {
   name: string;
   path: string;
-  type: "file" | "dir";
+  type: 'file' | 'dir';
 };
 
 /**
@@ -15,10 +15,14 @@ export type FileEntry = {
  */
 export type FileAccessAdapter = {
   readFile(path: string): Promise<string>;
-  writeFile(path: string, content: string, commitMessage?: string): Promise<void>;
+  writeFile(
+    path: string,
+    content: string,
+    commitMessage?: string,
+  ): Promise<void>;
   listFiles(path: string): Promise<FileEntry[]>;
   deleteFile(path: string, commitMessage?: string): Promise<void>;
-  readonly mode: "filesystem" | "github";
+  readonly mode: 'filesystem' | 'github';
 };
 
 /**
@@ -30,16 +34,16 @@ function createLocalAdapter(basePath: string): FileAccessAdapter {
   }
 
   return {
-    mode: "filesystem",
+    mode: 'filesystem',
 
     async readFile(path: string): Promise<string> {
-      return readFile(resolve(path), "utf-8");
+      return readFile(resolve(path), 'utf-8');
     },
 
     async writeFile(path: string, content: string): Promise<void> {
       const fullPath = resolve(path);
       await mkdir(dirname(fullPath), { recursive: true });
-      await writeFile(fullPath, content, "utf-8");
+      await writeFile(fullPath, content, 'utf-8');
     },
 
     async listFiles(path: string): Promise<FileEntry[]> {
@@ -48,7 +52,7 @@ function createLocalAdapter(basePath: string): FileAccessAdapter {
       return entries.map((entry) => ({
         name: entry.name,
         path: join(path, entry.name),
-        type: entry.isDirectory() ? "dir" as const : "file" as const,
+        type: entry.isDirectory() ? ('dir' as const) : ('file' as const),
       }));
     },
 
@@ -66,14 +70,23 @@ function createGitHubAdapter(token: string, repo: string): FileAccessAdapter {
   const github = new GitHubFileAdapter(token);
 
   return {
-    mode: "github",
+    mode: 'github',
 
     async readFile(path: string): Promise<string> {
       return github.readFile(repo, path);
     },
 
-    async writeFile(path: string, content: string, commitMessage?: string): Promise<void> {
-      await github.writeFile(repo, path, content, commitMessage ?? `Update ${path}`);
+    async writeFile(
+      path: string,
+      content: string,
+      commitMessage?: string,
+    ): Promise<void> {
+      await github.writeFile(
+        repo,
+        path,
+        content,
+        commitMessage ?? `Update ${path}`,
+      );
     },
 
     async listFiles(path: string): Promise<FileEntry[]> {
@@ -104,13 +117,13 @@ export function createFileAccessAdapter(options: {
 }): FileAccessAdapter {
   const config = getDeploymentConfig();
 
-  if (config.fileAccess === "github") {
+  if (config.fileAccess === 'github') {
     const token = options.githubToken ?? process.env.GITHUB_TOKEN;
     const repo = options.githubRepo ?? process.env.GITHUB_REPO;
 
     if (!token || !repo) {
       throw new Error(
-        "GitHub file access requires GITHUB_TOKEN and GITHUB_REPO env vars (or explicit options)",
+        'GitHub file access requires GITHUB_TOKEN and GITHUB_REPO env vars (or explicit options)',
       );
     }
 

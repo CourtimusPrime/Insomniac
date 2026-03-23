@@ -1,14 +1,14 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "./client";
-import type { Template } from "./templates";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from './client';
+import type { Template } from './templates';
 
 export type MarketplaceItemType =
-  | "workflow"
-  | "agent-config"
-  | "template"
-  | "mcp-adapter";
+  | 'workflow'
+  | 'agent-config'
+  | 'template'
+  | 'mcp-adapter';
 
-export type TrustTier = "community" | "verified" | "official";
+export type TrustTier = 'community' | 'verified' | 'official';
 
 export interface MarketplaceItem {
   id: string;
@@ -42,24 +42,24 @@ export interface MarketplaceResponse {
 
 export function useMarketplace(filters?: MarketplaceFilters) {
   const params = new URLSearchParams();
-  if (filters?.type) params.set("type", filters.type);
-  if (filters?.trustTier) params.set("trustTier", filters.trustTier);
-  if (filters?.search) params.set("search", filters.search);
-  if (filters?.page) params.set("page", String(filters.page));
-  if (filters?.limit) params.set("limit", String(filters.limit));
+  if (filters?.type) params.set('type', filters.type);
+  if (filters?.trustTier) params.set('trustTier', filters.trustTier);
+  if (filters?.search) params.set('search', filters.search);
+  if (filters?.page) params.set('page', String(filters.page));
+  if (filters?.limit) params.set('limit', String(filters.limit));
 
   const qs = params.toString();
 
   return useQuery<MarketplaceResponse>({
-    queryKey: ["marketplace", filters],
+    queryKey: ['marketplace', filters],
     queryFn: () =>
-      apiFetch<MarketplaceResponse>(`/api/marketplace${qs ? `?${qs}` : ""}`),
+      apiFetch<MarketplaceResponse>(`/api/marketplace${qs ? `?${qs}` : ''}`),
   });
 }
 
 export function useMarketplaceItem(id: string | null) {
   return useQuery<MarketplaceItem>({
-    queryKey: ["marketplace", id],
+    queryKey: ['marketplace', id],
     queryFn: () => apiFetch<MarketplaceItem>(`/api/marketplace/${id}`),
     enabled: !!id,
   });
@@ -68,24 +68,18 @@ export function useMarketplaceItem(id: string | null) {
 export function useInstallItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      id,
-      workspaceId,
-    }: {
-      id: string;
-      workspaceId?: string;
-    }) =>
+    mutationFn: ({ id, workspaceId }: { id: string; workspaceId?: string }) =>
       apiFetch<{
         installed: boolean;
         template: Template;
         source: { marketplaceId: string; name: string; version: string };
       }>(`/api/marketplace/${id}/install`, {
-        method: "POST",
+        method: 'POST',
         body: JSON.stringify(workspaceId ? { workspaceId } : {}),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["marketplace"] });
-      queryClient.invalidateQueries({ queryKey: ["templates"] });
+      queryClient.invalidateQueries({ queryKey: ['marketplace'] });
+      queryClient.invalidateQueries({ queryKey: ['templates'] });
     },
   });
 }

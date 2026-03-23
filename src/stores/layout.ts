@@ -1,9 +1,20 @@
 import { create } from 'zustand';
 
 type ToolbarPanel = 'projects' | 'abilities' | 'github' | 'marketplace';
-type MainView = 'pipeline' | 'graph' | 'backseat' | 'ability-detail' | 'settings' | 'marketplace';
+type MainView =
+  | 'pipeline'
+  | 'graph'
+  | 'backseat'
+  | 'ability-detail'
+  | 'settings'
+  | 'marketplace';
 type BottomTab = 'terminal' | 'usage' | 'health' | 'browser';
-export type MarketplaceCategory = 'all' | 'workflow' | 'agent-config' | 'template' | 'mcp-adapter';
+export type MarketplaceCategory =
+  | 'all'
+  | 'workflow'
+  | 'agent-config'
+  | 'template'
+  | 'mcp-adapter';
 
 const PINNED_THEMES_KEY = 'insomniac-pinned-themes';
 const MAX_PINNED = 4;
@@ -15,7 +26,9 @@ function loadPinnedThemes(): string[] {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) return parsed.slice(0, MAX_PINNED);
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return [];
 }
 
@@ -83,7 +96,11 @@ export const useLayoutStore = create<LayoutState>((set) => ({
     })),
   pinTheme: (id) =>
     set((state) => {
-      if (state.pinnedThemes.includes(id) || state.pinnedThemes.length >= MAX_PINNED) return state;
+      if (
+        state.pinnedThemes.includes(id) ||
+        state.pinnedThemes.length >= MAX_PINNED
+      )
+        return state;
       const next = [...state.pinnedThemes, id];
       savePinnedThemes(next);
       return { pinnedThemes: next };

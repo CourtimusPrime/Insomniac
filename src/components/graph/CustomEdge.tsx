@@ -1,13 +1,13 @@
-import { useState } from 'react';
 import {
   BaseEdge,
+  type Edge,
   EdgeLabelRenderer,
+  type EdgeProps,
   getBezierPath,
   useReactFlow,
-  type Edge,
-  type EdgeProps,
 } from '@xyflow/react';
 import { X } from 'lucide-react';
+import { useState } from 'react';
 
 /* ── edge-condition colour map ── */
 export const edgeColors: Record<string, string> = {

@@ -1,17 +1,17 @@
-import type { FastifyInstance } from "fastify";
-import { db } from "../db/connection.js";
-import { providers, workspaces } from "../db/schema/index.js";
-import { ProviderRegistry } from "../providers/registry.js";
-import { getModelsForProvider } from "../providers/models.js";
-import { OllamaProvider } from "../providers/ollama.js";
+import type { FastifyInstance } from 'fastify';
+import { db } from '../db/connection.js';
+import { providers, workspaces } from '../db/schema/index.js';
+import { getModelsForProvider } from '../providers/models.js';
+import { OllamaProvider } from '../providers/ollama.js';
+import { ProviderRegistry } from '../providers/registry.js';
 
 const PROVIDER_NAMES = [
-  "anthropic",
-  "openai",
-  "google",
-  "openrouter",
-  "ollama",
-  "custom",
+  'anthropic',
+  'openai',
+  'google',
+  'openrouter',
+  'ollama',
+  'custom',
 ] as const;
 
 const SEED_PROVIDERS: {
@@ -19,11 +19,11 @@ const SEED_PROVIDERS: {
   displayName: string;
   baseUrl?: string;
 }[] = [
-  { name: "anthropic", displayName: "Anthropic" },
-  { name: "openai", displayName: "OpenAI" },
-  { name: "google", displayName: "Google" },
-  { name: "openrouter", displayName: "OpenRouter" },
-  { name: "ollama", displayName: "Ollama", baseUrl: "http://localhost:11434" },
+  { name: 'anthropic', displayName: 'Anthropic' },
+  { name: 'openai', displayName: 'OpenAI' },
+  { name: 'google', displayName: 'Google' },
+  { name: 'openrouter', displayName: 'OpenRouter' },
+  { name: 'ollama', displayName: 'Ollama', baseUrl: 'http://localhost:11434' },
 ];
 
 async function seedProvidersIfEmpty() {
@@ -53,7 +53,7 @@ export async function providerRoutes(server: FastifyInstance) {
   // Seed default providers on first run
   await seedProvidersIfEmpty();
   // GET /api/providers — list all providers (no decrypted keys)
-  server.get("/api/providers", async () => {
+  server.get('/api/providers', async () => {
     return registry.listProviders();
   });
 
@@ -68,23 +68,23 @@ export async function providerRoutes(server: FastifyInstance) {
       isActive?: boolean;
     };
   }>(
-    "/api/providers",
+    '/api/providers',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["workspaceId", "name", "displayName"],
+          type: 'object',
+          required: ['workspaceId', 'name', 'displayName'],
           additionalProperties: false,
           properties: {
-            workspaceId: { type: "string", minLength: 1 },
+            workspaceId: { type: 'string', minLength: 1 },
             name: {
-              type: "string",
+              type: 'string',
               enum: [...PROVIDER_NAMES],
             },
-            displayName: { type: "string", minLength: 1, maxLength: 100 },
-            baseUrl: { type: "string", maxLength: 500 },
-            apiKey: { type: "string", maxLength: 500 },
-            isActive: { type: "boolean" },
+            displayName: { type: 'string', minLength: 1, maxLength: 100 },
+            baseUrl: { type: 'string', maxLength: 500 },
+            apiKey: { type: 'string', maxLength: 500 },
+            isActive: { type: 'boolean' },
           },
         },
       },
@@ -106,17 +106,17 @@ export async function providerRoutes(server: FastifyInstance) {
       isActive?: boolean;
     };
   }>(
-    "/api/providers/:id",
+    '/api/providers/:id',
     {
       schema: {
         body: {
-          type: "object",
+          type: 'object',
           additionalProperties: false,
           properties: {
-            displayName: { type: "string", minLength: 1, maxLength: 100 },
-            baseUrl: { type: "string", maxLength: 500 },
-            apiKey: { type: "string", maxLength: 500 },
-            isActive: { type: "boolean" },
+            displayName: { type: 'string', minLength: 1, maxLength: 100 },
+            baseUrl: { type: 'string', maxLength: 500 },
+            apiKey: { type: 'string', maxLength: 500 },
+            isActive: { type: 'boolean' },
           },
         },
       },
@@ -125,7 +125,7 @@ export async function providerRoutes(server: FastifyInstance) {
       const updated = registry.updateProvider(request.params.id, request.body);
       if (!updated) {
         reply.code(404);
-        return { error: "Provider not found" };
+        return { error: 'Provider not found' };
       }
       return updated;
     },
@@ -133,12 +133,12 @@ export async function providerRoutes(server: FastifyInstance) {
 
   // DELETE /api/providers/:id — remove a provider
   server.delete<{ Params: { id: string } }>(
-    "/api/providers/:id",
+    '/api/providers/:id',
     async (request, reply) => {
       const deleted = registry.removeProvider(request.params.id);
       if (!deleted) {
         reply.code(404);
-        return { error: "Provider not found" };
+        return { error: 'Provider not found' };
       }
       return reply.code(204).send();
     },
@@ -148,15 +148,31 @@ export async function providerRoutes(server: FastifyInstance) {
   // NOTE: This must be registered BEFORE the :id/models route so Fastify
   // doesn't treat "ollama" as a :id param.
   server.get<{ Querystring: { baseUrl?: string } }>(
-    "/api/providers/ollama/models",
+    '/api/providers/ollama/models',
     async (_request, reply) => {
-      const rawUrl = _request.query.baseUrl || "http://localhost:11434";
+      const rawUrl = _request.query.baseUrl || 'http://localhost:11434';
       // SSRF protection: only allow http/https to localhost
       let parsed: URL;
-      try { parsed = new URL(rawUrl); } catch { reply.code(400); return { error: "Invalid baseUrl" }; }
-      if (!["http:", "https:"].includes(parsed.protocol)) { reply.code(400); return { error: "Only http/https allowed" }; }
-      const allowedHosts = ["localhost", "127.0.0.1", "::1", ...(process.env.OLLAMA_ALLOWED_HOSTS?.split(",") ?? [])];
-      if (!allowedHosts.includes(parsed.hostname)) { reply.code(400); return { error: "baseUrl host not permitted" }; }
+      try {
+        parsed = new URL(rawUrl);
+      } catch {
+        reply.code(400);
+        return { error: 'Invalid baseUrl' };
+      }
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        reply.code(400);
+        return { error: 'Only http/https allowed' };
+      }
+      const allowedHosts = [
+        'localhost',
+        '127.0.0.1',
+        '::1',
+        ...(process.env.OLLAMA_ALLOWED_HOSTS?.split(',') ?? []),
+      ];
+      if (!allowedHosts.includes(parsed.hostname)) {
+        reply.code(400);
+        return { error: 'baseUrl host not permitted' };
+      }
       const baseUrl = parsed.origin;
       const ollama = new OllamaProvider(baseUrl);
       try {
@@ -164,29 +180,29 @@ export async function providerRoutes(server: FastifyInstance) {
         return models;
       } catch {
         reply.code(502);
-        return { error: "Failed to connect to Ollama" };
+        return { error: 'Failed to connect to Ollama' };
       }
     },
   );
 
   // GET /api/providers/:id/models — available models for a provider
   server.get<{ Params: { id: string } }>(
-    "/api/providers/:id/models",
+    '/api/providers/:id/models',
     async (request, reply) => {
       const provider = registry.getProvider(request.params.id);
       if (!provider) {
         reply.code(404);
-        return { error: "Provider not found" };
+        return { error: 'Provider not found' };
       }
 
       // Ollama: fetch live models from the instance
-      if (provider.name === "ollama") {
+      if (provider.name === 'ollama') {
         const ollama = new OllamaProvider(provider.baseUrl ?? undefined);
         try {
           return await ollama.fetchModels();
         } catch {
           reply.code(502);
-          return { error: "Failed to connect to Ollama" };
+          return { error: 'Failed to connect to Ollama' };
         }
       }
 

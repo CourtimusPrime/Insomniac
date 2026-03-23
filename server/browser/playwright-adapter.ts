@@ -1,5 +1,5 @@
-import { chromium, type Browser, type Page } from "playwright";
-import type { BrowserConfig, BrowserEngine, ConsoleEntry } from "./types.js";
+import { type Browser, chromium, type Page } from 'playwright';
+import type { BrowserConfig, BrowserEngine, ConsoleEntry } from './types.js';
 
 /** Playwright-based implementation of the BrowserEngine abstraction. */
 export class PlaywrightAdapter implements BrowserEngine {
@@ -14,18 +14,22 @@ export class PlaywrightAdapter implements BrowserEngine {
     this.page = await context.newPage();
 
     // Forward page console messages to the registered callback
-    this.page.on("console", (msg) => {
+    this.page.on('console', (msg) => {
       if (!this.consoleCallback) return;
       const rawType = msg.type(); // 'log' | 'debug' | 'info' | 'warning' | 'error' | ...
-      let level: ConsoleEntry["level"] = "info";
-      if (rawType === "warning") level = "warn";
-      else if (rawType === "error") level = "error";
-      this.consoleCallback({ level, timestamp: new Date().toISOString(), message: msg.text() });
+      let level: ConsoleEntry['level'] = 'info';
+      if (rawType === 'warning') level = 'warn';
+      else if (rawType === 'error') level = 'error';
+      this.consoleCallback({
+        level,
+        timestamp: new Date().toISOString(),
+        message: msg.text(),
+      });
     });
   }
 
   async navigate(url: string): Promise<void> {
-    await this.requirePage().goto(url, { waitUntil: "load" });
+    await this.requirePage().goto(url, { waitUntil: 'load' });
   }
 
   async click(selector: string): Promise<void> {
@@ -37,12 +41,14 @@ export class PlaywrightAdapter implements BrowserEngine {
   }
 
   async screenshot(): Promise<string> {
-    const buffer = await this.requirePage().screenshot({ type: "png" });
-    return buffer.toString("base64");
+    const buffer = await this.requirePage().screenshot({ type: 'png' });
+    return buffer.toString('base64');
   }
 
   async getText(selector: string): Promise<string> {
-    return this.requirePage().textContent(selector).then((t) => t ?? "");
+    return this.requirePage()
+      .textContent(selector)
+      .then((t) => t ?? '');
   }
 
   async evaluate(script: string): Promise<unknown> {
@@ -63,7 +69,7 @@ export class PlaywrightAdapter implements BrowserEngine {
   /** Return the active page or throw if the browser hasn't been launched. */
   private requirePage(): Page {
     if (!this.page) {
-      throw new Error("Browser not launched. Call launch() first.");
+      throw new Error('Browser not launched. Call launch() first.');
     }
     return this.page;
   }

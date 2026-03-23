@@ -1,6 +1,6 @@
-import type { ModelDefinition } from "./models.js";
+import type { ModelDefinition } from './models.js';
 
-const DEFAULT_BASE_URL = "http://localhost:11434";
+const DEFAULT_BASE_URL = 'http://localhost:11434';
 
 interface OllamaTagsResponse {
   models: Array<{
@@ -19,7 +19,7 @@ export class OllamaProvider {
   private baseUrl: string;
 
   constructor(baseUrl?: string) {
-    this.baseUrl = (baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+    this.baseUrl = (baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
   }
 
   /**
@@ -40,7 +40,7 @@ export class OllamaProvider {
       id: m.name,
       name: m.name,
       displayName: m.name,
-      provider: "ollama",
+      provider: 'ollama',
       contextWindow: 0, // Ollama doesn't expose this via /api/tags
       costPerInputToken: 0,
       costPerOutputToken: 0,

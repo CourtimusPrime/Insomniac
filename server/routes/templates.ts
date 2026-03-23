@@ -1,21 +1,21 @@
-import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { templates, projects } from "../db/schema/index.js";
-import { seedBuiltInTemplates } from "../templates/built-in.js";
+import { eq } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { db } from '../db/connection.js';
+import { projects, templates } from '../db/schema/index.js';
+import { seedBuiltInTemplates } from '../templates/built-in.js';
 
 export async function templateRoutes(server: FastifyInstance) {
   // Seed built-in templates on first load
   await seedBuiltInTemplates();
 
   // GET /api/templates — list all templates (built-in + user-created)
-  server.get("/api/templates", async () => {
+  server.get('/api/templates', async () => {
     return db.select().from(templates).all();
   });
 
   // GET /api/templates/:id — get a single template
   server.get<{ Params: { id: string } }>(
-    "/api/templates/:id",
+    '/api/templates/:id',
     async (request, reply) => {
       const { id } = request.params;
 
@@ -27,7 +27,7 @@ export async function templateRoutes(server: FastifyInstance) {
 
       if (!template) {
         reply.code(404);
-        return { error: "Template not found" };
+        return { error: 'Template not found' };
       }
 
       return template;
@@ -39,46 +39,53 @@ export async function templateRoutes(server: FastifyInstance) {
     Body: {
       name: string;
       description?: string;
-      category: "workflow" | "agent-config" | "template" | "mcp-adapter";
+      category: 'workflow' | 'agent-config' | 'template' | 'mcp-adapter';
       chainDefinition: { version: number; nodes: unknown[]; edges: unknown[] };
       author?: string;
       version?: string;
       workspaceId: string;
     };
   }>(
-    "/api/templates",
+    '/api/templates',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["name", "category", "chainDefinition", "workspaceId"],
+          type: 'object',
+          required: ['name', 'category', 'chainDefinition', 'workspaceId'],
           additionalProperties: false,
           properties: {
-            name: { type: "string", minLength: 1, maxLength: 200 },
-            description: { type: "string", maxLength: 1000 },
+            name: { type: 'string', minLength: 1, maxLength: 200 },
+            description: { type: 'string', maxLength: 1000 },
             category: {
-              type: "string",
-              enum: ["workflow", "agent-config", "template", "mcp-adapter"],
+              type: 'string',
+              enum: ['workflow', 'agent-config', 'template', 'mcp-adapter'],
             },
             chainDefinition: {
-              type: "object",
-              required: ["version", "nodes", "edges"],
+              type: 'object',
+              required: ['version', 'nodes', 'edges'],
               properties: {
-                version: { type: "number" },
-                nodes: { type: "array" },
-                edges: { type: "array" },
+                version: { type: 'number' },
+                nodes: { type: 'array' },
+                edges: { type: 'array' },
               },
             },
-            author: { type: "string", maxLength: 100 },
-            version: { type: "string", maxLength: 20 },
-            workspaceId: { type: "string", minLength: 1 },
+            author: { type: 'string', maxLength: 100 },
+            version: { type: 'string', maxLength: 20 },
+            workspaceId: { type: 'string', minLength: 1 },
           },
         },
       },
     },
     async (request, reply) => {
-      const { name, description, category, chainDefinition, author, version, workspaceId } =
-        request.body;
+      const {
+        name,
+        description,
+        category,
+        chainDefinition,
+        author,
+        version,
+        workspaceId,
+      } = request.body;
       const id = crypto.randomUUID();
 
       db.insert(templates)
@@ -111,15 +118,15 @@ export async function templateRoutes(server: FastifyInstance) {
     Params: { id: string };
     Body: { projectId: string };
   }>(
-    "/api/templates/:id/apply",
+    '/api/templates/:id/apply',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["projectId"],
+          type: 'object',
+          required: ['projectId'],
           additionalProperties: false,
           properties: {
-            projectId: { type: "string", minLength: 1 },
+            projectId: { type: 'string', minLength: 1 },
           },
         },
       },
@@ -136,7 +143,7 @@ export async function templateRoutes(server: FastifyInstance) {
 
       if (!template) {
         reply.code(404);
-        return { error: "Template not found" };
+        return { error: 'Template not found' };
       }
 
       const project = db
@@ -147,7 +154,7 @@ export async function templateRoutes(server: FastifyInstance) {
 
       if (!project) {
         reply.code(404);
-        return { error: "Project not found" };
+        return { error: 'Project not found' };
       }
 
       // Copy chainDefinition from template to project
@@ -180,7 +187,7 @@ export async function templateRoutes(server: FastifyInstance) {
 
   // DELETE /api/templates/:id — delete a user template (cannot delete built-in)
   server.delete<{ Params: { id: string } }>(
-    "/api/templates/:id",
+    '/api/templates/:id',
     async (request, reply) => {
       const { id } = request.params;
 
@@ -192,12 +199,12 @@ export async function templateRoutes(server: FastifyInstance) {
 
       if (!template) {
         reply.code(404);
-        return { error: "Template not found" };
+        return { error: 'Template not found' };
       }
 
       if (template.isBuiltIn) {
         reply.code(403);
-        return { error: "Cannot delete built-in templates" };
+        return { error: 'Cannot delete built-in templates' };
       }
 
       db.delete(templates).where(eq(templates.id, id)).run();

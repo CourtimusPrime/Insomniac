@@ -1,7 +1,20 @@
-import { useState, useEffect } from 'react';
-import { Loader2, AlertCircle, Search, Download, Shield, ShieldCheck, ShieldAlert, Check } from 'lucide-react';
-import { useMarketplace, useInstallItem, type MarketplaceItemType } from '../../api/marketplace';
-import { useLayoutStore, type MarketplaceCategory } from '../../stores/layout';
+import {
+  AlertCircle,
+  Check,
+  Download,
+  Loader2,
+  Search,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
+  type MarketplaceItemType,
+  useInstallItem,
+  useMarketplace,
+} from '../../api/marketplace';
+import { type MarketplaceCategory, useLayoutStore } from '../../stores/layout';
 
 type CategoryTab = 'all' | MarketplaceItemType;
 
@@ -20,10 +33,21 @@ const TYPE_COLORS: Record<string, string> = {
   'mcp-adapter': 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
 };
 
-const TIER_CONFIG: Record<string, { icon: typeof Shield; color: string; label: string }> = {
+const TIER_CONFIG: Record<
+  string,
+  { icon: typeof Shield; color: string; label: string }
+> = {
   community: { icon: Shield, color: 'text-text-muted', label: 'Community' },
-  verified: { icon: ShieldCheck, color: 'text-status-success', label: 'Verified' },
-  official: { icon: ShieldAlert, color: 'text-accent-primary', label: 'Official' },
+  verified: {
+    icon: ShieldCheck,
+    color: 'text-status-success',
+    label: 'Verified',
+  },
+  official: {
+    icon: ShieldAlert,
+    color: 'text-accent-primary',
+    label: 'Official',
+  },
 };
 
 export function MarketplaceView() {
@@ -31,7 +55,8 @@ export function MarketplaceView() {
   const setStoreCategory = useLayoutStore((s) => s.setMarketplaceCategory);
 
   const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState<CategoryTab>(storeCategory);
+  const [activeCategory, setActiveCategory] =
+    useState<CategoryTab>(storeCategory);
 
   // Sync from store when sidebar changes the category
   useEffect(() => {
@@ -52,7 +77,7 @@ export function MarketplaceView() {
   };
 
   const { data, isLoading, error } = useMarketplace(
-    Object.keys(filters).length > 0 ? filters : undefined
+    Object.keys(filters).length > 0 ? filters : undefined,
   );
 
   if (isLoading) {
@@ -89,9 +114,12 @@ export function MarketplaceView() {
           setInstalledIds((prev) => new Set(prev).add(itemId));
         },
         onError: (err) => {
-          setErrorIds((prev) => ({ ...prev, [itemId]: (err as Error).message }));
+          setErrorIds((prev) => ({
+            ...prev,
+            [itemId]: (err as Error).message,
+          }));
         },
-      }
+      },
     );
   };
 
@@ -99,13 +127,21 @@ export function MarketplaceView() {
     <div className="p-5 space-y-4 max-w-4xl">
       {/* Header */}
       <div>
-        <h2 className="text-sm font-bold text-text-primary font-heading">Marketplace</h2>
-        <p className="text-[11px] text-text-muted mt-0.5">Browse and install workflows, agent configs, templates, and MCP adapters</p>
+        <h2 className="text-sm font-bold text-text-primary font-heading">
+          Marketplace
+        </h2>
+        <p className="text-[11px] text-text-muted mt-0.5">
+          Browse and install workflows, agent configs, templates, and MCP
+          adapters
+        </p>
       </div>
 
       {/* Search */}
       <div className="relative">
-        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-faint" />
+        <Search
+          size={13}
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-faint"
+        />
         <input
           type="text"
           value={search}
@@ -145,7 +181,8 @@ export function MarketplaceView() {
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {items.map((item) => {
-            const tierCfg = TIER_CONFIG[item.trustTier] ?? TIER_CONFIG.community;
+            const tierCfg =
+              TIER_CONFIG[item.trustTier] ?? TIER_CONFIG.community;
             const TierIcon = tierCfg.icon;
 
             return (
@@ -156,14 +193,23 @@ export function MarketplaceView() {
                 {/* Top row: name + badges */}
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-xs font-semibold text-text-primary truncate">{item.name}</h3>
-                    <span className="text-[10px] text-text-muted">{item.author}</span>
+                    <h3 className="text-xs font-semibold text-text-primary truncate">
+                      {item.name}
+                    </h3>
+                    <span className="text-[10px] text-text-muted">
+                      {item.author}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${TYPE_COLORS[item.type] ?? ''}`}>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded border ${TYPE_COLORS[item.type] ?? ''}`}
+                    >
                       {item.type}
                     </span>
-                    <span className={`flex items-center gap-0.5 ${tierCfg.color}`} title={tierCfg.label}>
+                    <span
+                      className={`flex items-center gap-0.5 ${tierCfg.color}`}
+                      title={tierCfg.label}
+                    >
                       <TierIcon size={11} />
                     </span>
                   </div>
@@ -192,10 +238,14 @@ export function MarketplaceView() {
                   ) : (
                     <button
                       onClick={() => handleInstall(item.id)}
-                      disabled={installMutation.isPending && installMutation.variables?.id === item.id}
+                      disabled={
+                        installMutation.isPending &&
+                        installMutation.variables?.id === item.id
+                      }
                       className="flex items-center gap-1 px-2 py-1 text-[10px] rounded border border-accent-primary/30 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {installMutation.isPending && installMutation.variables?.id === item.id ? (
+                      {installMutation.isPending &&
+                      installMutation.variables?.id === item.id ? (
                         <>
                           <Loader2 size={10} className="animate-spin" />
                           Installing…

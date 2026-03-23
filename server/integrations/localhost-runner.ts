@@ -1,7 +1,7 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { createServer } from "node:net";
+import { type ChildProcess, spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
+import { join } from 'node:path';
 
 interface DevServerStatus {
   running: boolean;
@@ -16,10 +16,10 @@ interface DetectResult {
 }
 
 const FRAMEWORK_DEFAULTS: Record<string, { script: string; port: number }> = {
-  next: { script: "dev", port: 3000 },
-  vite: { script: "dev", port: 5173 },
-  "react-scripts": { script: "start", port: 3000 },
-  astro: { script: "dev", port: 4321 },
+  next: { script: 'dev', port: 3000 },
+  vite: { script: 'dev', port: 5173 },
+  'react-scripts': { script: 'start', port: 3000 },
+  astro: { script: 'dev', port: 4321 },
 };
 
 /**
@@ -31,18 +31,18 @@ async function findAvailablePort(preferred: number): Promise<number> {
     server.listen(preferred, () => {
       server.close(() => resolve(preferred));
     });
-    server.on("error", () => {
+    server.on('error', () => {
       // Port occupied — let OS pick one
       const fallback = createServer();
       fallback.listen(0, () => {
         const addr = fallback.address();
-        const port = typeof addr === "object" && addr ? addr.port : 0;
+        const port = typeof addr === 'object' && addr ? addr.port : 0;
         fallback.close(() => {
           if (port) resolve(port);
-          else reject(new Error("Could not find an available port"));
+          else reject(new Error('Could not find an available port'));
         });
       });
-      fallback.on("error", reject);
+      fallback.on('error', reject);
     });
   });
 }
@@ -56,9 +56,13 @@ export class LocalhostRunner {
    * Detect the dev server framework and script from a project's package.json.
    */
   async detectDevServer(projectPath: string): Promise<DetectResult | null> {
-    let pkg: { scripts?: Record<string, string>; dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+    let pkg: {
+      scripts?: Record<string, string>;
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
     try {
-      const raw = await readFile(join(projectPath, "package.json"), "utf-8");
+      const raw = await readFile(join(projectPath, 'package.json'), 'utf-8');
       pkg = JSON.parse(raw);
     } catch {
       return null;
@@ -69,14 +73,19 @@ export class LocalhostRunner {
 
     for (const [framework, defaults] of Object.entries(FRAMEWORK_DEFAULTS)) {
       if (deps[framework]) {
-        const script = scripts[defaults.script] ? defaults.script : Object.keys(scripts).find((s) => s === "dev" || s === "start") ?? defaults.script;
+        const script = scripts[defaults.script]
+          ? defaults.script
+          : (Object.keys(scripts).find((s) => s === 'dev' || s === 'start') ??
+            defaults.script);
         return { framework, script, defaultPort: defaults.port };
       }
     }
 
     // Fallback: check for dev or start script
-    if (scripts.dev) return { framework: "unknown", script: "dev", defaultPort: 3000 };
-    if (scripts.start) return { framework: "unknown", script: "start", defaultPort: 3000 };
+    if (scripts.dev)
+      return { framework: 'unknown', script: 'dev', defaultPort: 3000 };
+    if (scripts.start)
+      return { framework: 'unknown', script: 'start', defaultPort: 3000 };
 
     return null;
   }
@@ -84,23 +93,29 @@ export class LocalhostRunner {
   /**
    * Start the dev server for the given project.
    */
-  async start(projectPath: string): Promise<{ success: boolean; port?: number; error?: string }> {
+  async start(
+    projectPath: string,
+  ): Promise<{ success: boolean; port?: number; error?: string }> {
     if (this.process) {
-      return { success: false, error: "Dev server is already running" };
+      return { success: false, error: 'Dev server is already running' };
     }
 
     const detected = await this.detectDevServer(projectPath);
     if (!detected) {
-      return { success: false, error: "No dev server detected in project" };
+      return { success: false, error: 'No dev server detected in project' };
     }
 
     const port = await findAvailablePort(detected.defaultPort);
 
-    const proc = spawn("npm", ["run", detected.script, "--", "--port", String(port)], {
-      cwd: projectPath,
-      stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, PORT: String(port) },
-    });
+    const proc = spawn(
+      'npm',
+      ['run', detected.script, '--', '--port', String(port)],
+      {
+        cwd: projectPath,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, PORT: String(port) },
+      },
+    );
 
     this.process = proc;
     this.port = port;
@@ -109,10 +124,10 @@ export class LocalhostRunner {
       for (const listener of this.logListeners) listener(line);
     };
 
-    proc.stdout?.on("data", (chunk: Buffer) => emitLog(chunk.toString()));
-    proc.stderr?.on("data", (chunk: Buffer) => emitLog(chunk.toString()));
+    proc.stdout?.on('data', (chunk: Buffer) => emitLog(chunk.toString()));
+    proc.stderr?.on('data', (chunk: Buffer) => emitLog(chunk.toString()));
 
-    proc.on("close", () => {
+    proc.on('close', () => {
       this.process = null;
       this.port = null;
     });
@@ -125,7 +140,7 @@ export class LocalhostRunner {
    */
   stop(): { success: boolean; error?: string } {
     if (!this.process) {
-      return { success: false, error: "No dev server is running" };
+      return { success: false, error: 'No dev server is running' };
     }
     this.process.kill();
     this.process = null;

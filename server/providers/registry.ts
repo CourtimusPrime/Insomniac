@@ -1,15 +1,15 @@
-import { eq } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { providers } from "../db/schema/index.js";
-import { encryptApiKey, decryptApiKey } from "../crypto/keys.js";
+import { eq } from 'drizzle-orm';
+import { decryptApiKey, encryptApiKey } from '../crypto/keys.js';
+import { db } from '../db/connection.js';
+import { providers } from '../db/schema/index.js';
 
 type ProviderName =
-  | "anthropic"
-  | "openai"
-  | "google"
-  | "openrouter"
-  | "ollama"
-  | "custom";
+  | 'anthropic'
+  | 'openai'
+  | 'google'
+  | 'openrouter'
+  | 'ollama'
+  | 'custom';
 
 export interface AddProviderConfig {
   workspaceId: string;
@@ -30,7 +30,7 @@ export interface UpdateProviderConfig {
 /** Provider row as returned to callers (never includes decrypted key). */
 export type ProviderPublic = Omit<
   typeof providers.$inferSelect,
-  "apiKeyEncrypted"
+  'apiKeyEncrypted'
 > & {
   hasApiKey: boolean;
 };
@@ -40,9 +40,7 @@ export type ProviderWithKey = typeof providers.$inferSelect & {
   apiKeyDecrypted: string | null;
 };
 
-function toPublic(
-  row: typeof providers.$inferSelect,
-): ProviderPublic {
+function toPublic(row: typeof providers.$inferSelect): ProviderPublic {
   const { apiKeyEncrypted, ...rest } = row;
   return { ...rest, hasApiKey: !!apiKeyEncrypted };
 }
@@ -56,11 +54,7 @@ export class ProviderRegistry {
 
   /** Get a single provider by ID (without decrypted key). */
   getProvider(id: string): ProviderPublic | undefined {
-    const row = db
-      .select()
-      .from(providers)
-      .where(eq(providers.id, id))
-      .get();
+    const row = db.select().from(providers).where(eq(providers.id, id)).get();
     return row ? toPublic(row) : undefined;
   }
 
@@ -69,11 +63,7 @@ export class ProviderRegistry {
    * Only use this when making actual API calls — never return to frontend.
    */
   getProviderWithKey(id: string): ProviderWithKey | undefined {
-    const row = db
-      .select()
-      .from(providers)
-      .where(eq(providers.id, id))
-      .get();
+    const row = db.select().from(providers).where(eq(providers.id, id)).get();
 
     if (!row) return undefined;
 

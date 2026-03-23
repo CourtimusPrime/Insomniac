@@ -1,7 +1,11 @@
 import { useQueries } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
-import { useProviders, type Provider, type ModelDefinition } from '../../api/providers';
 import { apiFetch } from '../../api/client';
+import {
+  type ModelDefinition,
+  type Provider,
+  useProviders,
+} from '../../api/providers';
 
 interface ModelSelectorProps {
   value: string;
@@ -14,19 +18,24 @@ interface ProviderGroup {
   models: ModelDefinition[];
 }
 
-export function ModelSelector({ value, onChange, className }: ModelSelectorProps) {
+export function ModelSelector({
+  value,
+  onChange,
+  className,
+}: ModelSelectorProps) {
   const { data: providers, isLoading: providersLoading } = useProviders();
 
-  const activeProviders = providers?.filter(p => p.isActive) ?? [];
+  const activeProviders = providers?.filter((p) => p.isActive) ?? [];
 
   const modelQueries = useQueries({
-    queries: activeProviders.map(provider => ({
+    queries: activeProviders.map((provider) => ({
       queryKey: ['providerModels', provider.id],
-      queryFn: () => apiFetch<ModelDefinition[]>(`/api/providers/${provider.id}/models`),
+      queryFn: () =>
+        apiFetch<ModelDefinition[]>(`/api/providers/${provider.id}/models`),
     })),
   });
 
-  const isLoading = providersLoading || modelQueries.some(q => q.isLoading);
+  const isLoading = providersLoading || modelQueries.some((q) => q.isLoading);
 
   // Build grouped model list
   const groups: ProviderGroup[] = activeProviders
@@ -34,11 +43,13 @@ export function ModelSelector({ value, onChange, className }: ModelSelectorProps
       provider,
       models: modelQueries[i]?.data ?? [],
     }))
-    .filter(g => g.models.length > 0);
+    .filter((g) => g.models.length > 0);
 
   if (isLoading) {
     return (
-      <div className={`flex items-center gap-1.5 text-xs text-text-muted ${className ?? ''}`}>
+      <div
+        className={`flex items-center gap-1.5 text-xs text-text-muted ${className ?? ''}`}
+      >
         <Loader2 size={12} className="animate-spin" />
         Loading models...
       </div>
@@ -56,13 +67,13 @@ export function ModelSelector({ value, onChange, className }: ModelSelectorProps
   return (
     <select
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       className={`rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary ${className ?? ''}`}
     >
       {!value && <option value="">Select a model...</option>}
       {groups.map(({ provider, models }) => (
         <optgroup key={provider.id} label={provider.displayName}>
-          {models.map(model => (
+          {models.map((model) => (
             <option key={model.id} value={model.id}>
               {model.displayName}
             </option>

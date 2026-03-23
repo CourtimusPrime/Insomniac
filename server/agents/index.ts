@@ -1,10 +1,9 @@
+export { createAgent, getTransportSetting } from './factory.js';
+export { McpAdapter } from './mcp-adapter.js';
+export { StdioAdapter } from './stdio-adapter.js';
 export type {
   AgentAdapter,
+  AgentConfig,
   AgentMessage,
   AgentStatus,
-  AgentConfig,
-} from "./types.js";
-
-export { StdioAdapter } from "./stdio-adapter.js";
-export { McpAdapter } from "./mcp-adapter.js";
-export { createAgent, getTransportSetting } from "./factory.js";
+} from './types.js';

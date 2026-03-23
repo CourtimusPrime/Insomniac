@@ -1,24 +1,24 @@
-import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
-import { resolve, dirname } from "node:path";
-import { mkdir } from "node:fs/promises";
-import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { db } from "../db/connection.js";
-import { workspaces, projects } from "../db/schema/index.js";
-import { GitHubService } from "../integrations/github.js";
-import { getVSCodeCommand } from "../utils/index.js";
+import { spawn } from 'node:child_process';
+import { mkdir } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { eq } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { db } from '../db/connection.js';
+import { projects, workspaces } from '../db/schema/index.js';
+import { GitHubService } from '../integrations/github.js';
+import { getVSCodeCommand } from '../utils/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROJECTS_DIR = resolve(__dirname, "../../data/projects");
+const PROJECTS_DIR = resolve(__dirname, '../../data/projects');
 
-const DEFAULT_WORKSPACE_NAME = "Default";
+const DEFAULT_WORKSPACE_NAME = 'Default';
 
 const SEED_PROJECTS = [
-  { name: "Aether-OS", language: "Rust", status: "building" as const },
-  { name: "Nova-Protocol", language: "TypeScript", status: "idle" as const },
-  { name: "Lumina-API", language: "Python", status: "error" as const },
-  { name: "Void-Shell", language: "Go", status: "completed" as const },
+  { name: 'Aether-OS', language: 'Rust', status: 'building' as const },
+  { name: 'Nova-Protocol', language: 'TypeScript', status: 'idle' as const },
+  { name: 'Lumina-API', language: 'Python', status: 'error' as const },
+  { name: 'Void-Shell', language: 'Go', status: 'completed' as const },
 ];
 
 async function getOrCreateDefaultWorkspace(): Promise<string> {
@@ -57,7 +57,7 @@ export async function projectRoutes(server: FastifyInstance) {
   await seedIfEmpty(workspaceId);
 
   // GET /api/projects — list all projects for default workspace
-  server.get("/api/projects", async () => {
+  server.get('/api/projects', async () => {
     return db
       .select()
       .from(projects)
@@ -66,19 +66,21 @@ export async function projectRoutes(server: FastifyInstance) {
   });
 
   // POST /api/projects — create a new project
-  server.post<{ Body: { name: string; language?: string; repoUrl?: string; path?: string } }>(
-    "/api/projects",
+  server.post<{
+    Body: { name: string; language?: string; repoUrl?: string; path?: string };
+  }>(
+    '/api/projects',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["name"],
+          type: 'object',
+          required: ['name'],
           additionalProperties: false,
           properties: {
-            name: { type: "string", minLength: 1, maxLength: 100 },
-            language: { type: "string", maxLength: 50 },
-            repoUrl: { type: "string", format: "uri", maxLength: 500 },
-            path: { type: "string", maxLength: 500 },
+            name: { type: 'string', minLength: 1, maxLength: 100 },
+            language: { type: 'string', maxLength: 50 },
+            repoUrl: { type: 'string', format: 'uri', maxLength: 500 },
+            path: { type: 'string', maxLength: 500 },
           },
         },
       },
@@ -104,16 +106,16 @@ export async function projectRoutes(server: FastifyInstance) {
 
   // POST /api/projects/clone — create a project by cloning a GitHub repo
   server.post<{ Body: { repoUrl: string; name?: string } }>(
-    "/api/projects/clone",
+    '/api/projects/clone',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["repoUrl"],
+          type: 'object',
+          required: ['repoUrl'],
           additionalProperties: false,
           properties: {
-            repoUrl: { type: "string", minLength: 1, maxLength: 500 },
-            name: { type: "string", minLength: 1, maxLength: 100 },
+            repoUrl: { type: 'string', minLength: 1, maxLength: 500 },
+            name: { type: 'string', minLength: 1, maxLength: 100 },
           },
         },
       },
@@ -125,23 +127,23 @@ export async function projectRoutes(server: FastifyInstance) {
       const repoName = (
         name ||
         repoUrl
-          .replace(/\.git$/, "")
-          .split("/")
+          .replace(/\.git$/, '')
+          .split('/')
           .pop()
-          ?.replace(/[^a-zA-Z0-9_-]/g, "") ||
-        "project"
-      ).replace(/^\.+/, ""); // Strip leading dots to prevent path traversal
+          ?.replace(/[^a-zA-Z0-9_-]/g, '') ||
+        'project'
+      ).replace(/^\.+/, ''); // Strip leading dots to prevent path traversal
 
-      if (!repoName || repoName === "." || repoName === "..") {
+      if (!repoName || repoName === '.' || repoName === '..') {
         reply.code(400);
-        return { error: "Invalid project name" };
+        return { error: 'Invalid project name' };
       }
 
       const targetPath = resolve(PROJECTS_DIR, repoName);
       // Security: verify resolved path is inside PROJECTS_DIR
-      if (!targetPath.startsWith(PROJECTS_DIR + "/")) {
+      if (!targetPath.startsWith(`${PROJECTS_DIR}/`)) {
         reply.code(400);
-        return { error: "Invalid project path" };
+        return { error: 'Invalid project path' };
       }
 
       // Ensure projects directory exists
@@ -180,7 +182,7 @@ export async function projectRoutes(server: FastifyInstance) {
 
   // POST /api/projects/:id/open-vscode — open project in VS Code
   server.post<{ Params: { id: string } }>(
-    "/api/projects/:id/open-vscode",
+    '/api/projects/:id/open-vscode',
     async (request, reply) => {
       const { id } = request.params;
 
@@ -192,12 +194,12 @@ export async function projectRoutes(server: FastifyInstance) {
 
       if (!project) {
         reply.code(404);
-        return { success: false, error: "Project not found" };
+        return { success: false, error: 'Project not found' };
       }
 
       if (!project.path) {
         reply.code(400);
-        return { success: false, error: "Project has no local path" };
+        return { success: false, error: 'Project has no local path' };
       }
 
       const command = getVSCodeCommand();
@@ -205,12 +207,13 @@ export async function projectRoutes(server: FastifyInstance) {
       try {
         const child = spawn(command, [project.path], {
           detached: true,
-          stdio: "ignore",
+          stdio: 'ignore',
         });
         child.unref();
         return { success: true };
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to open VS Code";
+        const message =
+          err instanceof Error ? err.message : 'Failed to open VS Code';
         reply.code(500);
         return { success: false, error: message };
       }
@@ -219,7 +222,7 @@ export async function projectRoutes(server: FastifyInstance) {
 
   // GET /api/projects/:id/chain — get chain definition
   server.get<{ Params: { id: string } }>(
-    "/api/projects/:id/chain",
+    '/api/projects/:id/chain',
     async (request, reply) => {
       const { id } = request.params;
 
@@ -231,7 +234,7 @@ export async function projectRoutes(server: FastifyInstance) {
 
       if (!project) {
         reply.code(404);
-        return { error: "Project not found" };
+        return { error: 'Project not found' };
       }
 
       return project.chainDefinition ?? { version: 1, nodes: [], edges: [] };
@@ -239,18 +242,21 @@ export async function projectRoutes(server: FastifyInstance) {
   );
 
   // PUT /api/projects/:id/chain — save chain definition
-  server.put<{ Params: { id: string }; Body: { version: number; nodes: unknown[]; edges: unknown[] } }>(
-    "/api/projects/:id/chain",
+  server.put<{
+    Params: { id: string };
+    Body: { version: number; nodes: unknown[]; edges: unknown[] };
+  }>(
+    '/api/projects/:id/chain',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["version", "nodes", "edges"],
+          type: 'object',
+          required: ['version', 'nodes', 'edges'],
           additionalProperties: false,
           properties: {
-            version: { type: "number" },
-            nodes: { type: "array" },
-            edges: { type: "array" },
+            version: { type: 'number' },
+            nodes: { type: 'array' },
+            edges: { type: 'array' },
           },
         },
       },
@@ -266,7 +272,7 @@ export async function projectRoutes(server: FastifyInstance) {
 
       if (!existing) {
         reply.code(404);
-        return { error: "Project not found" };
+        return { error: 'Project not found' };
       }
 
       db.update(projects)
@@ -274,25 +280,41 @@ export async function projectRoutes(server: FastifyInstance) {
         .where(eq(projects.id, id))
         .run();
 
-      const updated = db.select().from(projects).where(eq(projects.id, id)).get();
+      const updated = db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, id))
+        .get();
       return updated?.chainDefinition ?? request.body;
     },
   );
 
   // PUT /api/projects/:id — update a project
-  server.put<{ Params: { id: string }; Body: Partial<{ name: string; status: "idle" | "building" | "completed" | "error"; language: string; repoUrl: string; path: string }> }>(
-    "/api/projects/:id",
+  server.put<{
+    Params: { id: string };
+    Body: Partial<{
+      name: string;
+      status: 'idle' | 'building' | 'completed' | 'error';
+      language: string;
+      repoUrl: string;
+      path: string;
+    }>;
+  }>(
+    '/api/projects/:id',
     {
       schema: {
         body: {
-          type: "object",
+          type: 'object',
           additionalProperties: false,
           properties: {
-            name: { type: "string", minLength: 1, maxLength: 100 },
-            status: { type: "string", enum: ["idle", "building", "completed", "error"] },
-            language: { type: "string", maxLength: 50 },
-            repoUrl: { type: "string", format: "uri", maxLength: 500 },
-            path: { type: "string", maxLength: 500 },
+            name: { type: 'string', minLength: 1, maxLength: 100 },
+            status: {
+              type: 'string',
+              enum: ['idle', 'building', 'completed', 'error'],
+            },
+            language: { type: 'string', maxLength: 50 },
+            repoUrl: { type: 'string', format: 'uri', maxLength: 500 },
+            path: { type: 'string', maxLength: 500 },
           },
         },
       },
@@ -308,7 +330,7 @@ export async function projectRoutes(server: FastifyInstance) {
 
       if (!existing) {
         reply.code(404);
-        return { error: "Project not found" };
+        return { error: 'Project not found' };
       }
 
       const { name, status, language, repoUrl, path } = request.body;
@@ -324,17 +346,13 @@ export async function projectRoutes(server: FastifyInstance) {
         .where(eq(projects.id, id))
         .run();
 
-      return db
-        .select()
-        .from(projects)
-        .where(eq(projects.id, id))
-        .get();
+      return db.select().from(projects).where(eq(projects.id, id)).get();
     },
   );
 
   // DELETE /api/projects/:id — delete a project
   server.delete<{ Params: { id: string } }>(
-    "/api/projects/:id",
+    '/api/projects/:id',
     async (request, reply) => {
       const { id } = request.params;
 
@@ -346,7 +364,7 @@ export async function projectRoutes(server: FastifyInstance) {
 
       if (!existing) {
         reply.code(404);
-        return { error: "Project not found" };
+        return { error: 'Project not found' };
       }
 
       db.delete(projects).where(eq(projects.id, id)).run();

@@ -1,13 +1,13 @@
-import { randomUUID } from "node:crypto";
-import { platform } from "node:os";
+import { randomUUID } from 'node:crypto';
+import { platform } from 'node:os';
 import {
+  defaultSandboxConfig,
   type SandboxConfig,
   type SandboxInstance,
   type SandboxStatus,
-  defaultSandboxConfig,
-} from "./firecracker-types.js";
+} from './firecracker-types.js';
 
-const isLinux = platform() === "linux";
+const isLinux = platform() === 'linux';
 
 export class SandboxManager {
   private sandboxes = new Map<string, SandboxInstance>();
@@ -15,8 +15,8 @@ export class SandboxManager {
   constructor(private requireLinux: boolean = true) {
     if (this.requireLinux && !isLinux) {
       throw new Error(
-        "Firecracker sandboxing requires Linux with KVM. Current platform: " +
-          platform()
+        'Firecracker sandboxing requires Linux with KVM. Current platform: ' +
+          platform(),
       );
     }
   }
@@ -27,7 +27,7 @@ export class SandboxManager {
 
     if (!isLinux) {
       console.warn(
-        `[SandboxManager] Platform is ${platform()}, not Linux — returning mock sandbox ${id}`
+        `[SandboxManager] Platform is ${platform()}, not Linux — returning mock sandbox ${id}`,
       );
     }
 
@@ -38,7 +38,7 @@ export class SandboxManager {
         workspaceId: `ws-${id.slice(0, 8)}`,
         expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
       },
-      status: "running",
+      status: 'running',
       createdAt: new Date(),
     };
 
@@ -52,16 +52,18 @@ export class SandboxManager {
 
     if (!isLinux) {
       console.warn(
-        `[SandboxManager] Platform is ${platform()}, not Linux — mock destroying sandbox ${id}`
+        `[SandboxManager] Platform is ${platform()}, not Linux — mock destroying sandbox ${id}`,
       );
     }
 
-    sandbox.status = "stopped";
+    sandbox.status = 'stopped';
     this.sandboxes.delete(id);
     return true;
   }
 
-  getSandbox(id: string): { status: SandboxStatus; config: SandboxInstance } | null {
+  getSandbox(
+    id: string,
+  ): { status: SandboxStatus; config: SandboxInstance } | null {
     const sandbox = this.sandboxes.get(id);
     if (!sandbox) return null;
     return { status: sandbox.status, config: sandbox };
@@ -69,7 +71,7 @@ export class SandboxManager {
 
   listSandboxes(): SandboxInstance[] {
     return Array.from(this.sandboxes.values()).filter(
-      (s) => s.status !== "stopped"
+      (s) => s.status !== 'stopped',
     );
   }
 }

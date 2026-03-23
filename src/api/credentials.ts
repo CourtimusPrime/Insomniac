@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from './client';
 
 export interface Credential {
   id: string;
@@ -16,9 +16,9 @@ export interface Credential {
 }
 
 export function useCredentials(projectId?: string) {
-  const params = projectId ? `?projectId=${projectId}` : "";
+  const params = projectId ? `?projectId=${projectId}` : '';
   return useQuery<Credential[]>({
-    queryKey: ["credentials", projectId ?? "all"],
+    queryKey: ['credentials', projectId ?? 'all'],
     queryFn: () => apiFetch<Credential[]>(`/api/credentials${params}`),
   });
 }
@@ -39,12 +39,12 @@ export function useCreateCredential() {
     }
   >({
     mutationFn: (body) =>
-      apiFetch<Credential>("/api/credentials", {
-        method: "POST",
+      apiFetch<Credential>('/api/credentials', {
+        method: 'POST',
         body: JSON.stringify(body),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["credentials"] });
+      queryClient.invalidateQueries({ queryKey: ['credentials'] });
     },
   });
 }
@@ -53,9 +53,9 @@ export function useDeleteCredential() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
     mutationFn: (id) =>
-      apiFetch<void>(`/api/credentials/${id}`, { method: "DELETE" }),
+      apiFetch<void>(`/api/credentials/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["credentials"] });
+      queryClient.invalidateQueries({ queryKey: ['credentials'] });
     },
   });
 }

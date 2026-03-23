@@ -1,10 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from './client';
 
 export interface Recommendation {
   id: string;
-  type: "security" | "performance" | "quality" | "coverage" | "architecture";
-  severity: "critical" | "warning" | "info";
+  type: 'security' | 'performance' | 'quality' | 'coverage' | 'architecture';
+  severity: 'critical' | 'warning' | 'info';
   file: string;
   line?: number;
   message: string;
@@ -17,7 +17,7 @@ interface RecommendationsResponse {
 
 export function useRecommendations(projectId: string | null) {
   return useQuery<RecommendationsResponse>({
-    queryKey: ["backseat", "recommendations", projectId],
+    queryKey: ['backseat', 'recommendations', projectId],
     queryFn: () =>
       apiFetch<RecommendationsResponse>(
         `/api/backseat/recommendations?projectId=${projectId}`,
@@ -30,13 +30,13 @@ export function useScanProject() {
   const queryClient = useQueryClient();
   return useMutation<RecommendationsResponse, Error, string>({
     mutationFn: (projectId: string) =>
-      apiFetch<RecommendationsResponse>("/api/backseat/scan", {
-        method: "POST",
+      apiFetch<RecommendationsResponse>('/api/backseat/scan', {
+        method: 'POST',
         body: JSON.stringify({ projectId }),
       }),
     onSuccess: (_data, projectId) => {
       queryClient.invalidateQueries({
-        queryKey: ["backseat", "recommendations", projectId],
+        queryKey: ['backseat', 'recommendations', projectId],
       });
     },
   });
@@ -51,11 +51,11 @@ export function useRunRecommendation() {
   >({
     mutationFn: ({ recommendationId, projectId }) =>
       apiFetch(`/api/backseat/recommendations/${recommendationId}/run`, {
-        method: "POST",
+        method: 'POST',
         body: JSON.stringify({ projectId }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pipelines"] });
+      queryClient.invalidateQueries({ queryKey: ['pipelines'] });
     },
   });
 }

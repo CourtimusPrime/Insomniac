@@ -1,9 +1,9 @@
-import { spawn } from "node:child_process";
-import { eq, and, or, isNull } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { hooks } from "../db/schema/hooks.js";
-import { broadcast } from "../ws/handler.js";
-import { SlackNotifier } from "../integrations/slack.js";
+import { spawn } from 'node:child_process';
+import { and, eq, isNull, or } from 'drizzle-orm';
+import { db } from '../db/connection.js';
+import { hooks } from '../db/schema/hooks.js';
+import { SlackNotifier } from '../integrations/slack.js';
+import { broadcast } from '../ws/handler.js';
 
 type HookRow = typeof hooks.$inferSelect;
 
@@ -16,7 +16,7 @@ export interface HookContext {
   [key: string]: unknown;
 }
 
-export type HookTrigger = HookRow["trigger"];
+export type HookTrigger = HookRow['trigger'];
 
 interface HookResult {
   success: boolean;
@@ -41,16 +41,18 @@ export class HooksEngine {
           eq(hooks.trigger, trigger),
           eq(hooks.enabled, true),
           or(
-            projectId ? eq(hooks.projectId, projectId) : isNull(hooks.projectId),
-            isNull(hooks.projectId)
-          )
-        )
+            projectId
+              ? eq(hooks.projectId, projectId)
+              : isNull(hooks.projectId),
+            isNull(hooks.projectId),
+          ),
+        ),
       )
       .all();
 
     for (const hook of matchingHooks) {
       this.executeHook(hook, context).then((result) => {
-        broadcast("hook:fired", {
+        broadcast('hook:fired', {
           hookId: hook.id,
           trigger,
           result,
@@ -67,14 +69,17 @@ export class HooksEngine {
 
     try {
       switch (actionType) {
-        case "shell":
+        case 'shell':
           return await this.executeShell(hook.action.config, context);
-        case "webhook":
+        case 'webhook':
           return await this.executeWebhook(hook.action.config, context);
-        case "slack":
+        case 'slack':
           return await this.executeSlack(hook.action.config, context, hook);
         default:
-          return { success: false, error: `Unknown action type: ${actionType}` };
+          return {
+            success: false,
+            error: `Unknown action type: ${actionType}`,
+          };
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -84,45 +89,51 @@ export class HooksEngine {
 
   private executeShell(
     config: Record<string, unknown>,
-    context: HookContext
+    context: HookContext,
   ): Promise<HookResult> {
-    const command = String(config.command ?? "");
+    const command = String(config.command ?? '');
     if (!command) {
-      return Promise.resolve({ success: false, error: "No shell command provided" });
+      return Promise.resolve({
+        success: false,
+        error: 'No shell command provided',
+      });
     }
 
     return new Promise((resolve) => {
-      const proc = spawn("sh", ["-c", command], {
+      const proc = spawn('sh', ['-c', command], {
         env: {
           ...process.env,
-          HOOK_TRIGGER: String(context.pipelineId ?? ""),
-          HOOK_PIPELINE_ID: String(context.pipelineId ?? ""),
-          HOOK_STAGE_ID: String(context.stageId ?? ""),
-          HOOK_PROJECT_ID: String(context.projectId ?? ""),
-          HOOK_STATUS: String(context.status ?? ""),
+          HOOK_TRIGGER: String(context.pipelineId ?? ''),
+          HOOK_PIPELINE_ID: String(context.pipelineId ?? ''),
+          HOOK_STAGE_ID: String(context.stageId ?? ''),
+          HOOK_PROJECT_ID: String(context.projectId ?? ''),
+          HOOK_STATUS: String(context.status ?? ''),
         },
         timeout: 30_000,
       });
 
-      let stdout = "";
-      let stderr = "";
+      let _stdout = '';
+      let stderr = '';
 
-      proc.stdout?.on("data", (data: Buffer) => {
-        stdout += data.toString();
+      proc.stdout?.on('data', (data: Buffer) => {
+        _stdout += data.toString();
       });
-      proc.stderr?.on("data", (data: Buffer) => {
+      proc.stderr?.on('data', (data: Buffer) => {
         stderr += data.toString();
       });
 
-      proc.on("close", (code) => {
+      proc.on('close', (code) => {
         if (code === 0) {
           resolve({ success: true });
         } else {
-          resolve({ success: false, error: stderr || `Exited with code ${code}` });
+          resolve({
+            success: false,
+            error: stderr || `Exited with code ${code}`,
+          });
         }
       });
 
-      proc.on("error", (err) => {
+      proc.on('error', (err) => {
         resolve({ success: false, error: err.message });
       });
     });
@@ -130,23 +141,26 @@ export class HooksEngine {
 
   private async executeWebhook(
     config: Record<string, unknown>,
-    context: HookContext
+    context: HookContext,
   ): Promise<HookResult> {
-    const url = String(config.url ?? "");
+    const url = String(config.url ?? '');
     if (!url) {
-      return { success: false, error: "No webhook URL provided" };
+      return { success: false, error: 'No webhook URL provided' };
     }
 
     try {
       const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(context),
       });
 
       if (!response.ok) {
         const body = await response.text();
-        return { success: false, error: `Webhook error (${response.status}): ${body}` };
+        return {
+          success: false,
+          error: `Webhook error (${response.status}): ${body}`,
+        };
       }
 
       return { success: true };
@@ -159,14 +173,16 @@ export class HooksEngine {
   private async executeSlack(
     config: Record<string, unknown>,
     context: HookContext,
-    hook: HookRow
+    hook: HookRow,
   ): Promise<HookResult> {
-    const webhookUrl = String(config.webhookUrl ?? "");
+    const webhookUrl = String(config.webhookUrl ?? '');
     if (!webhookUrl) {
-      return { success: false, error: "No Slack webhook URL provided" };
+      return { success: false, error: 'No Slack webhook URL provided' };
     }
 
-    const message = String(config.message ?? `Hook "${hook.name}" fired (${hook.trigger})`);
+    const message = String(
+      config.message ?? `Hook "${hook.name}" fired (${hook.trigger})`,
+    );
     const details = [
       context.pipelineId ? `Pipeline: ${context.pipelineId}` : null,
       context.stageId ? `Stage: ${context.stageId}` : null,
@@ -174,14 +190,14 @@ export class HooksEngine {
       context.error ? `Error: ${context.error}` : null,
     ]
       .filter(Boolean)
-      .join("\n");
+      .join('\n');
 
     return this.slackNotifier.sendMessage(webhookUrl, {
       text: message,
       blocks: [
-        { type: "section", text: { type: "mrkdwn", text: `*${message}*` } },
+        { type: 'section', text: { type: 'mrkdwn', text: `*${message}*` } },
         ...(details
-          ? [{ type: "section", text: { type: "mrkdwn", text: details } }]
+          ? [{ type: 'section', text: { type: 'mrkdwn', text: details } }]
           : []),
       ],
     });

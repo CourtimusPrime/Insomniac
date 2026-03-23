@@ -1,11 +1,14 @@
-import { eq, asc } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { pipelines, pipelineStages, agents } from "../db/schema/index.js";
-import { createAgent, getTransportSetting } from "../agents/index.js";
-import type { AgentAdapter, AgentConfig } from "../agents/types.js";
-import { broadcast } from "../ws/handler.js";
-import { HooksEngine } from "../hooks/engine.js";
-import { type FileAccessAdapter, createFileAccessAdapter } from "../hosted/file-access-factory.js";
+import { asc, eq } from 'drizzle-orm';
+import { createAgent, getTransportSetting } from '../agents/index.js';
+import type { AgentAdapter, AgentConfig } from '../agents/types.js';
+import { db } from '../db/connection.js';
+import { agents, pipelineStages, pipelines } from '../db/schema/index.js';
+import { HooksEngine } from '../hooks/engine.js';
+import {
+  createFileAccessAdapter,
+  type FileAccessAdapter,
+} from '../hosted/file-access-factory.js';
+import { broadcast } from '../ws/handler.js';
 
 type PipelineRow = typeof pipelines.$inferSelect;
 type StageRow = typeof pipelineStages.$inferSelect;
@@ -21,7 +24,10 @@ export class PipelineEngine {
   /** File access adapter — filesystem in local mode, GitHub in hosted mode */
   readonly fileAccess: FileAccessAdapter;
 
-  constructor(pipelineId: string, options?: { fileAccess?: FileAccessAdapter }) {
+  constructor(
+    pipelineId: string,
+    options?: { fileAccess?: FileAccessAdapter },
+  ) {
     this.pipelineId = pipelineId;
     this.fileAccess = options?.fileAccess ?? createFileAccessAdapter({});
   }
@@ -67,7 +73,7 @@ export class PipelineEngine {
     }
 
     // Set pipeline status to running
-    this.updatePipelineStatus("running");
+    this.updatePipelineStatus('running');
 
     try {
       const groups = this.groupStagesBySortOrder(this.stages);
@@ -76,18 +82,21 @@ export class PipelineEngine {
         await this.executeStageGroup(group);
         // Update status AFTER the group completes, not when pause() is called
         if (this.pauseRequested) {
-          this.updatePipelineStatus("paused");
+          this.updatePipelineStatus('paused');
           break;
         }
       }
       // Only mark completed if we weren't interrupted
       if (!this.shouldStop()) {
-        this.updatePipelineStatus("completed");
-        this.hooksEngine.fire("on-pipeline-complete", this.hookContext({ status: "completed" }));
+        this.updatePipelineStatus('completed');
+        this.hooksEngine.fire(
+          'on-pipeline-complete',
+          this.hookContext({ status: 'completed' }),
+        );
       }
     } catch (err) {
       if (!this.cancelRequested) {
-        this.updatePipelineStatus("error");
+        this.updatePipelineStatus('error');
       }
       throw err;
     }
@@ -111,7 +120,7 @@ export class PipelineEngine {
   async cancel(): Promise<void> {
     this.cancelRequested = true;
     this.pauseRequested = false;
-    this.updatePipelineStatus("cancelled");
+    this.updatePipelineStatus('cancelled');
 
     // Abort all active agents
     const abortPromises = this.activeAgents.map(async (agent) => {
@@ -145,7 +154,7 @@ export class PipelineEngine {
     const remainingStages = this.stages.slice(startIndex);
 
     // Set pipeline status to running
-    this.updatePipelineStatus("running");
+    this.updatePipelineStatus('running');
 
     // Reset interrupt flags on resume
     this.pauseRequested = false;
@@ -156,18 +165,23 @@ export class PipelineEngine {
       for (const group of groups) {
         if (this.shouldStop()) break;
         // Filter out already-done stages within the group
-        const pending = group.filter((s) => s.status !== "done" && s.status !== "skipped");
+        const pending = group.filter(
+          (s) => s.status !== 'done' && s.status !== 'skipped',
+        );
         if (pending.length === 0) continue;
         await this.executeStageGroup(pending);
       }
       // Only mark completed if we weren't interrupted
       if (!this.shouldStop()) {
-        this.updatePipelineStatus("completed");
-        this.hooksEngine.fire("on-pipeline-complete", this.hookContext({ status: "completed" }));
+        this.updatePipelineStatus('completed');
+        this.hooksEngine.fire(
+          'on-pipeline-complete',
+          this.hookContext({ status: 'completed' }),
+        );
       }
     } catch (err) {
       if (!this.cancelRequested) {
-        this.updatePipelineStatus("error");
+        this.updatePipelineStatus('error');
       }
       throw err;
     }
@@ -233,7 +247,7 @@ export class PipelineEngine {
     );
 
     const failures = results.filter(
-      (r): r is PromiseRejectedResult => r.status === "rejected",
+      (r): r is PromiseRejectedResult => r.status === 'rejected',
     );
 
     if (failures.length > 0) {
@@ -253,10 +267,10 @@ export class PipelineEngine {
    */
   private async executeStage(stage: StageRow): Promise<void> {
     // Set stage status to running
-    this.updateStageStatus(stage.id, "running");
+    this.updateStageStatus(stage.id, 'running');
 
     // Fire pre-stage hook
-    this.hooksEngine.fire("pre-stage", this.hookContext({ stageId: stage.id }));
+    this.hooksEngine.fire('pre-stage', this.hookContext({ stageId: stage.id }));
 
     let agent: AgentAdapter | null = null;
 
@@ -272,20 +286,39 @@ export class PipelineEngine {
       // Wait for the agent to complete
       await agent.getResponse();
 
-      this.updateStageStatus(stage.id, "done");
+      this.updateStageStatus(stage.id, 'done');
 
       // Fire post-stage hook with success context
-      this.hooksEngine.fire("post-stage", this.hookContext({ stageId: stage.id, status: "done" }));
+      this.hooksEngine.fire(
+        'post-stage',
+        this.hookContext({ stageId: stage.id, status: 'done' }),
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[PipelineEngine] Stage "${stage.name}" failed: ${message}`);
-      this.updateStageStatus(stage.id, "error");
+      console.error(
+        `[PipelineEngine] Stage "${stage.name}" failed: ${message}`,
+      );
+      this.updateStageStatus(stage.id, 'error');
 
       // Fire post-stage hook with failure context
-      this.hooksEngine.fire("post-stage", this.hookContext({ stageId: stage.id, status: "error", error: message }));
+      this.hooksEngine.fire(
+        'post-stage',
+        this.hookContext({
+          stageId: stage.id,
+          status: 'error',
+          error: message,
+        }),
+      );
 
       // Fire on-agent-error hook
-      this.hooksEngine.fire("on-agent-error", this.hookContext({ stageId: stage.id, status: "error", error: message }));
+      this.hooksEngine.fire(
+        'on-agent-error',
+        this.hookContext({
+          stageId: stage.id,
+          status: 'error',
+          error: message,
+        }),
+      );
 
       throw err;
     } finally {
@@ -307,7 +340,7 @@ export class PipelineEngine {
    */
   private buildAgentConfig(stage: StageRow): AgentConfig {
     if (!this.pipeline) {
-      throw new Error("Pipeline not loaded");
+      throw new Error('Pipeline not loaded');
     }
 
     // Look up the agent record if the stage has an agentId
@@ -319,9 +352,9 @@ export class PipelineEngine {
 
     return {
       name: agentRow?.name ?? stage.name,
-      model: stage.model ?? agentRow?.model ?? "claude-sonnet-4-6",
-      provider: agentRow?.provider ?? "anthropic",
-      systemPrompt: agentRow?.systemPrompt ?? "",
+      model: stage.model ?? agentRow?.model ?? 'claude-sonnet-4-6',
+      provider: agentRow?.provider ?? 'anthropic',
+      systemPrompt: agentRow?.systemPrompt ?? '',
       transport,
     };
   }
@@ -336,7 +369,11 @@ export class PipelineEngine {
   /**
    * Builds a HookContext for the current pipeline, optionally including stage info.
    */
-  private hookContext(extra?: { stageId?: string; status?: string; error?: string }) {
+  private hookContext(extra?: {
+    stageId?: string;
+    status?: string;
+    error?: string;
+  }) {
     return {
       pipelineId: this.pipelineId,
       projectId: this.pipeline?.projectId ?? undefined,
@@ -348,14 +385,14 @@ export class PipelineEngine {
    * Updates the pipeline status in the database and broadcasts a WebSocket event.
    */
   private updatePipelineStatus(
-    status: "idle" | "running" | "completed" | "error" | "paused" | "cancelled",
+    status: 'idle' | 'running' | 'completed' | 'error' | 'paused' | 'cancelled',
   ): void {
     db.update(pipelines)
       .set({ status, updatedAt: new Date() })
       .where(eq(pipelines.id, this.pipelineId))
       .run();
 
-    broadcast("pipeline:status", {
+    broadcast('pipeline:status', {
       pipelineId: this.pipelineId,
       status,
     });
@@ -366,14 +403,14 @@ export class PipelineEngine {
    */
   private updateStageStatus(
     stageId: string,
-    status: "queued" | "running" | "done" | "needs-you" | "error" | "skipped",
+    status: 'queued' | 'running' | 'done' | 'needs-you' | 'error' | 'skipped',
   ): void {
     db.update(pipelineStages)
       .set({ status })
       .where(eq(pipelineStages.id, stageId))
       .run();
 
-    broadcast("stage:status", {
+    broadcast('stage:status', {
       pipelineId: this.pipelineId,
       stageId,
       status,

@@ -1,5 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from './client';
 
 export interface DevServerStatus {
   running: boolean;
@@ -9,11 +9,9 @@ export interface DevServerStatus {
 
 export function useDevServerStatus(projectId: string | null) {
   return useQuery<DevServerStatus>({
-    queryKey: ["devServerStatus", projectId],
+    queryKey: ['devServerStatus', projectId],
     queryFn: () =>
-      apiFetch<DevServerStatus>(
-        `/api/projects/${projectId}/dev-server/status`,
-      ),
+      apiFetch<DevServerStatus>(`/api/projects/${projectId}/dev-server/status`),
     enabled: !!projectId,
     refetchInterval: 5000,
   });
@@ -26,11 +24,11 @@ export function useStartDevServer() {
     mutationFn: (projectId: string) =>
       apiFetch<{ success: boolean; port: number }>(
         `/api/projects/${projectId}/dev-server/start`,
-        { method: "POST" },
+        { method: 'POST' },
       ),
     onSuccess: (_data, projectId) => {
       queryClient.invalidateQueries({
-        queryKey: ["devServerStatus", projectId],
+        queryKey: ['devServerStatus', projectId],
       });
     },
   });
@@ -43,11 +41,11 @@ export function useStopDevServer() {
     mutationFn: (projectId: string) =>
       apiFetch<{ success: boolean }>(
         `/api/projects/${projectId}/dev-server/stop`,
-        { method: "POST" },
+        { method: 'POST' },
       ),
     onSuccess: (_data, projectId) => {
       queryClient.invalidateQueries({
-        queryKey: ["devServerStatus", projectId],
+        queryKey: ['devServerStatus', projectId],
       });
     },
   });

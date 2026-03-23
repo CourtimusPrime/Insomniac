@@ -1,6 +1,6 @@
-import type { FastifyInstance } from "fastify";
-import { randomUUID } from "node:crypto";
-import { getDeploymentConfig } from "../config/deployment.js";
+import { randomUUID } from 'node:crypto';
+import type { FastifyInstance } from 'fastify';
+import { getDeploymentConfig } from '../config/deployment.js';
 
 type SessionData = {
   accessToken: string;
@@ -21,36 +21,36 @@ export async function authRoutes(server: FastifyInstance): Promise<void> {
   const config = getDeploymentConfig();
 
   // Only register auth routes in hosted or remote mode
-  if (config.mode !== "hosted" && config.mode !== "remote") return;
+  if (config.mode !== 'hosted' && config.mode !== 'remote') return;
 
-  const clientId = process.env.GITHUB_CLIENT_ID ?? "";
-  const clientSecret = process.env.GITHUB_CLIENT_SECRET ?? "";
+  const clientId = process.env.GITHUB_CLIENT_ID ?? '';
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET ?? '';
 
   // GET /api/auth/github — redirect to GitHub OAuth authorize URL
-  server.get("/api/auth/github", async (_request, reply) => {
-    const redirectUri = `${process.env.INSOMNIAC_BASE_URL ?? "http://localhost:4321"}/api/auth/github/callback`;
+  server.get('/api/auth/github', async (_request, reply) => {
+    const redirectUri = `${process.env.INSOMNIAC_BASE_URL ?? 'http://localhost:4321'}/api/auth/github/callback`;
     const url = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,read:user`;
     reply.redirect(url);
   });
 
   // GET /api/auth/github/callback — exchange code for access token
   server.get<{ Querystring: { code?: string } }>(
-    "/api/auth/github/callback",
+    '/api/auth/github/callback',
     async (request, reply) => {
       const { code } = request.query;
       if (!code) {
-        reply.code(400).send({ error: "Missing code parameter" });
+        reply.code(400).send({ error: 'Missing code parameter' });
         return;
       }
 
       // Exchange code for access token
       const tokenResponse = await fetch(
-        "https://github.com/login/oauth/access_token",
+        'https://github.com/login/oauth/access_token',
         {
-          method: "POST",
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
           },
           body: JSON.stringify({
             client_id: clientId,
@@ -66,20 +66,20 @@ export async function authRoutes(server: FastifyInstance): Promise<void> {
       };
 
       if (!tokenData.access_token) {
-        reply.code(401).send({ error: "Failed to obtain access token" });
+        reply.code(401).send({ error: 'Failed to obtain access token' });
         return;
       }
 
       // Fetch user info from GitHub
-      const userResponse = await fetch("https://api.github.com/user", {
+      const userResponse = await fetch('https://api.github.com/user', {
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
-          Accept: "application/vnd.github+json",
+          Accept: 'application/vnd.github+json',
         },
       });
 
       if (!userResponse.ok) {
-        reply.code(401).send({ error: "Failed to fetch user info" });
+        reply.code(401).send({ error: 'Failed to fetch user info' });
         return;
       }
 
@@ -98,20 +98,20 @@ export async function authRoutes(server: FastifyInstance): Promise<void> {
 
       reply
         .header(
-          "Set-Cookie",
+          'Set-Cookie',
           `insomniac_session=${sessionId}; Path=/; HttpOnly; SameSite=Lax`,
         )
-        .redirect("/");
+        .redirect('/');
     },
   );
 
   // GET /api/auth/me — return current user info
-  server.get("/api/auth/me", async (request, reply) => {
+  server.get('/api/auth/me', async (request, reply) => {
     const sessionId = getSessionId(request.headers.cookie);
     const session = sessionId ? sessions.get(sessionId) : undefined;
 
     if (!session) {
-      reply.code(401).send({ error: "Not authenticated" });
+      reply.code(401).send({ error: 'Not authenticated' });
       return;
     }
 
@@ -119,7 +119,7 @@ export async function authRoutes(server: FastifyInstance): Promise<void> {
   });
 
   // POST /api/auth/logout — clear session
-  server.post("/api/auth/logout", async (request, reply) => {
+  server.post('/api/auth/logout', async (request, reply) => {
     const sessionId = getSessionId(request.headers.cookie);
     if (sessionId) {
       sessions.delete(sessionId);
@@ -127,8 +127,8 @@ export async function authRoutes(server: FastifyInstance): Promise<void> {
 
     reply
       .header(
-        "Set-Cookie",
-        "insomniac_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+        'Set-Cookie',
+        'insomniac_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0',
       )
       .send({ ok: true });
   });

@@ -1,13 +1,43 @@
-import { useRef, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 /* ── Node type definitions ── */
 const nodeTypeEntries = [
-  { type: 'trigger', label: 'Trigger', color: '#06b6d4', description: 'Starts the chain execution' },
-  { type: 'prototyper', label: 'Prototyper', color: '#8b5cf6', description: 'Generates initial implementation' },
-  { type: 'builder', label: 'Builder', color: '#6366f1', description: 'Builds and compiles code' },
-  { type: 'tester', label: 'Tester', color: '#10b981', description: 'Runs tests and validates' },
-  { type: 'reviewer', label: 'Reviewer', color: '#f59e0b', description: 'Reviews code quality' },
-  { type: 'auditor', label: 'Auditor', color: '#ef4444', description: 'Security and compliance audit' },
+  {
+    type: 'trigger',
+    label: 'Trigger',
+    color: '#06b6d4',
+    description: 'Starts the chain execution',
+  },
+  {
+    type: 'prototyper',
+    label: 'Prototyper',
+    color: '#8b5cf6',
+    description: 'Generates initial implementation',
+  },
+  {
+    type: 'builder',
+    label: 'Builder',
+    color: '#6366f1',
+    description: 'Builds and compiles code',
+  },
+  {
+    type: 'tester',
+    label: 'Tester',
+    color: '#10b981',
+    description: 'Runs tests and validates',
+  },
+  {
+    type: 'reviewer',
+    label: 'Reviewer',
+    color: '#f59e0b',
+    description: 'Reviews code quality',
+  },
+  {
+    type: 'auditor',
+    label: 'Auditor',
+    color: '#ef4444',
+    description: 'Security and compliance audit',
+  },
 ] as const;
 
 export type NodeTypeEntry = (typeof nodeTypeEntries)[number];

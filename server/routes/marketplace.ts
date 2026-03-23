@@ -1,16 +1,16 @@
-import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { templates } from "../db/schema/index.js";
-import { MarketplaceClient } from "../marketplace/client.js";
-import type { MarketplaceItemType, TrustTier } from "../marketplace/types.js";
+import { eq } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { db } from '../db/connection.js';
+import { templates } from '../db/schema/index.js';
+import { MarketplaceClient } from '../marketplace/client.js';
+import type { MarketplaceItemType, TrustTier } from '../marketplace/types.js';
 
 const client = new MarketplaceClient();
 
 /** Helper: resolve default workspace ID (duplicated — consider extracting). */
 async function getOrCreateDefaultWorkspace(): Promise<string> {
-  const { workspaces } = await import("../db/schema/index.js");
-  const DEFAULT_WORKSPACE_NAME = "Default Workspace";
+  const { workspaces } = await import('../db/schema/index.js');
+  const DEFAULT_WORKSPACE_NAME = 'Default Workspace';
 
   const existing = db
     .select()
@@ -36,23 +36,23 @@ export async function marketplaceRoutes(server: FastifyInstance) {
       limit?: string;
     };
   }>(
-    "/api/marketplace",
+    '/api/marketplace',
     {
       schema: {
         querystring: {
-          type: "object",
+          type: 'object',
           properties: {
             type: {
-              type: "string",
-              enum: ["workflow", "agent-config", "template", "mcp-adapter"],
+              type: 'string',
+              enum: ['workflow', 'agent-config', 'template', 'mcp-adapter'],
             },
             trustTier: {
-              type: "string",
-              enum: ["community", "verified", "official"],
+              type: 'string',
+              enum: ['community', 'verified', 'official'],
             },
-            search: { type: "string", maxLength: 200 },
-            page: { type: "string" },
-            limit: { type: "string" },
+            search: { type: 'string', maxLength: 200 },
+            page: { type: 'string' },
+            limit: { type: 'string' },
           },
         },
       },
@@ -60,8 +60,11 @@ export async function marketplaceRoutes(server: FastifyInstance) {
     async (request) => {
       const { type, trustTier, search, page, limit } = request.query;
 
-      const pageNum = Math.max(1, parseInt(page ?? "1", 10) || 1);
-      const limitNum = Math.min(50, Math.max(1, parseInt(limit ?? "20", 10) || 20));
+      const pageNum = Math.max(1, parseInt(page ?? '1', 10) || 1);
+      const limitNum = Math.min(
+        50,
+        Math.max(1, parseInt(limit ?? '20', 10) || 20),
+      );
 
       const allItems = await client.fetchItems({
         type,
@@ -85,14 +88,14 @@ export async function marketplaceRoutes(server: FastifyInstance) {
 
   // GET /api/marketplace/:id — single item detail
   server.get<{ Params: { id: string } }>(
-    "/api/marketplace/:id",
+    '/api/marketplace/:id',
     async (request, reply) => {
       const { id } = request.params;
       const item = await client.getItem(id);
 
       if (!item) {
         reply.code(404);
-        return { error: "Marketplace item not found" };
+        return { error: 'Marketplace item not found' };
       }
 
       return item;
@@ -104,13 +107,13 @@ export async function marketplaceRoutes(server: FastifyInstance) {
     Params: { id: string };
     Body: { workspaceId?: string };
   }>(
-    "/api/marketplace/:id/install",
+    '/api/marketplace/:id/install',
     {
       schema: {
         body: {
-          type: "object",
+          type: 'object',
           properties: {
-            workspaceId: { type: "string", minLength: 1 },
+            workspaceId: { type: 'string', minLength: 1 },
           },
         },
       },
@@ -122,14 +125,14 @@ export async function marketplaceRoutes(server: FastifyInstance) {
       const item = await client.getItem(id);
       if (!item) {
         reply.code(404);
-        return { error: "Marketplace item not found" };
+        return { error: 'Marketplace item not found' };
       }
 
       // Download item payload
       const payload = await client.downloadItem(id);
       if (!payload) {
         reply.code(500);
-        return { error: "Failed to download marketplace item" };
+        return { error: 'Failed to download marketplace item' };
       }
 
       const workspaceId =

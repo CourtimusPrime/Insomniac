@@ -1,26 +1,43 @@
+import {
+  AlertCircle,
+  ArrowLeft,
+  BookOpen,
+  Loader2,
+  Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
-import { BookOpen, Loader2, AlertCircle, Trash2, ArrowLeft } from 'lucide-react';
+import {
+  useAbility,
+  useDeleteAbility,
+  useUpdateAbility,
+} from '../../api/abilities';
 import { useLayoutStore } from '../../stores/layout';
-import { useAbility, useUpdateAbility, useDeleteAbility } from '../../api/abilities';
 
-const typeBadge = (t: string) => ({
-  skill: 'bg-violet-500/20 text-violet-300 border-violet-500/30',
-  plugin: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-  mcp: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
-}[t] || 'bg-gray-500/20 text-gray-300 border-gray-500/30');
+const typeBadge = (t: string) =>
+  ({
+    skill: 'bg-violet-500/20 text-violet-300 border-violet-500/30',
+    plugin: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    mcp: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+  })[t] || 'bg-gray-500/20 text-gray-300 border-gray-500/30';
 
-const typeIcon = (t: string) => ({
-  skill: 'bg-violet-500/10 border-violet-500/20 text-violet-400',
-  plugin: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
-  mcp: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400',
-}[t] || 'bg-gray-500/10 border-gray-500/20 text-gray-400');
+const typeIcon = (t: string) =>
+  ({
+    skill: 'bg-violet-500/10 border-violet-500/20 text-violet-400',
+    plugin: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+    mcp: 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400',
+  })[t] || 'bg-gray-500/10 border-gray-500/20 text-gray-400';
 
 export function AbilityDetailView() {
   const activeAbilityId = useLayoutStore((s) => s.activeAbilityId);
   const setActiveMain = useLayoutStore((s) => s.setActiveMain);
   const setActiveAbilityId = useLayoutStore((s) => s.setActiveAbilityId);
 
-  const { data: ability, isLoading, isError, refetch } = useAbility(activeAbilityId);
+  const {
+    data: ability,
+    isLoading,
+    isError,
+    refetch,
+  } = useAbility(activeAbilityId);
   const updateAbility = useUpdateAbility();
   const deleteAbility = useDeleteAbility();
 
@@ -48,7 +65,10 @@ export function AbilityDetailView() {
       <div className="p-5 flex flex-col items-center gap-2 justify-center h-full">
         <AlertCircle size={18} className="text-status-error" />
         <p className="text-xs text-text-muted">Failed to load ability</p>
-        <button onClick={() => refetch()} className="text-[10px] text-accent-primary hover:underline">
+        <button
+          onClick={() => refetch()}
+          className="text-[10px] text-accent-primary hover:underline"
+        >
           Retry
         </button>
       </div>
@@ -72,7 +92,10 @@ export function AbilityDetailView() {
     <div className="p-5 max-w-xl space-y-4">
       {/* Back button */}
       <button
-        onClick={() => { setActiveAbilityId(null); setActiveMain('pipeline'); }}
+        onClick={() => {
+          setActiveAbilityId(null);
+          setActiveMain('pipeline');
+        }}
         className="flex items-center gap-1 text-[10px] text-text-muted hover:text-text-default transition-colors"
       >
         <ArrowLeft size={12} />
@@ -81,11 +104,15 @@ export function AbilityDetailView() {
 
       {/* Header */}
       <div className="flex items-center gap-3 pb-4 border-b border-border-default">
-        <div className={`w-10 h-10 rounded-lg border flex items-center justify-center ${typeIcon(ability.type)}`}>
+        <div
+          className={`w-10 h-10 rounded-lg border flex items-center justify-center ${typeIcon(ability.type)}`}
+        >
           <BookOpen size={16} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-text-primary font-heading truncate">{ability.name}</div>
+          <div className="text-sm font-medium text-text-primary font-heading truncate">
+            {ability.name}
+          </div>
           <div className="text-[10px] text-text-muted mt-0.5">
             {ability.type} {ability.version ? `· v${ability.version}` : ''}
           </div>
@@ -99,14 +126,22 @@ export function AbilityDetailView() {
               : 'bg-text-faint/15 text-text-muted border-border-muted hover:bg-text-faint/25'
           }`}
         >
-          {updateAbility.isPending ? '...' : ability.active ? 'Active' : 'Inactive'}
+          {updateAbility.isPending
+            ? '...'
+            : ability.active
+              ? 'Active'
+              : 'Inactive'}
         </button>
       </div>
 
       {/* Type badge */}
       <div>
-        <div className="text-[10px] uppercase tracking-widest text-text-faint mb-2">Type</div>
-        <span className={`text-[11px] px-2 py-1 rounded border inline-block ${typeBadge(ability.type)}`}>
+        <div className="text-[10px] uppercase tracking-widest text-text-faint mb-2">
+          Type
+        </div>
+        <span
+          className={`text-[11px] px-2 py-1 rounded border inline-block ${typeBadge(ability.type)}`}
+        >
           {ability.type}
         </span>
       </div>
@@ -114,15 +149,21 @@ export function AbilityDetailView() {
       {/* Version */}
       {ability.version && (
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-text-faint mb-2">Version</div>
-          <span className="text-[11px] text-text-secondary">{ability.version}</span>
+          <div className="text-[10px] uppercase tracking-widest text-text-faint mb-2">
+            Version
+          </div>
+          <span className="text-[11px] text-text-secondary">
+            {ability.version}
+          </span>
         </div>
       )}
 
       {/* Config */}
       {ability.config && Object.keys(ability.config).length > 0 && (
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-text-faint mb-2">Configuration</div>
+          <div className="text-[10px] uppercase tracking-widest text-text-faint mb-2">
+            Configuration
+          </div>
           <pre className="text-[11px] font-mono text-text-muted px-3 py-2 bg-bg-base rounded border border-border-muted overflow-x-auto whitespace-pre-wrap">
             {JSON.stringify(ability.config, null, 2)}
           </pre>
@@ -131,8 +172,12 @@ export function AbilityDetailView() {
 
       {/* Assigned agents placeholder */}
       <div>
-        <div className="text-[10px] uppercase tracking-widest text-text-faint mb-2">Assigned agents</div>
-        <p className="text-[11px] text-text-muted italic">No agents assigned yet</p>
+        <div className="text-[10px] uppercase tracking-widest text-text-faint mb-2">
+          Assigned agents
+        </div>
+        <p className="text-[11px] text-text-muted italic">
+          No agents assigned yet
+        </p>
       </div>
 
       {/* Delete */}
@@ -147,7 +192,9 @@ export function AbilityDetailView() {
           </button>
         ) : (
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-text-muted">Delete this ability?</span>
+            <span className="text-[11px] text-text-muted">
+              Delete this ability?
+            </span>
             <button
               onClick={handleDelete}
               disabled={deleteAbility.isPending}

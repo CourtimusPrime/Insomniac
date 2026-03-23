@@ -1,23 +1,23 @@
-import type { FastifyInstance } from "fastify";
-import { eq, and, isNull } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { decisions } from "../db/schema/index.js";
-import { broadcast } from "../ws/handler.js";
-import { HooksEngine } from "../hooks/engine.js";
+import { and, eq, isNull } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { db } from '../db/connection.js';
+import { decisions } from '../db/schema/index.js';
+import { HooksEngine } from '../hooks/engine.js';
+import { broadcast } from '../ws/handler.js';
 
 const hooksEngine = new HooksEngine();
 
 export async function decisionRoutes(server: FastifyInstance) {
   // GET /api/decisions?projectId=X — list pending decisions for a project
   server.get<{ Querystring: { projectId: string } }>(
-    "/api/decisions",
+    '/api/decisions',
     {
       schema: {
         querystring: {
-          type: "object",
-          required: ["projectId"],
+          type: 'object',
+          required: ['projectId'],
           properties: {
-            projectId: { type: "string", minLength: 1 },
+            projectId: { type: 'string', minLength: 1 },
           },
         },
       },
@@ -28,10 +28,7 @@ export async function decisionRoutes(server: FastifyInstance) {
         .select()
         .from(decisions)
         .where(
-          and(
-            eq(decisions.projectId, projectId),
-            isNull(decisions.resolution),
-          ),
+          and(eq(decisions.projectId, projectId), isNull(decisions.resolution)),
         )
         .all();
     },
@@ -48,23 +45,23 @@ export async function decisionRoutes(server: FastifyInstance) {
       options?: string[];
     };
   }>(
-    "/api/decisions",
+    '/api/decisions',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["workspaceId", "projectId", "question"],
+          type: 'object',
+          required: ['workspaceId', 'projectId', 'question'],
           additionalProperties: false,
           properties: {
-            workspaceId: { type: "string", minLength: 1 },
-            projectId: { type: "string", minLength: 1 },
-            agentId: { type: "string" },
-            stageId: { type: "string" },
-            question: { type: "string", minLength: 1, maxLength: 2000 },
+            workspaceId: { type: 'string', minLength: 1 },
+            projectId: { type: 'string', minLength: 1 },
+            agentId: { type: 'string' },
+            stageId: { type: 'string' },
+            question: { type: 'string', minLength: 1, maxLength: 2000 },
             options: {
-              type: "array",
+              type: 'array',
               maxItems: 10,
-              items: { type: "string", minLength: 1, maxLength: 500 },
+              items: { type: 'string', minLength: 1, maxLength: 500 },
             },
           },
         },
@@ -93,10 +90,10 @@ export async function decisionRoutes(server: FastifyInstance) {
         .where(eq(decisions.id, id))
         .get();
 
-      broadcast("decision:created", created);
+      broadcast('decision:created', created);
 
       // Fire on-decision hook
-      hooksEngine.fire("on-decision", {
+      hooksEngine.fire('on-decision', {
         pipelineId: stageId,
         projectId,
         stageId,
@@ -115,16 +112,16 @@ export async function decisionRoutes(server: FastifyInstance) {
       autoDecide?: boolean;
     };
   }>(
-    "/api/decisions/:id",
+    '/api/decisions/:id',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["resolution"],
+          type: 'object',
+          required: ['resolution'],
           additionalProperties: false,
           properties: {
-            resolution: { type: "string", minLength: 1, maxLength: 4000 },
-            autoDecide: { type: "boolean" },
+            resolution: { type: 'string', minLength: 1, maxLength: 4000 },
+            autoDecide: { type: 'boolean' },
           },
         },
       },
@@ -141,12 +138,12 @@ export async function decisionRoutes(server: FastifyInstance) {
 
       if (!decision) {
         reply.code(404);
-        return { error: "Decision not found" };
+        return { error: 'Decision not found' };
       }
 
       if (decision.resolution !== null) {
         reply.code(409);
-        return { error: "Decision is already resolved" };
+        return { error: 'Decision is already resolved' };
       }
 
       const resolvedAt = new Date();
@@ -165,7 +162,7 @@ export async function decisionRoutes(server: FastifyInstance) {
         .where(eq(decisions.id, id))
         .get();
 
-      broadcast("decision:resolved", updated);
+      broadcast('decision:resolved', updated);
 
       return updated;
     },

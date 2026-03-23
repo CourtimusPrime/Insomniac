@@ -1,15 +1,15 @@
-import { memo } from 'react';
-import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
+import { Handle, type Node, type NodeProps, Position } from '@xyflow/react';
 import { ExternalLink, X } from 'lucide-react';
+import { memo } from 'react';
 
 /* ── node-type colour map ── */
 const typeColors: Record<string, string> = {
-  trigger: '#06b6d4',    // cyan
+  trigger: '#06b6d4', // cyan
   prototyper: '#8b5cf6', // violet
-  builder: '#6366f1',    // indigo
-  tester: '#10b981',     // emerald
-  reviewer: '#f59e0b',   // amber
-  auditor: '#ef4444',    // red
+  builder: '#6366f1', // indigo
+  tester: '#10b981', // emerald
+  reviewer: '#f59e0b', // amber
+  auditor: '#ef4444', // red
 };
 
 /* ── status badge styles ── */
@@ -40,7 +40,7 @@ function AgentNodeComponent({ id, data }: NodeProps<AgentNodeType>) {
   const status = data.status ?? 'pending';
   const promptPreview = data.systemPrompt
     ? data.systemPrompt.length > 72
-      ? data.systemPrompt.slice(0, 72) + '…'
+      ? `${data.systemPrompt.slice(0, 72)}…`
       : data.systemPrompt
     : null;
 

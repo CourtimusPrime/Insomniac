@@ -1,15 +1,15 @@
-import type { FastifyInstance } from "fastify";
-import { eq, and } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { settings, workspaces } from "../db/schema/index.js";
-import { SlackNotifier } from "../integrations/slack.js";
+import { and, eq } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { db } from '../db/connection.js';
+import { settings, workspaces } from '../db/schema/index.js';
+import { SlackNotifier } from '../integrations/slack.js';
 
 function getOrCreateDefaultWorkspaceId(): string {
   const ws = db.select().from(workspaces).limit(1).get();
   if (ws) return ws.id;
 
   const id = crypto.randomUUID();
-  db.insert(workspaces).values({ id, name: "Default" }).run();
+  db.insert(workspaces).values({ id, name: 'Default' }).run();
   return id;
 }
 
@@ -18,14 +18,19 @@ const slackNotifier = new SlackNotifier();
 export async function settingsRoutes(server: FastifyInstance) {
   // GET /api/settings/:key — get a setting by key
   server.get<{ Params: { key: string } }>(
-    "/api/settings/:key",
-    async (request, reply) => {
+    '/api/settings/:key',
+    async (request, _reply) => {
       const workspaceId = getOrCreateDefaultWorkspaceId();
 
       const row = db
         .select()
         .from(settings)
-        .where(and(eq(settings.workspaceId, workspaceId), eq(settings.key, request.params.key)))
+        .where(
+          and(
+            eq(settings.workspaceId, workspaceId),
+            eq(settings.key, request.params.key),
+          ),
+        )
         .get();
 
       if (!row) {
@@ -41,20 +46,20 @@ export async function settingsRoutes(server: FastifyInstance) {
     Params: { key: string };
     Body: { value: unknown; category?: string };
   }>(
-    "/api/settings/:key",
+    '/api/settings/:key',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["value"],
+          type: 'object',
+          required: ['value'],
           properties: {
             value: {},
-            category: { type: "string" },
+            category: { type: 'string' },
           },
         },
       },
     },
-    async (request, reply) => {
+    async (request, _reply) => {
       const workspaceId = getOrCreateDefaultWorkspaceId();
 
       const key = request.params.key;
@@ -63,7 +68,9 @@ export async function settingsRoutes(server: FastifyInstance) {
       const existing = db
         .select()
         .from(settings)
-        .where(and(eq(settings.workspaceId, workspaceId), eq(settings.key, key)))
+        .where(
+          and(eq(settings.workspaceId, workspaceId), eq(settings.key, key)),
+        )
         .get();
 
       if (existing) {
@@ -77,7 +84,7 @@ export async function settingsRoutes(server: FastifyInstance) {
             workspaceId,
             key,
             value,
-            category: category ?? "notifications",
+            category: category ?? 'notifications',
           })
           .run();
       }
@@ -88,14 +95,18 @@ export async function settingsRoutes(server: FastifyInstance) {
 
   // POST /api/settings/slack/test — send a test Slack message
   server.post<{ Body: { webhookUrl: string } }>(
-    "/api/settings/slack/test",
+    '/api/settings/slack/test',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["webhookUrl"],
+          type: 'object',
+          required: ['webhookUrl'],
           properties: {
-            webhookUrl: { type: "string", minLength: 1, pattern: "^https://hooks\\.slack\\.com/services/" },
+            webhookUrl: {
+              type: 'string',
+              minLength: 1,
+              pattern: '^https://hooks\\.slack\\.com/services/',
+            },
           },
         },
       },
@@ -104,7 +115,7 @@ export async function settingsRoutes(server: FastifyInstance) {
       const { webhookUrl } = request.body;
 
       const result = await slackNotifier.sendMessage(webhookUrl, {
-        text: "Insomniac test notification — your Slack webhook is working!",
+        text: 'Insomniac test notification — your Slack webhook is working!',
       });
 
       if (!result.success) {

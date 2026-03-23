@@ -1,12 +1,12 @@
-import type { FastifyInstance } from "fastify";
-import { eq, ne } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { agents } from "../db/schema/index.js";
-import { broadcast } from "../ws/handler.js";
+import { eq, ne } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { db } from '../db/connection.js';
+import { agents } from '../db/schema/index.js';
+import { broadcast } from '../ws/handler.js';
 
 export async function agentRoutes(server: FastifyInstance): Promise<void> {
   // GET /api/agents/active — currently active (non-idle) agents
-  server.get("/api/agents/active", async () => {
+  server.get('/api/agents/active', async () => {
     const rows = db
       .select({
         id: agents.id,
@@ -19,7 +19,7 @@ export async function agentRoutes(server: FastifyInstance): Promise<void> {
         progress: agents.progress,
       })
       .from(agents)
-      .where(ne(agents.status, "idle"))
+      .where(ne(agents.status, 'idle'))
       .all();
 
     return rows;
@@ -29,7 +29,7 @@ export async function agentRoutes(server: FastifyInstance): Promise<void> {
   server.patch<{
     Params: { id: string };
     Body: { status?: string; currentTask?: string; progress?: number };
-  }>("/api/agents/:id/status", async (request, reply) => {
+  }>('/api/agents/:id/status', async (request, reply) => {
     const { id } = request.params;
     const { status, currentTask, progress } = request.body;
 
@@ -40,7 +40,7 @@ export async function agentRoutes(server: FastifyInstance): Promise<void> {
 
     if (Object.keys(updates).length === 0) {
       reply.status(400);
-      return { error: "No fields to update" };
+      return { error: 'No fields to update' };
     }
 
     const [updated] = db
@@ -52,10 +52,10 @@ export async function agentRoutes(server: FastifyInstance): Promise<void> {
 
     if (!updated) {
       reply.status(404);
-      return { error: "Agent not found" };
+      return { error: 'Agent not found' };
     }
 
-    broadcast("agent:status", updated);
+    broadcast('agent:status', updated);
 
     return updated;
   });

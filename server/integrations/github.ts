@@ -1,5 +1,5 @@
-import { spawn } from "node:child_process";
-import { access } from "node:fs/promises";
+import { spawn } from 'node:child_process';
+import { access } from 'node:fs/promises';
 
 interface CloneResult {
   success: boolean;
@@ -40,16 +40,16 @@ export class GitHubService {
     }
 
     return new Promise<CloneResult>((resolve) => {
-      const proc = spawn("git", ["clone", repoUrl, targetPath], {
-        stdio: ["ignore", "pipe", "pipe"],
+      const proc = spawn('git', ['clone', repoUrl, targetPath], {
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
 
-      let stderr = "";
-      proc.stderr.on("data", (chunk: Buffer) => {
+      let stderr = '';
+      proc.stderr.on('data', (chunk: Buffer) => {
         stderr += chunk.toString();
       });
 
-      proc.on("close", (code) => {
+      proc.on('close', (code) => {
         if (code === 0) {
           resolve({ success: true, path: targetPath });
         } else {
@@ -61,7 +61,7 @@ export class GitHubService {
         }
       });
 
-      proc.on("error", (err) => {
+      proc.on('error', (err) => {
         resolve({
           success: false,
           path: targetPath,

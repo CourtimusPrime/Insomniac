@@ -1,11 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiFetch } from './client';
 
 export interface Ability {
   id: string;
   workspaceId: string;
   name: string;
-  type: "skill" | "plugin" | "mcp";
+  type: 'skill' | 'plugin' | 'mcp';
   active: boolean;
   config: Record<string, unknown> | null;
   version: string | null;
@@ -14,14 +14,14 @@ export interface Ability {
 
 export function useAbilities() {
   return useQuery<Ability[]>({
-    queryKey: ["abilities"],
-    queryFn: () => apiFetch<Ability[]>("/api/abilities"),
+    queryKey: ['abilities'],
+    queryFn: () => apiFetch<Ability[]>('/api/abilities'),
   });
 }
 
 export function useAbility(id: string | null) {
   return useQuery<Ability>({
-    queryKey: ["abilities", id],
+    queryKey: ['abilities', id],
     queryFn: () => apiFetch<Ability>(`/api/abilities/${id}`),
     enabled: !!id,
   });
@@ -33,17 +33,17 @@ export function useCreateAbility() {
   return useMutation({
     mutationFn: (body: {
       name: string;
-      type: "skill" | "plugin" | "mcp";
+      type: 'skill' | 'plugin' | 'mcp';
       config?: Record<string, unknown>;
       version?: string;
       active?: boolean;
     }) =>
-      apiFetch<Ability>("/api/abilities", {
-        method: "POST",
+      apiFetch<Ability>('/api/abilities', {
+        method: 'POST',
         body: JSON.stringify(body),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["abilities"] });
+      queryClient.invalidateQueries({ queryKey: ['abilities'] });
     },
   });
 }
@@ -58,17 +58,17 @@ export function useUpdateAbility() {
     }: {
       id: string;
       name?: string;
-      type?: "skill" | "plugin" | "mcp";
+      type?: 'skill' | 'plugin' | 'mcp';
       config?: Record<string, unknown>;
       version?: string;
       active?: boolean;
     }) =>
       apiFetch<Ability>(`/api/abilities/${id}`, {
-        method: "PUT",
+        method: 'PUT',
         body: JSON.stringify(body),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["abilities"] });
+      queryClient.invalidateQueries({ queryKey: ['abilities'] });
     },
   });
 }
@@ -78,9 +78,9 @@ export function useDeleteAbility() {
 
   return useMutation({
     mutationFn: (id: string) =>
-      apiFetch<void>(`/api/abilities/${id}`, { method: "DELETE" }),
+      apiFetch<void>(`/api/abilities/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["abilities"] });
+      queryClient.invalidateQueries({ queryKey: ['abilities'] });
     },
   });
 }
@@ -90,13 +90,13 @@ export function useImportSkill() {
 
   return useMutation({
     mutationFn: (markdown: string) =>
-      apiFetch<Ability>("/api/abilities/import-skill", {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
+      apiFetch<Ability>('/api/abilities/import-skill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
         body: markdown,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["abilities"] });
+      queryClient.invalidateQueries({ queryKey: ['abilities'] });
     },
   });
 }

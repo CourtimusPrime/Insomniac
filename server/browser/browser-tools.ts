@@ -1,12 +1,12 @@
-import type { BrowserEngine } from "./types.js";
-import { broadcast } from "../ws/handler.js";
+import { broadcast } from '../ws/handler.js';
+import type { BrowserEngine } from './types.js';
 
 // ---------------------------------------------------------------------------
 // MCP-compatible tool definition types
 // ---------------------------------------------------------------------------
 
 export interface ToolInputSchema {
-  type: "object";
+  type: 'object';
   properties: Record<string, { type: string; description: string }>;
   required: string[];
 }
@@ -29,101 +29,121 @@ export interface BrowserToolResult {
 
 export const browserToolDefinitions: BrowserToolDefinition[] = [
   {
-    name: "navigate",
-    description: "Navigate the browser to a URL.",
+    name: 'navigate',
+    description: 'Navigate the browser to a URL.',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {
-        url: { type: "string", description: "The URL to navigate to." },
+        url: { type: 'string', description: 'The URL to navigate to.' },
       },
-      required: ["url"],
+      required: ['url'],
     },
   },
   {
-    name: "click",
-    description: "Click an element matching the given CSS selector.",
+    name: 'click',
+    description: 'Click an element matching the given CSS selector.',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {
-        selector: { type: "string", description: "CSS selector of the element to click." },
+        selector: {
+          type: 'string',
+          description: 'CSS selector of the element to click.',
+        },
       },
-      required: ["selector"],
+      required: ['selector'],
     },
   },
   {
-    name: "fill",
-    description: "Fill an input element with a value.",
+    name: 'fill',
+    description: 'Fill an input element with a value.',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {
-        selector: { type: "string", description: "CSS selector of the input element." },
-        value: { type: "string", description: "The value to fill into the input." },
+        selector: {
+          type: 'string',
+          description: 'CSS selector of the input element.',
+        },
+        value: {
+          type: 'string',
+          description: 'The value to fill into the input.',
+        },
       },
-      required: ["selector", "value"],
+      required: ['selector', 'value'],
     },
   },
   {
-    name: "screenshot",
-    description: "Capture a screenshot of the current browser viewport as a base64 PNG.",
+    name: 'screenshot',
+    description:
+      'Capture a screenshot of the current browser viewport as a base64 PNG.',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {},
       required: [],
     },
   },
   {
-    name: "assertText",
-    description: "Assert that an element's text content matches the expected string.",
+    name: 'assertText',
+    description:
+      "Assert that an element's text content matches the expected string.",
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {
-        selector: { type: "string", description: "CSS selector of the element." },
-        expected: { type: "string", description: "Expected text content." },
+        selector: {
+          type: 'string',
+          description: 'CSS selector of the element.',
+        },
+        expected: { type: 'string', description: 'Expected text content.' },
       },
-      required: ["selector", "expected"],
+      required: ['selector', 'expected'],
     },
   },
   {
-    name: "assertElement",
-    description: "Assert that an element matching the selector exists on the page.",
+    name: 'assertElement',
+    description:
+      'Assert that an element matching the selector exists on the page.',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {
-        selector: { type: "string", description: "CSS selector to check." },
+        selector: { type: 'string', description: 'CSS selector to check.' },
       },
-      required: ["selector"],
+      required: ['selector'],
     },
   },
   {
-    name: "getConsoleErrors",
-    description: "Retrieve any JavaScript console errors captured on the page.",
+    name: 'getConsoleErrors',
+    description: 'Retrieve any JavaScript console errors captured on the page.',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {},
       required: [],
     },
   },
   {
-    name: "evaluateScript",
-    description: "Execute arbitrary JavaScript in the browser page context and return the result.",
+    name: 'evaluateScript',
+    description:
+      'Execute arbitrary JavaScript in the browser page context and return the result.',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {
-        code: { type: "string", description: "JavaScript code to evaluate." },
+        code: { type: 'string', description: 'JavaScript code to evaluate.' },
       },
-      required: ["code"],
+      required: ['code'],
     },
   },
   {
-    name: "waitForSelector",
-    description: "Wait for an element matching the selector to appear on the page.",
+    name: 'waitForSelector',
+    description:
+      'Wait for an element matching the selector to appear on the page.',
     inputSchema: {
-      type: "object",
+      type: 'object',
       properties: {
-        selector: { type: "string", description: "CSS selector to wait for." },
-        timeout: { type: "string", description: "Maximum wait time in milliseconds (default 5000)." },
+        selector: { type: 'string', description: 'CSS selector to wait for.' },
+        timeout: {
+          type: 'string',
+          description: 'Maximum wait time in milliseconds (default 5000).',
+        },
       },
-      required: ["selector"],
+      required: ['selector'],
     },
   },
 ];
@@ -235,16 +255,26 @@ let actionCounter = 0;
 
 function describeAction(toolName: string, args: ToolArgs): string {
   switch (toolName) {
-    case "navigate": return `navigating to ${args.url}`;
-    case "click": return `clicking ${args.selector}`;
-    case "fill": return `filling ${args.selector}`;
-    case "screenshot": return "capturing screenshot";
-    case "assertText": return `asserting text matches '${args.expected}'`;
-    case "assertElement": return `asserting element ${args.selector} exists`;
-    case "getConsoleErrors": return "getting console errors";
-    case "evaluateScript": return "evaluating script";
-    case "waitForSelector": return `waiting for ${args.selector}`;
-    default: return toolName;
+    case 'navigate':
+      return `navigating to ${args.url}`;
+    case 'click':
+      return `clicking ${args.selector}`;
+    case 'fill':
+      return `filling ${args.selector}`;
+    case 'screenshot':
+      return 'capturing screenshot';
+    case 'assertText':
+      return `asserting text matches '${args.expected}'`;
+    case 'assertElement':
+      return `asserting element ${args.selector} exists`;
+    case 'getConsoleErrors':
+      return 'getting console errors';
+    case 'evaluateScript':
+      return 'evaluating script';
+    case 'waitForSelector':
+      return `waiting for ${args.selector}`;
+    default:
+      return toolName;
   }
 }
 
@@ -266,29 +296,29 @@ export async function executeBrowserTool(
   const description = describeAction(toolName, args);
   const timestamp = new Date().toISOString();
 
-  broadcast("browser:agent-action", {
+  broadcast('browser:agent-action', {
     id: actionId,
     action: description,
-    status: "pending",
+    status: 'pending',
     timestamp,
   });
 
   try {
     const result = await handler(engine, args);
-    broadcast("browser:agent-action", {
+    broadcast('browser:agent-action', {
       id: actionId,
       action: description,
-      status: result.success ? "done" : "error",
+      status: result.success ? 'done' : 'error',
       timestamp,
       error: result.error,
     });
     return result;
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    broadcast("browser:agent-action", {
+    broadcast('browser:agent-action', {
       id: actionId,
       action: description,
-      status: "error",
+      status: 'error',
       timestamp,
       error: errorMsg,
     });
@@ -305,17 +335,17 @@ export async function executeBrowserTool(
  * Can be inserted into the abilities table via the API or directly.
  */
 export const browserTestAbility = {
-  name: "browser-test",
-  type: "plugin" as const,
+  name: 'browser-test',
+  type: 'plugin' as const,
   config: {
-    description: "Browser automation tools for testing and inspection.",
+    description: 'Browser automation tools for testing and inspection.',
     tools: browserToolDefinitions.map((t) => t.name),
     toolDefinitions: browserToolDefinitions,
   },
-  version: "1.0.0",
+  version: '1.0.0',
 } satisfies {
   name: string;
-  type: "skill" | "plugin" | "mcp";
+  type: 'skill' | 'plugin' | 'mcp';
   config: Record<string, unknown>;
   version: string;
 };

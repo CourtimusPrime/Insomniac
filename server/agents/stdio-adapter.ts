@@ -1,16 +1,21 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import type { AgentAdapter, AgentConfig, AgentMessage, AgentStatus } from "./types.js";
+import { type ChildProcess, spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import type {
+  AgentAdapter,
+  AgentConfig,
+  AgentMessage,
+  AgentStatus,
+} from './types.js';
 
 /**
  * Communicates with Claude Code via a child process using JSON lines over stdin/stdout.
  */
 export class StdioAdapter implements AgentAdapter {
-  status: AgentStatus = "idle";
+  status: AgentStatus = 'idle';
 
   private process: ChildProcess | null = null;
   private config: AgentConfig;
-  private buffer = "";
+  private buffer = '';
   private pendingMessages: AgentMessage[] = [];
   private messageResolvers: Array<(msg: AgentMessage) => void> = [];
 
@@ -23,11 +28,11 @@ export class StdioAdapter implements AgentAdapter {
 
     const message: AgentMessage = {
       id: randomUUID(),
-      type: "message",
+      type: 'message',
       payload: { prompt },
     };
 
-    this.status = "working";
+    this.status = 'working';
     this.writeJson(message);
   }
 
@@ -39,11 +44,11 @@ export class StdioAdapter implements AgentAdapter {
     }
 
     // If the process is already dead, reject immediately
-    if (!this.process && this.status !== "working") {
+    if (!this.process && this.status !== 'working') {
       return {
         id: randomUUID(),
-        type: "message",
-        payload: { error: "process not running" },
+        type: 'message',
+        payload: { error: 'process not running' },
       };
     }
 
@@ -55,13 +60,13 @@ export class StdioAdapter implements AgentAdapter {
 
   async abort(): Promise<void> {
     if (this.process) {
-      this.process.kill("SIGTERM");
+      this.process.kill('SIGTERM');
       this.process = null;
-      this.status = "idle";
+      this.status = 'idle';
       this.drainResolvers({
         id: randomUUID(),
-        type: "message",
-        payload: { error: "aborted" },
+        type: 'message',
+        payload: { error: 'aborted' },
       });
     }
   }
@@ -71,57 +76,61 @@ export class StdioAdapter implements AgentAdapter {
   private ensureProcess(): void {
     if (this.process) return;
 
-    this.process = spawn("claude", ["--dangerously-skip-permissions"], {
-      stdio: ["pipe", "pipe", "pipe"],
+    this.process = spawn('claude', ['--dangerously-skip-permissions'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env },
     });
 
-    this.process.stdout?.on("data", (chunk: Buffer) => {
+    this.process.stdout?.on('data', (chunk: Buffer) => {
       this.handleStdout(chunk.toString());
     });
 
-    this.process.stderr?.on("data", (chunk: Buffer) => {
-      console.error(`[StdioAdapter][${this.config.name}] stderr: ${chunk.toString()}`);
+    this.process.stderr?.on('data', (chunk: Buffer) => {
+      console.error(
+        `[StdioAdapter][${this.config.name}] stderr: ${chunk.toString()}`,
+      );
     });
 
-    this.process.on("error", (err) => {
+    this.process.on('error', (err) => {
       console.error(`[StdioAdapter][${this.config.name}] process error:`, err);
-      this.status = "error";
+      this.status = 'error';
       this.drainResolvers({
         id: randomUUID(),
-        type: "message",
+        type: 'message',
         payload: { error: err.message },
       });
     });
 
-    this.process.on("exit", (code, signal) => {
-      console.log(`[StdioAdapter][${this.config.name}] process exited: code=${code} signal=${signal}`);
+    this.process.on('exit', (code, signal) => {
+      console.log(
+        `[StdioAdapter][${this.config.name}] process exited: code=${code} signal=${signal}`,
+      );
       this.process = null;
-      if (this.status === "working") {
-        this.status = "disconnected";
+      if (this.status === 'working') {
+        this.status = 'disconnected';
         this.drainResolvers({
           id: randomUUID(),
-          type: "message",
+          type: 'message',
           payload: { error: `process exited with code ${code}` },
         });
       } else {
-        this.status = "idle";
+        this.status = 'idle';
       }
     });
   }
 
   private writeJson(msg: AgentMessage): void {
     if (!this.process?.stdin?.writable) {
-      throw new Error("stdin is not writable");
+      throw new Error('stdin is not writable');
     }
-    this.process.stdin.write(JSON.stringify(msg) + "\n");
+    this.process.stdin.write(`${JSON.stringify(msg)}\n`);
   }
 
   private handleStdout(data: string): void {
     this.buffer += data;
-    const lines = this.buffer.split("\n");
+    const lines = this.buffer.split('\n');
     // Keep the last (possibly incomplete) line in the buffer
-    this.buffer = lines.pop() ?? "";
+    this.buffer = lines.pop() ?? '';
 
     for (const line of lines) {
       const trimmed = line.trim();
@@ -134,7 +143,7 @@ export class StdioAdapter implements AgentAdapter {
         // Non-JSON output — treat as a plain text message
         this.enqueueMessage({
           id: randomUUID(),
-          type: "message",
+          type: 'message',
           payload: { text: trimmed },
         });
       }

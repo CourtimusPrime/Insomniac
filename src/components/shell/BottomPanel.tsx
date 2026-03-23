@@ -1,13 +1,45 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Terminal, BarChart2, Heart, ChevronRight, ChevronUp, ChevronDown, Globe, Play, Square, RefreshCw, X, Camera, Copy, Download, Info, AlertTriangle, AlertCircle, Trash2, Loader2, CheckCircle, XCircle, Crosshair
+  AlertCircle,
+  AlertTriangle,
+  BarChart2,
+  Camera,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Copy,
+  Crosshair,
+  Download,
+  Globe,
+  Heart,
+  Info,
+  Loader2,
+  Play,
+  RefreshCw,
+  Square,
+  Terminal,
+  Trash2,
+  X,
+  XCircle,
 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useBrowserStatus,
+  useCloseBrowser,
+  useInspectInAgent,
+  useLaunchBrowser,
+  useNavigate,
+  useScreenshot,
+} from '../../api/browser';
+import {
+  useDevServerStatus,
+  useStartDevServer,
+  useStopDevServer,
+} from '../../api/localhost';
+import { type LogEntry, useLogs } from '../../api/logs';
+import { useUsageBreakdown, useUsageSummary } from '../../api/usage';
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
-import { useDevServerStatus, useStartDevServer, useStopDevServer } from '../../api/localhost';
-import { useBrowserStatus, useLaunchBrowser, useNavigate, useScreenshot, useCloseBrowser, useInspectInAgent } from '../../api/browser';
-import { useUsageSummary, useUsageBreakdown } from '../../api/usage';
-import { useLogs, type LogEntry } from '../../api/logs';
 
 export function BottomPanel() {
   const activeTab = useLayoutStore((s) => s.activeTab);
@@ -29,22 +61,31 @@ export function BottomPanel() {
   const inspectInAgent = useInspectInAgent();
 
   const { data: usageSummary } = useUsageSummary();
-  const [breakdownGroup, setBreakdownGroup] = useState<'provider' | 'model' | 'agent' | 'project'>('provider');
+  const [breakdownGroup, setBreakdownGroup] = useState<
+    'provider' | 'model' | 'agent' | 'project'
+  >('provider');
   const { data: usageBreakdown } = useUsageBreakdown(breakdownGroup);
 
   const [browserUrl, setBrowserUrl] = useState('');
   const [iframeKey, setIframeKey] = useState(0);
-  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(
+    null,
+  );
   const [showInspectDialog, setShowInspectDialog] = useState(false);
   const [inspectSelector, setInspectSelector] = useState('');
   const [inspectDescription, setInspectDescription] = useState('');
-  const [inspectConfirmation, setInspectConfirmation] = useState<string | null>(null);
+  const [inspectConfirmation, setInspectConfirmation] = useState<string | null>(
+    null,
+  );
 
   // Admin Terminal: log search/filter + real-time entries
   const [logSearch, setLogSearch] = useState('');
   const [logSourceFilter, setLogSourceFilter] = useState('');
   const [realtimeLogs, setRealtimeLogs] = useState<LogEntry[]>([]);
-  const { data: apiLogs } = useLogs(logSearch || undefined, logSourceFilter || undefined);
+  const { data: apiLogs } = useLogs(
+    logSearch || undefined,
+    logSourceFilter || undefined,
+  );
   const adminLogsEndRef = useRef<HTMLDivElement>(null);
 
   // Merge API logs with realtime WebSocket logs (deduplicate by id)
@@ -64,10 +105,14 @@ export function BottomPanel() {
         if (msg.event === 'log:entry' && msg.data) {
           setRealtimeLogs((prev) => [...prev.slice(-199), msg.data!]);
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
     ws.addEventListener('message', onMessage);
-    return () => { ws.close(); };
+    return () => {
+      ws.close();
+    };
   }, []);
 
   // Clear realtime buffer when API data refreshes (it includes latest)
@@ -78,14 +123,17 @@ export function BottomPanel() {
   // Auto-scroll admin logs
   useEffect(() => {
     adminLogsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [allLogs.length]);
+  }, []);
 
-  const handleNavigate = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    if (browserUrl.trim()) {
-      navigateBrowser.mutate({ url: browserUrl.trim() });
-    }
-  }, [browserUrl, navigateBrowser]);
+  const handleNavigate = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      if (browserUrl.trim()) {
+        navigateBrowser.mutate({ url: browserUrl.trim() });
+      }
+    },
+    [browserUrl, navigateBrowser],
+  );
 
   const handleRefresh = useCallback(() => {
     setIframeKey((k) => k + 1);
@@ -101,7 +149,9 @@ export function BottomPanel() {
 
   const handleCopyScreenshot = useCallback(async () => {
     if (!screenshotPreview) return;
-    const blob = await fetch(`data:image/png;base64,${screenshotPreview}`).then((r) => r.blob());
+    const blob = await fetch(`data:image/png;base64,${screenshotPreview}`).then(
+      (r) => r.blob(),
+    );
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
   }, [screenshotPreview]);
 
@@ -113,48 +163,90 @@ export function BottomPanel() {
     link.click();
   }, [screenshotPreview]);
 
-  const handleInspectSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inspectSelector.trim() || !inspectDescription.trim() || !activeProjectId) return;
-    inspectInAgent.mutate(
-      { selector: inspectSelector.trim(), description: inspectDescription.trim(), projectId: activeProjectId },
-      {
-        onSuccess: (data) => {
-          setInspectConfirmation(`Stage created (${data.stageId.slice(0, 8)}…)`);
-          setInspectSelector('');
-          setInspectDescription('');
-          setTimeout(() => {
-            setShowInspectDialog(false);
-            setInspectConfirmation(null);
-          }, 2000);
+  const handleInspectSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      if (
+        !inspectSelector.trim() ||
+        !inspectDescription.trim() ||
+        !activeProjectId
+      )
+        return;
+      inspectInAgent.mutate(
+        {
+          selector: inspectSelector.trim(),
+          description: inspectDescription.trim(),
+          projectId: activeProjectId,
         },
-      },
-    );
-  }, [inspectSelector, inspectDescription, activeProjectId, inspectInAgent]);
+        {
+          onSuccess: (data) => {
+            setInspectConfirmation(
+              `Stage created (${data.stageId.slice(0, 8)}…)`,
+            );
+            setInspectSelector('');
+            setInspectDescription('');
+            setTimeout(() => {
+              setShowInspectDialog(false);
+              setInspectConfirmation(null);
+            }, 2000);
+          },
+        },
+      );
+    },
+    [inspectSelector, inspectDescription, activeProjectId, inspectInAgent],
+  );
 
   // Browser console entries from WebSocket
-  const [consoleEntries, setConsoleEntries] = useState<{ level: 'info' | 'warn' | 'error'; timestamp: string; message: string }[]>([]);
+  const [consoleEntries, setConsoleEntries] = useState<
+    { level: 'info' | 'warn' | 'error'; timestamp: string; message: string }[]
+  >([]);
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
   // Agent activity entries from WebSocket
-  const [agentActions, setAgentActions] = useState<{ id: string; action: string; status: 'pending' | 'done' | 'error'; timestamp: string; error?: string }[]>([]);
+  const [agentActions, setAgentActions] = useState<
+    {
+      id: string;
+      action: string;
+      status: 'pending' | 'done' | 'error';
+      timestamp: string;
+      error?: string;
+    }[]
+  >([]);
   const actionsEndRef = useRef<HTMLDivElement>(null);
 
   // Listen for browser:console and browser:agent-action WebSocket events
   useEffect(() => {
     function onBrowserMessage(evt: MessageEvent) {
       try {
-        const msg = JSON.parse(evt.data) as { event: string; data?: Record<string, unknown> };
+        const msg = JSON.parse(evt.data) as {
+          event: string;
+          data?: Record<string, unknown>;
+        };
         if (msg.event === 'browser:console' && msg.data) {
-          const level = msg.data.level === 'warn' ? 'warn' : msg.data.level === 'error' ? 'error' : 'info';
-          setConsoleEntries((prev) => [...prev.slice(-199), {
-            level: level as 'info' | 'warn' | 'error',
-            timestamp: (msg.data!.timestamp as string) ?? new Date().toISOString(),
-            message: (msg.data!.message as string) ?? '',
-          }]);
+          const level =
+            msg.data.level === 'warn'
+              ? 'warn'
+              : msg.data.level === 'error'
+                ? 'error'
+                : 'info';
+          setConsoleEntries((prev) => [
+            ...prev.slice(-199),
+            {
+              level: level as 'info' | 'warn' | 'error',
+              timestamp:
+                (msg.data!.timestamp as string) ?? new Date().toISOString(),
+              message: (msg.data!.message as string) ?? '',
+            },
+          ]);
         }
         if (msg.event === 'browser:agent-action' && msg.data) {
-          const { id, action, status, timestamp, error } = msg.data as { id: string; action: string; status: 'pending' | 'done' | 'error'; timestamp: string; error?: string };
+          const { id, action, status, timestamp, error } = msg.data as {
+            id: string;
+            action: string;
+            status: 'pending' | 'done' | 'error';
+            timestamp: string;
+            error?: string;
+          };
           setAgentActions((prev) => {
             const idx = prev.findIndex((a) => a.id === id);
             if (idx >= 0) {
@@ -162,21 +254,28 @@ export function BottomPanel() {
               updated[idx] = { ...updated[idx], status, error };
               return updated;
             }
-            return [...prev.slice(-99), { id, action, status, timestamp, error }];
+            return [
+              ...prev.slice(-99),
+              { id, action, status, timestamp, error },
+            ];
           });
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     const ws = new WebSocket('ws://localhost:4321/ws');
     ws.addEventListener('message', onBrowserMessage);
-    return () => { ws.close(); };
+    return () => {
+      ws.close();
+    };
   }, []);
 
   // Auto-scroll console
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [consoleEntries]);
+  }, []);
 
   const handleClearConsole = useCallback(() => {
     setConsoleEntries([]);
@@ -185,7 +284,7 @@ export function BottomPanel() {
   // Auto-scroll agent activity
   useEffect(() => {
     actionsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [agentActions]);
+  }, []);
 
   const handleClearActions = useCallback(() => {
     setAgentActions([]);
@@ -198,37 +297,68 @@ export function BottomPanel() {
   useEffect(() => {
     function onMessage(evt: MessageEvent) {
       try {
-        const msg = JSON.parse(evt.data) as { event: string; data?: { projectId?: string; line?: string } };
-        if (msg.event === 'devserver:log' && msg.data?.projectId === activeProjectId && msg.data.line) {
+        const msg = JSON.parse(evt.data) as {
+          event: string;
+          data?: { projectId?: string; line?: string };
+        };
+        if (
+          msg.event === 'devserver:log' &&
+          msg.data?.projectId === activeProjectId &&
+          msg.data.line
+        ) {
           setLogs((prev) => [...prev.slice(-199), msg.data!.line!]);
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     const ws = new WebSocket('ws://localhost:4321/ws');
     ws.addEventListener('message', onMessage);
-    return () => { ws.close(); };
+    return () => {
+      ws.close();
+    };
   }, [activeProjectId]);
 
   // Auto-scroll logs
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
+  }, []);
 
   // Clear logs when project changes
-  useEffect(() => { setLogs([]); }, [activeProjectId]);
+  useEffect(() => {
+    setLogs([]);
+  }, []);
 
   return (
-    <div className={`border-t border-border-default flex flex-col shrink-0 transition-[height] duration-200 ease-in-out ${
-      collapsed ? 'h-9' : 'h-52'
-    }`}>
+    <div
+      className={`border-t border-border-default flex flex-col shrink-0 transition-[height] duration-200 ease-in-out ${
+        collapsed ? 'h-9' : 'h-52'
+      }`}
+    >
       <div className="flex border-b border-border-default text-[11px] shrink-0">
-        {([
-          { id: 'terminal' as const, icon: <Terminal size={11} />, label: 'Admin Terminal' },
-          { id: 'usage' as const, icon: <BarChart2 size={11} />, label: 'Usage Graphs' },
-          { id: 'health' as const, icon: <Heart size={11} />, label: 'Project Health' },
-          { id: 'browser' as const, icon: <Globe size={11} />, label: 'Browser' },
-        ]).map(tab => (
+        {[
+          {
+            id: 'terminal' as const,
+            icon: <Terminal size={11} />,
+            label: 'Admin Terminal',
+          },
+          {
+            id: 'usage' as const,
+            icon: <BarChart2 size={11} />,
+            label: 'Usage Graphs',
+          },
+          {
+            id: 'health' as const,
+            icon: <Heart size={11} />,
+            label: 'Project Health',
+          },
+          {
+            id: 'browser' as const,
+            icon: <Globe size={11} />,
+            label: 'Browser',
+          },
+        ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -236,14 +366,18 @@ export function BottomPanel() {
               activeTab === tab.id
                 ? 'bg-bg-base text-text-primary border-t-2 border-t-accent-primary'
                 : 'text-text-muted hover:text-text-default hover:bg-bg-hover'
-            }`}>
-            {tab.icon}{tab.label}
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
           </button>
         ))}
         <div className="ml-auto flex items-center gap-3 px-4">
           <span className="text-[10px] text-text-faint">Session:</span>
           <span className="text-[10px] text-text-secondary">
-            {usageSummary ? `${(usageSummary.totalTokens / 1000).toFixed(1)}k tokens` : '—'}
+            {usageSummary
+              ? `${(usageSummary.totalTokens / 1000).toFixed(1)}k tokens`
+              : '—'}
           </span>
           <span className="text-[10px] text-accent-primary">
             {usageSummary ? `~$${usageSummary.estimatedCost.toFixed(2)}` : '—'}
@@ -284,26 +418,41 @@ export function BottomPanel() {
             {/* Log entries */}
             <div className="flex-1 min-h-0 overflow-y-auto space-y-0.5">
               {allLogs.length === 0 ? (
-                <div className="text-text-faint italic">No log entries yet.</div>
+                <div className="text-text-faint italic">
+                  No log entries yet.
+                </div>
               ) : (
                 allLogs.map((entry) => (
                   <div key={entry.id} className="flex items-start gap-1.5">
                     <span className="text-text-faint shrink-0">
-                      {new Date(typeof entry.createdAt === 'number' ? entry.createdAt * 1000 : entry.createdAt).toLocaleTimeString()}
+                      {new Date(
+                        typeof entry.createdAt === 'number'
+                          ? entry.createdAt * 1000
+                          : entry.createdAt,
+                      ).toLocaleTimeString()}
                     </span>
-                    <span className={`shrink-0 font-medium ${
-                      entry.source === 'orchestrator' ? 'text-status-success' :
-                      entry.source === 'agent' ? 'text-accent-primary' :
-                      entry.source === 'error' ? 'text-status-error' :
-                      'text-text-faint'
-                    }`}>
+                    <span
+                      className={`shrink-0 font-medium ${
+                        entry.source === 'orchestrator'
+                          ? 'text-status-success'
+                          : entry.source === 'agent'
+                            ? 'text-accent-primary'
+                            : entry.source === 'error'
+                              ? 'text-status-error'
+                              : 'text-text-faint'
+                      }`}
+                    >
                       [{entry.source}]
                     </span>
-                    <span className={`whitespace-pre-wrap break-all ${
-                      entry.level === 'error' ? 'text-status-error' :
-                      entry.level === 'warn' ? 'text-status-warning' :
-                      'text-text-muted'
-                    }`}>
+                    <span
+                      className={`whitespace-pre-wrap break-all ${
+                        entry.level === 'error'
+                          ? 'text-status-error'
+                          : entry.level === 'warn'
+                            ? 'text-status-warning'
+                            : 'text-text-muted'
+                      }`}
+                    >
                       {entry.message}
                     </span>
                   </div>
@@ -325,14 +474,37 @@ export function BottomPanel() {
           <div className="space-y-3">
             <div className="grid grid-cols-4 gap-3">
               {[
-                { label: 'Total tokens', value: usageSummary ? usageSummary.totalTokens.toLocaleString() : '—' },
-                { label: 'Est. cost', value: usageSummary ? `$${usageSummary.estimatedCost.toFixed(2)}` : '—' },
-                { label: 'Top agent', value: usageSummary?.mostActiveAgent ?? '—' },
-                { label: 'Top model', value: usageSummary?.mostUsedModel ?? '—' },
-              ].map(s => (
-                <div key={s.label} className="bg-bg-base border border-border-default rounded-lg p-3">
-                  <div className="text-[10px] text-text-faint mb-1">{s.label}</div>
-                  <div className="text-sm font-bold text-text-primary">{s.value}</div>
+                {
+                  label: 'Total tokens',
+                  value: usageSummary
+                    ? usageSummary.totalTokens.toLocaleString()
+                    : '—',
+                },
+                {
+                  label: 'Est. cost',
+                  value: usageSummary
+                    ? `$${usageSummary.estimatedCost.toFixed(2)}`
+                    : '—',
+                },
+                {
+                  label: 'Top agent',
+                  value: usageSummary?.mostActiveAgent ?? '—',
+                },
+                {
+                  label: 'Top model',
+                  value: usageSummary?.mostUsedModel ?? '—',
+                },
+              ].map((s) => (
+                <div
+                  key={s.label}
+                  className="bg-bg-base border border-border-default rounded-lg p-3"
+                >
+                  <div className="text-[10px] text-text-faint mb-1">
+                    {s.label}
+                  </div>
+                  <div className="text-sm font-bold text-text-primary">
+                    {s.value}
+                  </div>
                 </div>
               ))}
             </div>
@@ -365,46 +537,93 @@ export function BottomPanel() {
                 <table className="w-full text-[10px]">
                   <thead>
                     <tr className="border-b border-border-default text-text-faint">
-                      <th className="text-left px-3 py-1.5 font-medium">{breakdownGroup.charAt(0).toUpperCase() + breakdownGroup.slice(1)}</th>
-                      <th className="text-right px-3 py-1.5 font-medium">Input</th>
-                      <th className="text-right px-3 py-1.5 font-medium">Output</th>
-                      <th className="text-right px-3 py-1.5 font-medium">Tool Calls</th>
-                      <th className="text-right px-3 py-1.5 font-medium">Cost</th>
-                      <th className="text-right px-3 py-1.5 font-medium">Requests</th>
+                      <th className="text-left px-3 py-1.5 font-medium">
+                        {breakdownGroup.charAt(0).toUpperCase() +
+                          breakdownGroup.slice(1)}
+                      </th>
+                      <th className="text-right px-3 py-1.5 font-medium">
+                        Input
+                      </th>
+                      <th className="text-right px-3 py-1.5 font-medium">
+                        Output
+                      </th>
+                      <th className="text-right px-3 py-1.5 font-medium">
+                        Tool Calls
+                      </th>
+                      <th className="text-right px-3 py-1.5 font-medium">
+                        Cost
+                      </th>
+                      <th className="text-right px-3 py-1.5 font-medium">
+                        Requests
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {usageBreakdown.map((row, i) => (
-                      <tr key={i} className="border-b border-border-default last:border-0 hover:bg-bg-hover transition">
-                        <td className="px-3 py-1.5 text-text-primary">{row.group ?? '(none)'}</td>
-                        <td className="px-3 py-1.5 text-right text-text-secondary">{row.inputTokens.toLocaleString()}</td>
-                        <td className="px-3 py-1.5 text-right text-text-secondary">{row.outputTokens.toLocaleString()}</td>
-                        <td className="px-3 py-1.5 text-right text-text-secondary">{row.toolCalls.toLocaleString()}</td>
-                        <td className="px-3 py-1.5 text-right text-accent-primary">${row.estimatedCost.toFixed(4)}</td>
-                        <td className="px-3 py-1.5 text-right text-text-muted">{row.count}</td>
+                      <tr
+                        key={i}
+                        className="border-b border-border-default last:border-0 hover:bg-bg-hover transition"
+                      >
+                        <td className="px-3 py-1.5 text-text-primary">
+                          {row.group ?? '(none)'}
+                        </td>
+                        <td className="px-3 py-1.5 text-right text-text-secondary">
+                          {row.inputTokens.toLocaleString()}
+                        </td>
+                        <td className="px-3 py-1.5 text-right text-text-secondary">
+                          {row.outputTokens.toLocaleString()}
+                        </td>
+                        <td className="px-3 py-1.5 text-right text-text-secondary">
+                          {row.toolCalls.toLocaleString()}
+                        </td>
+                        <td className="px-3 py-1.5 text-right text-accent-primary">
+                          ${row.estimatedCost.toFixed(4)}
+                        </td>
+                        <td className="px-3 py-1.5 text-right text-text-muted">
+                          {row.count}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className="text-[10px] text-text-faint italic">No usage data recorded yet.</div>
+              <div className="text-[10px] text-text-faint italic">
+                No usage data recorded yet.
+              </div>
             )}
           </div>
         )}
         {activeTab === 'health' && (
           <div className="space-y-3">
             {!activeProjectId ? (
-              <div className="text-text-faint italic">Select a project to view dev server status.</div>
+              <div className="text-text-faint italic">
+                Select a project to view dev server status.
+              </div>
             ) : (
               <>
                 <div className="flex items-center gap-3">
-                  <span className={`inline-block w-2 h-2 rounded-full ${devStatus?.running ? 'bg-status-success' : 'bg-text-faint'}`} />
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full ${devStatus?.running ? 'bg-status-success' : 'bg-text-faint'}`}
+                  />
                   <span className="text-text-secondary">
-                    Dev server: <span className={devStatus?.running ? 'text-status-success' : 'text-text-faint'}>
-                      {devStatus?.running ? `Running on port ${devStatus.port}` : 'Stopped'}
+                    Dev server:{' '}
+                    <span
+                      className={
+                        devStatus?.running
+                          ? 'text-status-success'
+                          : 'text-text-faint'
+                      }
+                    >
+                      {devStatus?.running
+                        ? `Running on port ${devStatus.port}`
+                        : 'Stopped'}
                     </span>
-                    {devStatus?.pid && <span className="text-text-faint ml-2">(PID {devStatus.pid})</span>}
+                    {devStatus?.pid && (
+                      <span className="text-text-faint ml-2">
+                        (PID {devStatus.pid})
+                      </span>
+                    )}
                   </span>
                   {devStatus?.running ? (
                     <button
@@ -432,7 +651,9 @@ export function BottomPanel() {
                 {logs.length > 0 && (
                   <div className="bg-bg-base border border-border-default rounded p-2 max-h-24 overflow-y-auto">
                     {logs.map((line, i) => (
-                      <div key={i} className="text-text-muted whitespace-pre">{line}</div>
+                      <div key={i} className="text-text-muted whitespace-pre">
+                        {line}
+                      </div>
                     ))}
                     <div ref={logsEndRef} />
                   </div>
@@ -444,11 +665,15 @@ export function BottomPanel() {
         {activeTab === 'browser' && (
           <div className="flex flex-col h-full gap-2">
             {!activeProjectId ? (
-              <div className="text-text-faint italic">Select a project to use the dev browser.</div>
+              <div className="text-text-faint italic">
+                Select a project to use the dev browser.
+              </div>
             ) : !devStatus?.running ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                 <Globe size={24} className="text-text-faint" />
-                <div className="text-text-faint text-sm">Dev server not running</div>
+                <div className="text-text-faint text-sm">
+                  Dev server not running
+                </div>
                 <button
                   onClick={() => startServer.mutate(activeProjectId)}
                   disabled={startServer.isPending}
@@ -461,8 +686,13 @@ export function BottomPanel() {
               <>
                 {/* Toolbar: URL bar + actions */}
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${browserStatus?.running ? 'bg-status-success' : 'bg-text-faint'}`} />
-                  <form onSubmit={handleNavigate} className="flex-1 flex items-center gap-1">
+                  <span
+                    className={`inline-block w-2 h-2 rounded-full shrink-0 ${browserStatus?.running ? 'bg-status-success' : 'bg-text-faint'}`}
+                  />
+                  <form
+                    onSubmit={handleNavigate}
+                    className="flex-1 flex items-center gap-1"
+                  >
                     <input
                       value={browserUrl}
                       onChange={(e) => setBrowserUrl(e.target.value)}
@@ -483,7 +713,8 @@ export function BottomPanel() {
                     className="flex items-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition disabled:opacity-50"
                     title="Capture screenshot"
                   >
-                    <Camera size={10} /> {screenshot.isPending ? 'Capturing…' : 'Screenshot'}
+                    <Camera size={10} />{' '}
+                    {screenshot.isPending ? 'Capturing…' : 'Screenshot'}
                   </button>
                   <button
                     onClick={() => setShowInspectDialog(true)}
@@ -525,44 +756,68 @@ export function BottomPanel() {
                     {/* Inspect in agent dialog overlay */}
                     {showInspectDialog && (
                       <div className="absolute inset-0 bg-bg-base/95 flex flex-col items-center justify-center gap-3 z-10">
-                        <div className="text-xs text-text-primary font-medium">Inspect in Agent</div>
+                        <div className="text-xs text-text-primary font-medium">
+                          Inspect in Agent
+                        </div>
                         {inspectConfirmation ? (
                           <div className="flex items-center gap-1.5 text-status-success text-[11px]">
                             <CheckCircle size={12} /> {inspectConfirmation}
                           </div>
                         ) : (
-                          <form onSubmit={handleInspectSubmit} className="flex flex-col gap-2 w-64">
+                          <form
+                            onSubmit={handleInspectSubmit}
+                            className="flex flex-col gap-2 w-64"
+                          >
                             <input
                               value={inspectSelector}
-                              onChange={(e) => setInspectSelector(e.target.value)}
+                              onChange={(e) =>
+                                setInspectSelector(e.target.value)
+                              }
                               placeholder="CSS selector (e.g. #submit-btn)"
                               className="bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
                             />
                             <input
                               value={inspectDescription}
-                              onChange={(e) => setInspectDescription(e.target.value)}
+                              onChange={(e) =>
+                                setInspectDescription(e.target.value)
+                              }
                               placeholder="What's wrong? (e.g. button is misaligned)"
                               className="bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
                             />
                             <div className="flex items-center gap-2">
                               <button
                                 type="submit"
-                                disabled={!inspectSelector.trim() || !inspectDescription.trim() || inspectInAgent.isPending}
+                                disabled={
+                                  !inspectSelector.trim() ||
+                                  !inspectDescription.trim() ||
+                                  inspectInAgent.isPending
+                                }
                                 className="flex-1 flex items-center justify-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition disabled:opacity-50"
                               >
-                                {inspectInAgent.isPending ? <Loader2 size={10} className="animate-spin" /> : <Crosshair size={10} />}
-                                {inspectInAgent.isPending ? 'Sending…' : 'Send to Agent'}
+                                {inspectInAgent.isPending ? (
+                                  <Loader2 size={10} className="animate-spin" />
+                                ) : (
+                                  <Crosshair size={10} />
+                                )}
+                                {inspectInAgent.isPending
+                                  ? 'Sending…'
+                                  : 'Send to Agent'}
                               </button>
                               <button
                                 type="button"
-                                onClick={() => { setShowInspectDialog(false); setInspectConfirmation(null); }}
+                                onClick={() => {
+                                  setShowInspectDialog(false);
+                                  setInspectConfirmation(null);
+                                }}
                                 className="flex items-center gap-1 text-[10px] px-2 py-1 bg-bg-hover text-text-muted border border-border-default rounded hover:bg-bg-base transition"
                               >
                                 <X size={10} /> Cancel
                               </button>
                             </div>
                             {inspectInAgent.isError && (
-                              <div className="text-status-error text-[10px]">{inspectInAgent.error?.message}</div>
+                              <div className="text-status-error text-[10px]">
+                                {inspectInAgent.error?.message}
+                              </div>
                             )}
                           </form>
                         )}
@@ -607,7 +862,9 @@ export function BottomPanel() {
                     {/* Console sub-panel */}
                     <div className="flex-1 min-h-0 border border-border-default rounded flex flex-col bg-bg-base">
                       <div className="flex items-center justify-between px-2 py-1 border-b border-border-default shrink-0">
-                        <span className="text-[10px] text-text-muted font-medium">Console</span>
+                        <span className="text-[10px] text-text-muted font-medium">
+                          Console
+                        </span>
                         <button
                           onClick={handleClearConsole}
                           className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
@@ -618,17 +875,40 @@ export function BottomPanel() {
                       </div>
                       <div className="flex-1 overflow-y-auto px-2 py-1 font-mono text-[10px] space-y-0.5">
                         {consoleEntries.length === 0 ? (
-                          <div className="text-text-faint italic py-1">No console output</div>
+                          <div className="text-text-faint italic py-1">
+                            No console output
+                          </div>
                         ) : (
                           consoleEntries.map((entry, i) => (
-                            <div key={i} className={`flex items-start gap-1.5 ${
-                              entry.level === 'error' ? 'text-status-error' : entry.level === 'warn' ? 'text-amber-400' : 'text-text-muted'
-                            }`}>
-                              {entry.level === 'error' ? <AlertCircle size={10} className="shrink-0 mt-px" /> :
-                               entry.level === 'warn' ? <AlertTriangle size={10} className="shrink-0 mt-px" /> :
-                               <Info size={10} className="shrink-0 mt-px" />}
-                              <span className="text-text-faint shrink-0">{new Date(entry.timestamp).toLocaleTimeString()}</span>
-                              <span className="whitespace-pre-wrap break-all">{entry.message}</span>
+                            <div
+                              key={i}
+                              className={`flex items-start gap-1.5 ${
+                                entry.level === 'error'
+                                  ? 'text-status-error'
+                                  : entry.level === 'warn'
+                                    ? 'text-amber-400'
+                                    : 'text-text-muted'
+                              }`}
+                            >
+                              {entry.level === 'error' ? (
+                                <AlertCircle
+                                  size={10}
+                                  className="shrink-0 mt-px"
+                                />
+                              ) : entry.level === 'warn' ? (
+                                <AlertTriangle
+                                  size={10}
+                                  className="shrink-0 mt-px"
+                                />
+                              ) : (
+                                <Info size={10} className="shrink-0 mt-px" />
+                              )}
+                              <span className="text-text-faint shrink-0">
+                                {new Date(entry.timestamp).toLocaleTimeString()}
+                              </span>
+                              <span className="whitespace-pre-wrap break-all">
+                                {entry.message}
+                              </span>
                             </div>
                           ))
                         )}
@@ -638,7 +918,9 @@ export function BottomPanel() {
                     {/* Agent Activity sub-panel */}
                     <div className="flex-1 min-h-0 border border-border-default rounded flex flex-col bg-bg-base">
                       <div className="flex items-center justify-between px-2 py-1 border-b border-border-default shrink-0">
-                        <span className="text-[10px] text-text-muted font-medium">Agent Activity</span>
+                        <span className="text-[10px] text-text-muted font-medium">
+                          Agent Activity
+                        </span>
                         <button
                           onClick={handleClearActions}
                           className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
@@ -649,15 +931,37 @@ export function BottomPanel() {
                       </div>
                       <div className="flex-1 overflow-y-auto px-2 py-1 font-mono text-[10px] space-y-0.5">
                         {agentActions.length === 0 ? (
-                          <div className="text-text-faint italic py-1">No agent activity</div>
+                          <div className="text-text-faint italic py-1">
+                            No agent activity
+                          </div>
                         ) : (
                           agentActions.map((entry) => (
-                            <div key={entry.id} className="flex items-start gap-1.5">
-                              {entry.status === 'pending' ? <Loader2 size={10} className="shrink-0 mt-px animate-spin text-accent-primary" /> :
-                               entry.status === 'done' ? <CheckCircle size={10} className="shrink-0 mt-px text-status-success" /> :
-                               <XCircle size={10} className="shrink-0 mt-px text-status-error" />}
-                              <span className="text-text-faint shrink-0">{new Date(entry.timestamp).toLocaleTimeString()}</span>
-                              <span className={`whitespace-pre-wrap break-all ${entry.status === 'error' ? 'text-status-error' : 'text-text-muted'}`}>
+                            <div
+                              key={entry.id}
+                              className="flex items-start gap-1.5"
+                            >
+                              {entry.status === 'pending' ? (
+                                <Loader2
+                                  size={10}
+                                  className="shrink-0 mt-px animate-spin text-accent-primary"
+                                />
+                              ) : entry.status === 'done' ? (
+                                <CheckCircle
+                                  size={10}
+                                  className="shrink-0 mt-px text-status-success"
+                                />
+                              ) : (
+                                <XCircle
+                                  size={10}
+                                  className="shrink-0 mt-px text-status-error"
+                                />
+                              )}
+                              <span className="text-text-faint shrink-0">
+                                {new Date(entry.timestamp).toLocaleTimeString()}
+                              </span>
+                              <span
+                                className={`whitespace-pre-wrap break-all ${entry.status === 'error' ? 'text-status-error' : 'text-text-muted'}`}
+                              >
                                 {entry.action}
                               </span>
                             </div>

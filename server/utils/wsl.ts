@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync } from 'node:fs';
 
 let wslCached: boolean | null = null;
 
@@ -10,9 +10,8 @@ export function isWSL(): boolean {
   if (wslCached !== null) return wslCached;
 
   try {
-    const procVersion = readFileSync("/proc/version", "utf-8");
-    wslCached =
-      /microsoft/i.test(procVersion) || /wsl/i.test(procVersion);
+    const procVersion = readFileSync('/proc/version', 'utf-8');
+    wslCached = /microsoft/i.test(procVersion) || /wsl/i.test(procVersion);
   } catch {
     wslCached = false;
   }
@@ -25,7 +24,7 @@ export function isWSL(): boolean {
  * On WSL, VS Code must be launched via `code.exe` (the Windows binary).
  */
 export function getVSCodeCommand(): string {
-  return isWSL() ? "code.exe" : "code";
+  return isWSL() ? 'code.exe' : 'code';
 }
 
 /**
@@ -38,6 +37,6 @@ export function resolveWSLPath(windowsPath: string): string {
   if (!match) return windowsPath;
 
   const driveLetter = match[1].toLowerCase();
-  const rest = match[2].replace(/\\/g, "/");
+  const rest = match[2].replace(/\\/g, '/');
   return `/mnt/${driveLetter}/${rest}`;
 }

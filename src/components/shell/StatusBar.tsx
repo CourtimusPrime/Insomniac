@@ -1,9 +1,18 @@
-import { Cpu, HardDrive, Coins, Clock, Zap, Globe, User } from 'lucide-react';
-import { useSystemMetrics, useSessionUsage, useSystemInfo, useAuthUser } from '../../api/metrics';
+import { Clock, Coins, Cpu, Globe, HardDrive, User, Zap } from 'lucide-react';
+import {
+  useAuthUser,
+  useSessionUsage,
+  useSystemInfo,
+  useSystemMetrics,
+} from '../../api/metrics';
 
 function formatUptime(seconds: number): string {
-  const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-  const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+  const h = Math.floor(seconds / 3600)
+    .toString()
+    .padStart(2, '0');
+  const m = Math.floor((seconds % 3600) / 60)
+    .toString()
+    .padStart(2, '0');
   const s = (seconds % 60).toString().padStart(2, '0');
   return `${h}:${m}:${s}`;
 }
@@ -14,17 +23,19 @@ function formatTokens(n: number): string {
   return n.toLocaleString();
 }
 
-const modeBadge = (mode: string) => ({
-  local: 'bg-status-success/20 text-status-success border-status-success/30',
-  remote: 'bg-accent-primary/20 text-accent-primary border-accent-primary/30',
-  hosted: 'bg-violet-500/20 text-violet-300 border-violet-500/30',
-}[mode] ?? 'bg-text-faint/20 text-text-faint border-text-faint/30');
+const modeBadge = (mode: string) =>
+  ({
+    local: 'bg-status-success/20 text-status-success border-status-success/30',
+    remote: 'bg-accent-primary/20 text-accent-primary border-accent-primary/30',
+    hosted: 'bg-violet-500/20 text-violet-300 border-violet-500/30',
+  })[mode] ?? 'bg-text-faint/20 text-text-faint border-text-faint/30';
 
-const modeLabel = (mode: string) => ({
-  local: 'Local',
-  remote: 'Remote',
-  hosted: 'Hosted',
-}[mode] ?? mode);
+const modeLabel = (mode: string) =>
+  ({
+    local: 'Local',
+    remote: 'Remote',
+    hosted: 'Hosted',
+  })[mode] ?? mode;
 
 export function StatusBar() {
   const { data: metrics } = useSystemMetrics();
@@ -41,8 +52,12 @@ export function StatusBar() {
 
   return (
     <div className="h-6 shrink-0 flex items-center gap-4 px-3 border-t border-border-default bg-bg-base text-[10px] text-text-muted select-none">
-      <span className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${modeBadge(mode)}`}>
-        {mode === 'local' && <span className="w-1.5 h-1.5 rounded-full bg-status-success" />}
+      <span
+        className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${modeBadge(mode)}`}
+      >
+        {mode === 'local' && (
+          <span className="w-1.5 h-1.5 rounded-full bg-status-success" />
+        )}
         {mode !== 'local' && <Globe size={9} />}
         <span>{modeLabel(mode)}</span>
       </span>

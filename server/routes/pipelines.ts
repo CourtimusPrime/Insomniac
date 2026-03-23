@@ -1,8 +1,13 @@
-import type { FastifyInstance } from "fastify";
-import { eq, and, asc } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { pipelines, pipelineStages, stageAbilities, abilities } from "../db/schema/index.js";
-import { PipelineEngine } from "../pipeline/engine.js";
+import { and, asc, eq } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { db } from '../db/connection.js';
+import {
+  abilities,
+  pipelineStages,
+  pipelines,
+  stageAbilities,
+} from '../db/schema/index.js';
+import { PipelineEngine } from '../pipeline/engine.js';
 
 /** Registry of running PipelineEngine instances so we can pause/cancel them. */
 const runningEngines = new Map<string, PipelineEngine>();
@@ -10,14 +15,14 @@ const runningEngines = new Map<string, PipelineEngine>();
 export async function pipelineRoutes(server: FastifyInstance) {
   // GET /api/pipelines?projectId=X — list pipelines for a project
   server.get<{ Querystring: { projectId: string } }>(
-    "/api/pipelines",
+    '/api/pipelines',
     {
       schema: {
         querystring: {
-          type: "object",
-          required: ["projectId"],
+          type: 'object',
+          required: ['projectId'],
           properties: {
-            projectId: { type: "string", minLength: 1 },
+            projectId: { type: 'string', minLength: 1 },
           },
         },
       },
@@ -47,29 +52,29 @@ export async function pipelineRoutes(server: FastifyInstance) {
       }>;
     };
   }>(
-    "/api/pipelines",
+    '/api/pipelines',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["projectId", "workspaceId", "name"],
+          type: 'object',
+          required: ['projectId', 'workspaceId', 'name'],
           additionalProperties: false,
           properties: {
-            projectId: { type: "string", minLength: 1 },
-            workspaceId: { type: "string", minLength: 1 },
-            name: { type: "string", minLength: 1, maxLength: 200 },
+            projectId: { type: 'string', minLength: 1 },
+            workspaceId: { type: 'string', minLength: 1 },
+            name: { type: 'string', minLength: 1, maxLength: 200 },
             stages: {
-              type: "array",
+              type: 'array',
               items: {
-                type: "object",
-                required: ["name"],
+                type: 'object',
+                required: ['name'],
                 additionalProperties: false,
                 properties: {
-                  name: { type: "string", minLength: 1, maxLength: 200 },
-                  agentId: { type: "string" },
-                  model: { type: "string", maxLength: 100 },
-                  description: { type: "string", maxLength: 2000 },
-                  sortOrder: { type: "integer", minimum: 0 },
+                  name: { type: 'string', minLength: 1, maxLength: 200 },
+                  agentId: { type: 'string' },
+                  model: { type: 'string', maxLength: 100 },
+                  description: { type: 'string', maxLength: 2000 },
+                  sortOrder: { type: 'integer', minimum: 0 },
                 },
               },
             },
@@ -115,7 +120,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
   // POST /api/pipelines/:id/run — start pipeline execution
   server.post<{ Params: { id: string } }>(
-    "/api/pipelines/:id/run",
+    '/api/pipelines/:id/run',
     async (request, reply) => {
       const { id } = request.params;
 
@@ -127,12 +132,12 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!pipeline) {
         reply.code(404);
-        return { error: "Pipeline not found" };
+        return { error: 'Pipeline not found' };
       }
 
-      if (pipeline.status === "running" || runningEngines.has(id)) {
+      if (pipeline.status === 'running' || runningEngines.has(id)) {
         reply.code(409);
-        return { error: "Pipeline is already running" };
+        return { error: 'Pipeline is already running' };
       }
 
       const engine = new PipelineEngine(id);
@@ -144,30 +149,30 @@ export async function pipelineRoutes(server: FastifyInstance) {
       });
 
       reply.code(202);
-      return { pipelineId: id, status: "running" };
+      return { pipelineId: id, status: 'running' };
     },
   );
 
   // POST /api/pipelines/:id/pause — pause a running pipeline
   server.post<{ Params: { id: string } }>(
-    "/api/pipelines/:id/pause",
+    '/api/pipelines/:id/pause',
     async (request, reply) => {
       const { id } = request.params;
 
       const engine = runningEngines.get(id);
       if (!engine) {
         reply.code(409);
-        return { error: "Pipeline is not running" };
+        return { error: 'Pipeline is not running' };
       }
 
       engine.pause();
-      return { pipelineId: id, status: "paused" };
+      return { pipelineId: id, status: 'paused' };
     },
   );
 
   // POST /api/pipelines/:id/resume — resume a paused pipeline
   server.post<{ Params: { id: string } }>(
-    "/api/pipelines/:id/resume",
+    '/api/pipelines/:id/resume',
     async (request, reply) => {
       const { id } = request.params;
 
@@ -179,17 +184,19 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!pipeline) {
         reply.code(404);
-        return { error: "Pipeline not found" };
+        return { error: 'Pipeline not found' };
       }
 
-      if (pipeline.status !== "paused") {
+      if (pipeline.status !== 'paused') {
         reply.code(409);
-        return { error: "Pipeline is not paused" };
+        return { error: 'Pipeline is not paused' };
       }
 
       if (runningEngines.has(id)) {
         reply.code(409);
-        return { error: "Pipeline engine is still active — wait for it to stop" };
+        return {
+          error: 'Pipeline engine is still active — wait for it to stop',
+        };
       }
 
       const engine = new PipelineEngine(id);
@@ -201,25 +208,25 @@ export async function pipelineRoutes(server: FastifyInstance) {
       });
 
       reply.code(202);
-      return { pipelineId: id, status: "running" };
+      return { pipelineId: id, status: 'running' };
     },
   );
 
   // POST /api/pipelines/:id/cancel — cancel a running pipeline
   server.post<{ Params: { id: string } }>(
-    "/api/pipelines/:id/cancel",
+    '/api/pipelines/:id/cancel',
     async (request, reply) => {
       const { id } = request.params;
 
       const engine = runningEngines.get(id);
       if (!engine) {
         reply.code(409);
-        return { error: "Pipeline is not running" };
+        return { error: 'Pipeline is not running' };
       }
 
       await engine.cancel();
       runningEngines.delete(id);
-      return { pipelineId: id, status: "cancelled" };
+      return { pipelineId: id, status: 'cancelled' };
     },
   );
 
@@ -227,7 +234,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
   // GET /api/pipelines/:id/stages — list stages for a pipeline in sortOrder
   server.get<{ Params: { id: string } }>(
-    "/api/pipelines/:id/stages",
+    '/api/pipelines/:id/stages',
     async (request, reply) => {
       const { id } = request.params;
 
@@ -239,7 +246,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!pipeline) {
         reply.code(404);
-        return { error: "Pipeline not found" };
+        return { error: 'Pipeline not found' };
       }
 
       return db
@@ -262,19 +269,19 @@ export async function pipelineRoutes(server: FastifyInstance) {
       sortOrder?: number;
     };
   }>(
-    "/api/pipelines/:id/stages",
+    '/api/pipelines/:id/stages',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["name"],
+          type: 'object',
+          required: ['name'],
           additionalProperties: false,
           properties: {
-            name: { type: "string", minLength: 1, maxLength: 200 },
-            agentId: { type: "string" },
-            model: { type: "string", maxLength: 100 },
-            description: { type: "string", maxLength: 2000 },
-            sortOrder: { type: "integer", minimum: 0 },
+            name: { type: 'string', minLength: 1, maxLength: 200 },
+            agentId: { type: 'string' },
+            model: { type: 'string', maxLength: 100 },
+            description: { type: 'string', maxLength: 2000 },
+            sortOrder: { type: 'integer', minimum: 0 },
           },
         },
       },
@@ -290,7 +297,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!pipeline) {
         reply.code(404);
-        return { error: "Pipeline not found" };
+        return { error: 'Pipeline not found' };
       }
 
       const { name, agentId, model, description, sortOrder } = request.body;
@@ -304,14 +311,21 @@ export async function pipelineRoutes(server: FastifyInstance) {
           .where(eq(pipelineStages.pipelineId, id))
           .orderBy(asc(pipelineStages.sortOrder))
           .all();
-        order = existing.length > 0
-          ? existing[existing.length - 1].sortOrder + 1
-          : 0;
+        order =
+          existing.length > 0 ? existing[existing.length - 1].sortOrder + 1 : 0;
       }
 
       const stageId = crypto.randomUUID();
       db.insert(pipelineStages)
-        .values({ id: stageId, pipelineId: id, name, agentId, model, description, sortOrder: order })
+        .values({
+          id: stageId,
+          pipelineId: id,
+          name,
+          agentId,
+          model,
+          description,
+          sortOrder: order,
+        })
         .run();
 
       const created = db
@@ -336,18 +350,18 @@ export async function pipelineRoutes(server: FastifyInstance) {
       sortOrder?: number;
     };
   }>(
-    "/api/pipelines/:pipelineId/stages/:stageId",
+    '/api/pipelines/:pipelineId/stages/:stageId',
     {
       schema: {
         body: {
-          type: "object",
+          type: 'object',
           additionalProperties: false,
           properties: {
-            name: { type: "string", minLength: 1, maxLength: 200 },
-            agentId: { type: "string" },
-            model: { type: "string", maxLength: 100 },
-            description: { type: "string", maxLength: 2000 },
-            sortOrder: { type: "integer", minimum: 0 },
+            name: { type: 'string', minLength: 1, maxLength: 200 },
+            agentId: { type: 'string' },
+            model: { type: 'string', maxLength: 100 },
+            description: { type: 'string', maxLength: 2000 },
+            sortOrder: { type: 'integer', minimum: 0 },
           },
         },
       },
@@ -368,7 +382,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!stage) {
         reply.code(404);
-        return { error: "Stage not found" };
+        return { error: 'Stage not found' };
       }
 
       const updates: Record<string, unknown> = {};
@@ -376,7 +390,8 @@ export async function pipelineRoutes(server: FastifyInstance) {
       if (body.name !== undefined) updates.name = body.name;
       if (body.agentId !== undefined) updates.agentId = body.agentId;
       if (body.model !== undefined) updates.model = body.model;
-      if (body.description !== undefined) updates.description = body.description;
+      if (body.description !== undefined)
+        updates.description = body.description;
       if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder;
 
       if (Object.keys(updates).length > 0) {
@@ -396,7 +411,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
   // DELETE /api/pipelines/:pipelineId/stages/:stageId — remove a stage
   server.delete<{ Params: { pipelineId: string; stageId: string } }>(
-    "/api/pipelines/:pipelineId/stages/:stageId",
+    '/api/pipelines/:pipelineId/stages/:stageId',
     async (request, reply) => {
       const { pipelineId, stageId } = request.params;
 
@@ -413,12 +428,10 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!stage) {
         reply.code(404);
-        return { error: "Stage not found" };
+        return { error: 'Stage not found' };
       }
 
-      db.delete(pipelineStages)
-        .where(eq(pipelineStages.id, stageId))
-        .run();
+      db.delete(pipelineStages).where(eq(pipelineStages.id, stageId)).run();
 
       reply.code(204);
       return;
@@ -430,15 +443,15 @@ export async function pipelineRoutes(server: FastifyInstance) {
     Params: { id: string };
     Body: { message: string };
   }>(
-    "/api/pipelines/:id/steer",
+    '/api/pipelines/:id/steer',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["message"],
+          type: 'object',
+          required: ['message'],
           additionalProperties: false,
           properties: {
-            message: { type: "string", minLength: 1, maxLength: 500 },
+            message: { type: 'string', minLength: 1, maxLength: 500 },
           },
         },
       },
@@ -455,7 +468,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!pipeline) {
         reply.code(404);
-        return { error: "Pipeline not found" };
+        return { error: 'Pipeline not found' };
       }
 
       const lower = message.toLowerCase().trim();
@@ -464,32 +477,32 @@ export async function pipelineRoutes(server: FastifyInstance) {
       if (/^pause$/i.test(lower)) {
         const engine = runningEngines.get(id);
         if (!engine) {
-          return { action: "pause", result: "Pipeline is not running" };
+          return { action: 'pause', result: 'Pipeline is not running' };
         }
         engine.pause();
-        return { action: "pause", result: "Pipeline paused" };
+        return { action: 'pause', result: 'Pipeline paused' };
       }
 
       // "resume"
       if (/^resume$/i.test(lower)) {
-        if (pipeline.status !== "paused") {
-          return { action: "resume", result: "Pipeline is not paused" };
+        if (pipeline.status !== 'paused') {
+          return { action: 'resume', result: 'Pipeline is not paused' };
         }
         const engine = new PipelineEngine(id);
         runningEngines.set(id, engine);
         engine.resume().finally(() => runningEngines.delete(id));
-        return { action: "resume", result: "Pipeline resumed" };
+        return { action: 'resume', result: 'Pipeline resumed' };
       }
 
       // "cancel"
       if (/^cancel$/i.test(lower)) {
         const engine = runningEngines.get(id);
         if (!engine) {
-          return { action: "cancel", result: "Pipeline is not running" };
+          return { action: 'cancel', result: 'Pipeline is not running' };
         }
         await engine.cancel();
         runningEngines.delete(id);
-        return { action: "cancel", result: "Pipeline cancelled" };
+        return { action: 'cancel', result: 'Pipeline cancelled' };
       }
 
       // "skip [stage name]"
@@ -503,20 +516,23 @@ export async function pipelineRoutes(server: FastifyInstance) {
           .orderBy(asc(pipelineStages.sortOrder))
           .all();
 
-        const matched = stages.find(
-          (s) => s.name.toLowerCase().includes(stageName),
+        const matched = stages.find((s) =>
+          s.name.toLowerCase().includes(stageName),
         );
 
         if (!matched) {
-          return { action: "skip", result: `No stage matching "${stageName}" found` };
+          return {
+            action: 'skip',
+            result: `No stage matching "${stageName}" found`,
+          };
         }
 
         db.update(pipelineStages)
-          .set({ status: "skipped" })
+          .set({ status: 'skipped' })
           .where(eq(pipelineStages.id, matched.id))
           .run();
 
-        return { action: "skip", result: `Skipped stage "${matched.name}"` };
+        return { action: 'skip', result: `Skipped stage "${matched.name}"` };
       }
 
       // "add [stage name]"
@@ -524,7 +540,10 @@ export async function pipelineRoutes(server: FastifyInstance) {
       if (addMatch) {
         const stageName = addMatch[1];
         if (stageName.length > 200) {
-          return { action: "error", result: "Stage name too long (max 200 characters)" };
+          return {
+            action: 'error',
+            result: 'Stage name too long (max 200 characters)',
+          };
         }
         const existing = db
           .select()
@@ -534,9 +553,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
           .all();
 
         const nextOrder =
-          existing.length > 0
-            ? existing[existing.length - 1].sortOrder + 1
-            : 0;
+          existing.length > 0 ? existing[existing.length - 1].sortOrder + 1 : 0;
 
         const stageId = crypto.randomUUID();
         db.insert(pipelineStages)
@@ -548,16 +565,22 @@ export async function pipelineRoutes(server: FastifyInstance) {
           })
           .run();
 
-        return { action: "add", result: `Added stage "${stageName}" at position ${nextOrder}` };
+        return {
+          action: 'add',
+          result: `Added stage "${stageName}" at position ${nextOrder}`,
+        };
       }
 
-      return { action: "unknown", result: `Unrecognised command. Try: skip [stage], add [stage], pause, resume, cancel` };
+      return {
+        action: 'unknown',
+        result: `Unrecognised command. Try: skip [stage], add [stage], pause, resume, cancel`,
+      };
     },
   );
 
   // POST /api/pipelines/:pipelineId/stages/:stageId/skip — mark stage as skipped
   server.post<{ Params: { pipelineId: string; stageId: string } }>(
-    "/api/pipelines/:pipelineId/stages/:stageId/skip",
+    '/api/pipelines/:pipelineId/stages/:stageId/skip',
     async (request, reply) => {
       const { pipelineId, stageId } = request.params;
 
@@ -574,11 +597,11 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!stage) {
         reply.code(404);
-        return { error: "Stage not found" };
+        return { error: 'Stage not found' };
       }
 
       db.update(pipelineStages)
-        .set({ status: "skipped" })
+        .set({ status: 'skipped' })
         .where(eq(pipelineStages.id, stageId))
         .run();
 
@@ -594,7 +617,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
   // GET /api/pipelines/:pipelineId/stages/:stageId/abilities — list abilities for a stage
   server.get<{ Params: { pipelineId: string; stageId: string } }>(
-    "/api/pipelines/:pipelineId/stages/:stageId/abilities",
+    '/api/pipelines/:pipelineId/stages/:stageId/abilities',
     async (request, reply) => {
       const { pipelineId, stageId } = request.params;
 
@@ -611,7 +634,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!stage) {
         reply.code(404);
-        return { error: "Stage not found" };
+        return { error: 'Stage not found' };
       }
 
       const rows = db
@@ -638,8 +661,10 @@ export async function pipelineRoutes(server: FastifyInstance) {
   );
 
   // POST /api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId — assign ability to stage
-  server.post<{ Params: { pipelineId: string; stageId: string; abilityId: string } }>(
-    "/api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId",
+  server.post<{
+    Params: { pipelineId: string; stageId: string; abilityId: string };
+  }>(
+    '/api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId',
     async (request, reply) => {
       const { pipelineId, stageId, abilityId } = request.params;
 
@@ -656,7 +681,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!stage) {
         reply.code(404);
-        return { error: "Stage not found" };
+        return { error: 'Stage not found' };
       }
 
       const ability = db
@@ -667,7 +692,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!ability) {
         reply.code(404);
-        return { error: "Ability not found" };
+        return { error: 'Ability not found' };
       }
 
       // Check if already assigned
@@ -684,12 +709,10 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (existing) {
         reply.code(409);
-        return { error: "Ability already assigned to this stage" };
+        return { error: 'Ability already assigned to this stage' };
       }
 
-      db.insert(stageAbilities)
-        .values({ stageId, abilityId })
-        .run();
+      db.insert(stageAbilities).values({ stageId, abilityId }).run();
 
       reply.code(201);
       return { stageId, abilityId };
@@ -697,8 +720,10 @@ export async function pipelineRoutes(server: FastifyInstance) {
   );
 
   // DELETE /api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId — unassign ability from stage
-  server.delete<{ Params: { pipelineId: string; stageId: string; abilityId: string } }>(
-    "/api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId",
+  server.delete<{
+    Params: { pipelineId: string; stageId: string; abilityId: string };
+  }>(
+    '/api/pipelines/:pipelineId/stages/:stageId/abilities/:abilityId',
     async (request, reply) => {
       const { pipelineId, stageId, abilityId } = request.params;
 
@@ -715,7 +740,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!stage) {
         reply.code(404);
-        return { error: "Stage not found" };
+        return { error: 'Stage not found' };
       }
 
       const assignment = db
@@ -731,7 +756,7 @@ export async function pipelineRoutes(server: FastifyInstance) {
 
       if (!assignment) {
         reply.code(404);
-        return { error: "Ability assignment not found" };
+        return { error: 'Ability assignment not found' };
       }
 
       db.delete(stageAbilities)

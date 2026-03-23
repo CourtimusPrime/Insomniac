@@ -1,12 +1,12 @@
-import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { projectPreferences } from "../db/schema/index.js";
+import { eq } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { db } from '../db/connection.js';
+import { projectPreferences } from '../db/schema/index.js';
 
 export async function preferencesRoutes(server: FastifyInstance) {
   // GET /api/projects/:id/preferences — get project's model preferences
   server.get<{ Params: { id: string } }>(
-    "/api/projects/:id/preferences",
+    '/api/projects/:id/preferences',
     async (request, reply) => {
       const prefs = db
         .select()
@@ -16,7 +16,7 @@ export async function preferencesRoutes(server: FastifyInstance) {
 
       if (!prefs) {
         reply.code(404);
-        return { error: "No preferences found for this project" };
+        return { error: 'No preferences found for this project' };
       }
 
       return prefs;
@@ -32,19 +32,19 @@ export async function preferencesRoutes(server: FastifyInstance) {
       taskTypeOverrides?: Record<string, string>;
     };
   }>(
-    "/api/projects/:id/preferences",
+    '/api/projects/:id/preferences',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["providerId"],
+          type: 'object',
+          required: ['providerId'],
           additionalProperties: false,
           properties: {
-            providerId: { type: "string", minLength: 1 },
-            defaultModel: { type: "string", maxLength: 200 },
+            providerId: { type: 'string', minLength: 1 },
+            defaultModel: { type: 'string', maxLength: 200 },
             taskTypeOverrides: {
-              type: "object",
-              additionalProperties: { type: "string" },
+              type: 'object',
+              additionalProperties: { type: 'string' },
             },
           },
         },

@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 
-const WS_URL = "ws://localhost:4321/ws";
+const WS_URL = 'ws://localhost:4321/ws';
 
 const MAX_RECONNECT_DELAY = 8000;
 const INITIAL_RECONNECT_DELAY = 1000;
@@ -55,22 +55,22 @@ export function useWebSocket(): void {
 
     function handleEvent(event: string) {
       switch (event) {
-        case "pipeline:status":
-          queryClient.invalidateQueries({ queryKey: ["pipelines"] });
+        case 'pipeline:status':
+          queryClient.invalidateQueries({ queryKey: ['pipelines'] });
           break;
-        case "stage:status":
-          queryClient.invalidateQueries({ queryKey: ["pipelineStages"] });
+        case 'stage:status':
+          queryClient.invalidateQueries({ queryKey: ['pipelineStages'] });
           break;
-        case "decision:created":
-        case "decision:resolved":
-          queryClient.invalidateQueries({ queryKey: ["decisions"] });
+        case 'decision:created':
+        case 'decision:resolved':
+          queryClient.invalidateQueries({ queryKey: ['decisions'] });
           break;
-        case "devserver:log":
-        case "devserver:status":
-          queryClient.invalidateQueries({ queryKey: ["devServerStatus"] });
+        case 'devserver:log':
+        case 'devserver:status':
+          queryClient.invalidateQueries({ queryKey: ['devServerStatus'] });
           break;
-        case "agent:status":
-          queryClient.invalidateQueries({ queryKey: ["activeAgents"] });
+        case 'agent:status':
+          queryClient.invalidateQueries({ queryKey: ['activeAgents'] });
           break;
       }
     }
@@ -79,10 +79,7 @@ export function useWebSocket(): void {
       if (unmountedRef.current) return;
 
       const delay = reconnectDelayRef.current;
-      reconnectDelayRef.current = Math.min(
-        delay * 2,
-        MAX_RECONNECT_DELAY,
-      );
+      reconnectDelayRef.current = Math.min(delay * 2, MAX_RECONNECT_DELAY);
       reconnectTimerRef.current = setTimeout(connect, delay);
     }
 

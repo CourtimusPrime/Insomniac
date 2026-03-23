@@ -1,11 +1,15 @@
-import type { FastifyInstance } from "fastify";
-import { eq } from "drizzle-orm";
-import { db } from "../db/connection.js";
-import { projects, pipelines, pipelineStages } from "../db/schema/index.js";
-import { workspaces } from "../db/schema/index.js";
-import { BackseatDriver, type Recommendation } from "../backseat/driver.js";
+import { eq } from 'drizzle-orm';
+import type { FastifyInstance } from 'fastify';
+import { BackseatDriver, type Recommendation } from '../backseat/driver.js';
+import { db } from '../db/connection.js';
+import {
+  pipelineStages,
+  pipelines,
+  projects,
+  workspaces,
+} from '../db/schema/index.js';
 
-const DEFAULT_WORKSPACE_NAME = "Default";
+const DEFAULT_WORKSPACE_NAME = 'Default';
 
 async function getOrCreateDefaultWorkspace(): Promise<string> {
   const existing = db
@@ -37,13 +41,13 @@ export async function backseatRoutes(server: FastifyInstance) {
 
   // GET /api/backseat/recommendations?projectId=X — get recommendations for a project
   server.get<{ Querystring: { projectId?: string } }>(
-    "/api/backseat/recommendations",
+    '/api/backseat/recommendations',
     async (request, reply) => {
       const { projectId } = request.query;
 
       if (!projectId) {
         reply.code(400);
-        return { error: "projectId query parameter is required" };
+        return { error: 'projectId query parameter is required' };
       }
 
       const cached = recommendationsCache.get(projectId);
@@ -59,15 +63,15 @@ export async function backseatRoutes(server: FastifyInstance) {
   server.post<{
     Body: { projectId: string };
   }>(
-    "/api/backseat/scan",
+    '/api/backseat/scan',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["projectId"],
+          type: 'object',
+          required: ['projectId'],
           additionalProperties: false,
           properties: {
-            projectId: { type: "string", minLength: 1 },
+            projectId: { type: 'string', minLength: 1 },
           },
         },
       },
@@ -82,7 +86,7 @@ export async function backseatRoutes(server: FastifyInstance) {
         .get();
 
       if (!project) {
-        return { error: "Project not found", recommendations: [] };
+        return { error: 'Project not found', recommendations: [] };
       }
 
       // Use the project path if available, otherwise use the project name as a relative path
@@ -105,15 +109,15 @@ export async function backseatRoutes(server: FastifyInstance) {
     Params: { id: string };
     Body: { projectId: string };
   }>(
-    "/api/backseat/recommendations/:id/run",
+    '/api/backseat/recommendations/:id/run',
     {
       schema: {
         body: {
-          type: "object",
-          required: ["projectId"],
+          type: 'object',
+          required: ['projectId'],
           additionalProperties: false,
           properties: {
-            projectId: { type: "string", minLength: 1 },
+            projectId: { type: 'string', minLength: 1 },
           },
         },
       },
@@ -128,7 +132,7 @@ export async function backseatRoutes(server: FastifyInstance) {
 
       if (!rec) {
         reply.code(404);
-        return { error: "Recommendation not found" };
+        return { error: 'Recommendation not found' };
       }
 
       // Create a new pipeline for this recommendation

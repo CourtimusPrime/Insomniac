@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "./client";
+import { useQuery } from '@tanstack/react-query';
+import { apiFetch } from './client';
 
 export interface UsageSummary {
   totalTokens: number;
@@ -31,26 +31,30 @@ export interface UsageBreakdownEntry {
 
 export function useUsageSummary() {
   return useQuery<UsageSummary>({
-    queryKey: ["usageSummary"],
-    queryFn: () => apiFetch<UsageSummary>("/api/usage/summary"),
+    queryKey: ['usageSummary'],
+    queryFn: () => apiFetch<UsageSummary>('/api/usage/summary'),
     refetchInterval: 5000,
   });
 }
 
 export function useUsageTimeline(hours = 24) {
   return useQuery<UsageTimelineEntry[]>({
-    queryKey: ["usageTimeline", hours],
+    queryKey: ['usageTimeline', hours],
     queryFn: () =>
       apiFetch<UsageTimelineEntry[]>(`/api/usage/timeline?hours=${hours}`),
     refetchInterval: 10000,
   });
 }
 
-export function useUsageBreakdown(groupBy: "provider" | "model" | "agent" | "project" = "provider") {
+export function useUsageBreakdown(
+  groupBy: 'provider' | 'model' | 'agent' | 'project' = 'provider',
+) {
   return useQuery<UsageBreakdownEntry[]>({
-    queryKey: ["usageBreakdown", groupBy],
+    queryKey: ['usageBreakdown', groupBy],
     queryFn: () =>
-      apiFetch<UsageBreakdownEntry[]>(`/api/usage/breakdown?groupBy=${groupBy}`),
+      apiFetch<UsageBreakdownEntry[]>(
+        `/api/usage/breakdown?groupBy=${groupBy}`,
+      ),
     refetchInterval: 10000,
   });
 }
