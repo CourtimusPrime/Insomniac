@@ -11,7 +11,10 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "server": "node --import tsx server/index.ts",
-    "server:dev": "tsx --watch server/index.ts"
+    "server:dev": "tsx --watch server/index.ts",
+    "lint": "biome check src server",
+    "lint:fix": "biome check --write src server",
+    "format": "biome format --write src server"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
@@ -35,6 +38,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.8",
     "@tauri-apps/cli": "^2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^19.1.8",
