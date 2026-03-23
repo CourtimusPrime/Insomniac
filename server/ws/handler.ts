@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
+import { getAllowedOrigins } from '../utils/index.js';
 
 const clients = new Set<WebSocket>();
 
@@ -14,16 +15,11 @@ export function broadcast(event: string, data: unknown): void {
   }
 }
 
-const ALLOWED_ORIGINS = [
-  'http://localhost:1420',
-  'http://localhost:4321',
-  'http://localhost:5173',
-];
-
 export async function wsRoutes(server: FastifyInstance): Promise<void> {
   server.get('/ws', { websocket: true }, (socket, request) => {
     const origin = request.headers.origin ?? '';
-    if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+    const allowedOrigins = getAllowedOrigins();
+    if (origin && !allowedOrigins.includes(origin)) {
       socket.close(1008, 'Forbidden');
       return;
     }

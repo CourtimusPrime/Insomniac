@@ -2,28 +2,8 @@ import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { BackseatDriver, type Recommendation } from '../backseat/driver.js';
 import { db } from '../db/connection.js';
-import {
-  pipelineStages,
-  pipelines,
-  projects,
-  workspaces,
-} from '../db/schema/index.js';
-
-const DEFAULT_WORKSPACE_NAME = 'Default';
-
-async function getOrCreateDefaultWorkspace(): Promise<string> {
-  const existing = db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.name, DEFAULT_WORKSPACE_NAME))
-    .get();
-
-  if (existing) return existing.id;
-
-  const id = crypto.randomUUID();
-  db.insert(workspaces).values({ id, name: DEFAULT_WORKSPACE_NAME }).run();
-  return id;
-}
+import { pipelineStages, pipelines, projects } from '../db/schema/index.js';
+import { getOrCreateDefaultWorkspace } from '../utils/workspace.js';
 
 // In-memory cache of recommendations per project, keyed by projectId
 const recommendationsCache = new Map<

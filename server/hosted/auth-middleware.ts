@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { getDeploymentConfig } from '../config/deployment.js';
 
@@ -29,12 +30,33 @@ async function validateBasicAuth(
   const expectedUser = process.env.INSOMNIAC_AUTH_USER;
   const expectedPass = process.env.INSOMNIAC_AUTH_PASS;
 
-  if (
-    !expectedUser ||
-    !expectedPass ||
-    user !== expectedUser ||
-    pass !== expectedPass
-  ) {
+  if (!expectedUser || !expectedPass) {
+    reply.code(401).send({ error: 'Unauthorized' });
+    return;
+  }
+
+  // Use timing-safe comparison to prevent timing attacks.
+  // Always run timingSafeEqual even when lengths differ to avoid
+  // leaking length information through response timing.
+  const userBuf = Buffer.from(user ?? '');
+  const expectedUserBuf = Buffer.from(expectedUser);
+  const passBuf = Buffer.from(pass ?? '');
+  const expectedPassBuf = Buffer.from(expectedPass);
+
+  const userLenMatch = userBuf.length === expectedUserBuf.length;
+  const passLenMatch = passBuf.length === expectedPassBuf.length;
+
+  // When lengths differ, compare expected against itself to keep constant time
+  const userMatch = timingSafeEqual(
+    userLenMatch ? userBuf : expectedUserBuf,
+    expectedUserBuf,
+  );
+  const passMatch = timingSafeEqual(
+    passLenMatch ? passBuf : expectedPassBuf,
+    expectedPassBuf,
+  );
+
+  if (!userLenMatch || !passLenMatch || !userMatch || !passMatch) {
     reply.code(401).send({ error: 'Unauthorized' });
     return;
   }

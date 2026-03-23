@@ -2,10 +2,9 @@ import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { db } from '../db/connection.js';
 import { hooks } from '../db/schema/hooks.js';
-import { workspaces } from '../db/schema/index.js';
 import { HooksEngine } from '../hooks/engine.js';
+import { getOrCreateDefaultWorkspace } from '../utils/workspace.js';
 
-const DEFAULT_WORKSPACE_NAME = 'Default';
 const VALID_TRIGGERS = [
   'pre-stage',
   'post-stage',
@@ -19,20 +18,6 @@ const VALID_TRIGGERS = [
 ] as const;
 
 const VALID_ACTION_TYPES = ['shell', 'webhook', 'slack'] as const;
-
-async function getOrCreateDefaultWorkspace(): Promise<string> {
-  const existing = db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.name, DEFAULT_WORKSPACE_NAME))
-    .get();
-
-  if (existing) return existing.id;
-
-  const id = crypto.randomUUID();
-  db.insert(workspaces).values({ id, name: DEFAULT_WORKSPACE_NAME }).run();
-  return id;
-}
 
 export async function hookRoutes(server: FastifyInstance) {
   const workspaceId = await getOrCreateDefaultWorkspace();

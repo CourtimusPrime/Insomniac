@@ -5,12 +5,12 @@ import { type SandboxConfig, SandboxManager } from '../hosted/index.js';
 // Shared sandbox manager instance (non-strict Linux requirement for prototype)
 const manager = new SandboxManager(false);
 
+const MAX_SANDBOXES = 10;
+
 type CreateSandboxBody = {
   maxMemoryMB?: number;
   maxVCPUs?: number;
   networkMode?: 'none' | 'nat' | 'bridged';
-  rootfsPath?: string;
-  kernelPath?: string;
 };
 
 export async function sandboxRoutes(server: FastifyInstance): Promise<void> {
@@ -67,14 +67,21 @@ export async function sandboxRoutes(server: FastifyInstance): Promise<void> {
         }
       }
 
+      // Enforce sandbox limit
+      const activeSandboxes = manager.listSandboxes();
+      if (activeSandboxes.length >= MAX_SANDBOXES) {
+        reply.code(429).send({
+          error: `Sandbox limit reached (max ${MAX_SANDBOXES}). Destroy an existing sandbox before creating a new one.`,
+        });
+        return;
+      }
+
       const overrides: Partial<SandboxConfig> = {};
       if (body.maxMemoryMB !== undefined)
         overrides.maxMemoryMB = body.maxMemoryMB;
       if (body.maxVCPUs !== undefined) overrides.maxVCPUs = body.maxVCPUs;
       if (body.networkMode !== undefined)
         overrides.networkMode = body.networkMode;
-      if (body.rootfsPath !== undefined) overrides.rootfsPath = body.rootfsPath;
-      if (body.kernelPath !== undefined) overrides.kernelPath = body.kernelPath;
 
       const id = manager.createSandbox(overrides);
       reply.code(201).send({ id });

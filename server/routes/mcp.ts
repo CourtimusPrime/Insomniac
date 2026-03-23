@@ -18,53 +18,61 @@ export async function mcpRoutes(server: FastifyInstance): Promise<void> {
       args?: string[];
       env?: Record<string, string>;
     };
-  }>('/api/mcp/connections', async (request, reply) => {
-    const { name, command, args, env } = request.body ?? {};
+  }>(
+    '/api/mcp/connections',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['name', 'command'],
+          properties: {
+            name: { type: 'string', minLength: 1 },
+            command: { type: 'string', minLength: 1 },
+            args: { type: 'array', items: { type: 'string' } },
+            env: { type: 'object', additionalProperties: { type: 'string' } },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { name, command, args, env } = request.body;
 
-    if (!name || typeof name !== 'string') {
-      reply.code(400);
-      return { error: 'name is required and must be a string' };
-    }
+      // Security: reject absolute paths and path traversal in command
+      if (
+        command.includes('/') ||
+        command.includes('\\') ||
+        command.includes('..')
+      ) {
+        reply.code(400);
+        return { error: 'command must be a binary name, not a path' };
+      }
 
-    if (!command || typeof command !== 'string') {
-      reply.code(400);
-      return { error: 'command is required and must be a string' };
-    }
+      // Security: block dangerous env vars that enable code injection
+      const BLOCKED_ENV_KEYS = new Set([
+        'PATH',
+        'LD_PRELOAD',
+        'LD_LIBRARY_PATH',
+        'NODE_OPTIONS',
+        'PYTHONPATH',
+      ]);
+      const safeEnv = env
+        ? Object.fromEntries(
+            Object.entries(env).filter(([k]) => !BLOCKED_ENV_KEYS.has(k)),
+          )
+        : undefined;
 
-    // Security: reject absolute paths and path traversal in command
-    if (
-      command.includes('/') ||
-      command.includes('\\') ||
-      command.includes('..')
-    ) {
-      reply.code(400);
-      return { error: 'command must be a binary name, not a path' };
-    }
+      const result = manager.connect({ name, command, args, env: safeEnv });
 
-    // Security: block dangerous env vars that enable code injection
-    const BLOCKED_ENV_KEYS = new Set([
-      'PATH',
-      'LD_PRELOAD',
-      'LD_LIBRARY_PATH',
-      'NODE_OPTIONS',
-      'PYTHONPATH',
-    ]);
-    const safeEnv = env
-      ? Object.fromEntries(
-          Object.entries(env).filter(([k]) => !BLOCKED_ENV_KEYS.has(k)),
-        )
-      : undefined;
+      if (!result.success) {
+        reply.code(409);
+        return { error: result.error };
+      }
 
-    const result = manager.connect({ name, command, args, env: safeEnv });
-
-    if (!result.success) {
-      reply.code(409);
-      return { error: result.error };
-    }
-
-    reply.code(201);
-    return manager.getConnection(name);
-  });
+      reply.code(201);
+      return manager.getConnection(name);
+    },
+  );
 
   // DELETE /api/mcp/connections/:name — disconnect an MCP server
   server.delete<{ Params: { name: string } }>(

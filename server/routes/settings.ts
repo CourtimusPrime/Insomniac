@@ -1,17 +1,9 @@
 import { and, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { db } from '../db/connection.js';
-import { settings, workspaces } from '../db/schema/index.js';
+import { settings } from '../db/schema/index.js';
 import { SlackNotifier } from '../integrations/slack.js';
-
-function getOrCreateDefaultWorkspaceId(): string {
-  const ws = db.select().from(workspaces).limit(1).get();
-  if (ws) return ws.id;
-
-  const id = crypto.randomUUID();
-  db.insert(workspaces).values({ id, name: 'Default' }).run();
-  return id;
-}
+import { getOrCreateDefaultWorkspace } from '../utils/workspace.js';
 
 const slackNotifier = new SlackNotifier();
 
@@ -20,7 +12,7 @@ export async function settingsRoutes(server: FastifyInstance) {
   server.get<{ Params: { key: string } }>(
     '/api/settings/:key',
     async (request, _reply) => {
-      const workspaceId = getOrCreateDefaultWorkspaceId();
+      const workspaceId = await getOrCreateDefaultWorkspace();
 
       const row = db
         .select()
@@ -60,7 +52,7 @@ export async function settingsRoutes(server: FastifyInstance) {
       },
     },
     async (request, _reply) => {
-      const workspaceId = getOrCreateDefaultWorkspaceId();
+      const workspaceId = await getOrCreateDefaultWorkspace();
 
       const key = request.params.key;
       const { value, category } = request.body;

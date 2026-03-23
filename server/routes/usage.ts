@@ -3,6 +3,23 @@ import type { FastifyInstance } from 'fastify';
 import { db } from '../db/connection.js';
 import { usageRecords } from '../db/schema/index.js';
 
+/** Prevent CSV formula injection by prefixing dangerous first characters with a single quote. */
+function sanitizeCsvCell(value: string): string {
+  if (value.length === 0) return value;
+  const first = value[0];
+  if (
+    first === '=' ||
+    first === '+' ||
+    first === '-' ||
+    first === '@' ||
+    first === '\t' ||
+    first === '\r'
+  ) {
+    return `'${value}`;
+  }
+  return value;
+}
+
 export async function usageRoutes(server: FastifyInstance): Promise<void> {
   // GET /api/usage/summary — total tokens, cost, most active agent, most used model
   server.get('/api/usage/summary', async () => {
@@ -148,7 +165,7 @@ export async function usageRoutes(server: FastifyInstance): Promise<void> {
                 const val = row[h as keyof typeof row];
                 if (val === null || val === undefined) return '';
                 if (val instanceof Date) return val.toISOString();
-                return String(val);
+                return sanitizeCsvCell(String(val));
               })
               .join(','),
           );

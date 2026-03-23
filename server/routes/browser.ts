@@ -8,6 +8,27 @@ import { pipelineStages, pipelines, projects } from '../db/schema/index.js';
 import { broadcast } from '../ws/handler.js';
 import { getRunnerForProject } from './localhost.js';
 
+const ALLOWED_PROTOCOLS = new Set(['http:', 'https:']);
+
+/**
+ * Validate a navigation URL to prevent SSRF attacks.
+ * Returns an error message string if the URL is invalid, or null if it is safe.
+ */
+function validateNavigationUrl(raw: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return 'Invalid URL: unable to parse the provided value.';
+  }
+
+  if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) {
+    return `Blocked protocol "${parsed.protocol}" — only http: and https: are allowed.`;
+  }
+
+  return null;
+}
+
 /** Singleton browser instance shared across all routes. */
 let engine: BrowserEngine | null = null;
 
@@ -52,6 +73,12 @@ export async function browserRoutes(server: FastifyInstance): Promise<void> {
         return {
           error: 'Browser is not running. Call /api/browser/launch first.',
         };
+      }
+
+      const urlError = validateNavigationUrl(request.body.url);
+      if (urlError) {
+        reply.code(400);
+        return { error: urlError };
       }
 
       await engine.navigate(request.body.url);

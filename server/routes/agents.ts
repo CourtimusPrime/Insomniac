@@ -29,34 +29,53 @@ export async function agentRoutes(server: FastifyInstance): Promise<void> {
   server.patch<{
     Params: { id: string };
     Body: { status?: string; currentTask?: string; progress?: number };
-  }>('/api/agents/:id/status', async (request, reply) => {
-    const { id } = request.params;
-    const { status, currentTask, progress } = request.body;
+  }>(
+    '/api/agents/:id/status',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['idle', 'working', 'paused', 'error'],
+            },
+            currentTask: { type: 'string' },
+            progress: { type: 'number', minimum: 0, maximum: 100 },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { status, currentTask, progress } = request.body;
 
-    const updates: Record<string, unknown> = {};
-    if (status !== undefined) updates.status = status;
-    if (currentTask !== undefined) updates.currentTask = currentTask;
-    if (progress !== undefined) updates.progress = progress;
+      const updates: Record<string, unknown> = {};
+      if (status !== undefined) updates.status = status;
+      if (currentTask !== undefined) updates.currentTask = currentTask;
+      if (progress !== undefined) updates.progress = progress;
 
-    if (Object.keys(updates).length === 0) {
-      reply.status(400);
-      return { error: 'No fields to update' };
-    }
+      if (Object.keys(updates).length === 0) {
+        reply.status(400);
+        return { error: 'No fields to update' };
+      }
 
-    const [updated] = db
-      .update(agents)
-      .set(updates)
-      .where(eq(agents.id, id))
-      .returning()
-      .all();
+      const [updated] = db
+        .update(agents)
+        .set(updates)
+        .where(eq(agents.id, id))
+        .returning()
+        .all();
 
-    if (!updated) {
-      reply.status(404);
-      return { error: 'Agent not found' };
-    }
+      if (!updated) {
+        reply.status(404);
+        return { error: 'Agent not found' };
+      }
 
-    broadcast('agent:status', updated);
+      broadcast('agent:status', updated);
 
-    return updated;
-  });
+      return updated;
+    },
+  );
 }

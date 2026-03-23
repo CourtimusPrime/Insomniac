@@ -4,26 +4,9 @@ import { db } from '../db/connection.js';
 import { templates } from '../db/schema/index.js';
 import { MarketplaceClient } from '../marketplace/client.js';
 import type { MarketplaceItemType, TrustTier } from '../marketplace/types.js';
+import { getOrCreateDefaultWorkspace } from '../utils/workspace.js';
 
 const client = new MarketplaceClient();
-
-/** Helper: resolve default workspace ID (duplicated — consider extracting). */
-async function getOrCreateDefaultWorkspace(): Promise<string> {
-  const { workspaces } = await import('../db/schema/index.js');
-  const DEFAULT_WORKSPACE_NAME = 'Default Workspace';
-
-  const existing = db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.name, DEFAULT_WORKSPACE_NAME))
-    .get();
-
-  if (existing) return existing.id;
-
-  const id = crypto.randomUUID();
-  db.insert(workspaces).values({ id, name: DEFAULT_WORKSPACE_NAME }).run();
-  return id;
-}
 
 export async function marketplaceRoutes(server: FastifyInstance) {
   // GET /api/marketplace — paginated list with optional filters

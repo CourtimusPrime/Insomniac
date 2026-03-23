@@ -3,23 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { encryptApiKey } from '../crypto/keys.js';
 import { db } from '../db/connection.js';
 import { credentials } from '../db/schema/credentials.js';
-import { workspaces } from '../db/schema/index.js';
-
-const DEFAULT_WORKSPACE_NAME = 'Default';
-
-async function getOrCreateDefaultWorkspace(): Promise<string> {
-  const existing = db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.name, DEFAULT_WORKSPACE_NAME))
-    .get();
-
-  if (existing) return existing.id;
-
-  const id = crypto.randomUUID();
-  db.insert(workspaces).values({ id, name: DEFAULT_WORKSPACE_NAME }).run();
-  return id;
-}
+import { getOrCreateDefaultWorkspace } from '../utils/workspace.js';
 
 /** Strip encrypted secrets from a credential row for safe API responses */
 function redactSecrets(

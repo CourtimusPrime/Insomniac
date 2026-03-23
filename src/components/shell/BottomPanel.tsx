@@ -31,6 +31,7 @@ import {
   useNavigate,
   useScreenshot,
 } from '../../api/browser';
+import { apiUrl, wsUrl } from '../../api/client';
 import {
   useDevServerStatus,
   useStartDevServer,
@@ -98,7 +99,7 @@ export function BottomPanel() {
 
   // Listen for log:entry WebSocket events
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:4321/ws');
+    const ws = new WebSocket(wsUrl());
     function onMessage(evt: MessageEvent) {
       try {
         const msg = JSON.parse(evt.data) as { event: string; data?: LogEntry };
@@ -265,7 +266,7 @@ export function BottomPanel() {
       }
     }
 
-    const ws = new WebSocket('ws://localhost:4321/ws');
+    const ws = new WebSocket(wsUrl());
     ws.addEventListener('message', onBrowserMessage);
     return () => {
       ws.close();
@@ -313,7 +314,7 @@ export function BottomPanel() {
       }
     }
 
-    const ws = new WebSocket('ws://localhost:4321/ws');
+    const ws = new WebSocket(wsUrl());
     ws.addEventListener('message', onMessage);
     return () => {
       ws.close();
@@ -525,7 +526,7 @@ export function BottomPanel() {
                 </button>
               ))}
               <a
-                href="http://localhost:4321/api/usage/export?format=csv"
+                href={apiUrl('/api/usage/export?format=csv')}
                 download
                 className="ml-auto flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border border-border-default text-text-muted hover:bg-bg-hover transition"
               >
@@ -748,7 +749,9 @@ export function BottomPanel() {
                   <div className="flex-[2] min-h-0 border border-border-default rounded overflow-hidden bg-white relative">
                     <iframe
                       key={iframeKey}
-                      src={`http://localhost:4321/api/browser/proxy/?projectId=${activeProjectId}`}
+                      src={apiUrl(
+                        `/api/browser/proxy/?projectId=${activeProjectId}`,
+                      )}
                       className="w-full h-full border-0"
                       title="Dev Browser Preview"
                       sandbox="allow-scripts allow-same-origin allow-forms allow-popups"

@@ -1,7 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
+import { wsUrl } from '../api/client';
 
-const WS_URL = 'ws://localhost:4321/ws';
+const WS_URL = wsUrl();
 
 const MAX_RECONNECT_DELAY = 8000;
 const INITIAL_RECONNECT_DELAY = 1000;

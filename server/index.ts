@@ -27,6 +27,7 @@ import { sandboxRoutes } from './routes/sandboxes.js';
 import { settingsRoutes } from './routes/settings.js';
 import { templateRoutes } from './routes/templates.js';
 import { usageRoutes } from './routes/usage.js';
+import { getAllowedOrigins } from './utils/index.js';
 import { wsRoutes } from './ws/handler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -36,13 +37,16 @@ await validatePlatformForSandbox();
 
 const server = Fastify({ logger: true });
 
-// CORS for localhost development
+// CORS – allowed origins are derived from deployment mode + INSOMNIAC_BASE_URL
+const allowedOrigins = getAllowedOrigins();
 await server.register(cors, {
-  origin: [
-    'http://localhost:1420',
-    'http://localhost:4321',
-    'http://localhost:5173',
-  ],
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Not allowed by CORS'), false);
+    }
+  },
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
 });
 

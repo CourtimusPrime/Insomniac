@@ -6,10 +6,35 @@ type SessionData = {
   accessToken: string;
   username: string;
   avatarUrl: string;
+  createdAt: number;
 };
+
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const STATE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 // In-memory session store (prototype only — not for production)
 const sessions = new Map<string, SessionData>();
+
+// OAuth CSRF state tokens: state -> expiry timestamp
+const oauthStates = new Map<string, number>();
+
+function cleanupExpiredEntries(): void {
+  const now = Date.now();
+  for (const [id, session] of sessions) {
+    if (now - session.createdAt > SESSION_TTL_MS) {
+      sessions.delete(id);
+    }
+  }
+  for (const [state, expiry] of oauthStates) {
+    if (now > expiry) {
+      oauthStates.delete(state);
+    }
+  }
+}
+
+// Periodic cleanup of expired sessions and OAuth states
+setInterval(cleanupExpiredEntries, CLEANUP_INTERVAL_MS).unref();
 
 function getSessionId(cookieHeader: string | undefined): string | undefined {
   if (!cookieHeader) return undefined;
@@ -28,18 +53,35 @@ export async function authRoutes(server: FastifyInstance): Promise<void> {
 
   // GET /api/auth/github — redirect to GitHub OAuth authorize URL
   server.get('/api/auth/github', async (_request, reply) => {
+    const state = randomUUID();
+    oauthStates.set(state, Date.now() + STATE_TTL_MS);
+
     const redirectUri = `${process.env.INSOMNIAC_BASE_URL ?? 'http://localhost:4321'}/api/auth/github/callback`;
-    const url = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,read:user`;
+    const url = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo,read:user&state=${encodeURIComponent(state)}`;
     reply.redirect(url);
   });
 
   // GET /api/auth/github/callback — exchange code for access token
-  server.get<{ Querystring: { code?: string } }>(
+  server.get<{ Querystring: { code?: string; state?: string } }>(
     '/api/auth/github/callback',
     async (request, reply) => {
-      const { code } = request.query;
+      const { code, state } = request.query;
       if (!code) {
         reply.code(400).send({ error: 'Missing code parameter' });
+        return;
+      }
+
+      // Validate OAuth CSRF state parameter
+      if (!state) {
+        reply.code(400).send({ error: 'Missing state parameter' });
+        return;
+      }
+
+      const stateExpiry = oauthStates.get(state);
+      oauthStates.delete(state);
+
+      if (stateExpiry === undefined || Date.now() > stateExpiry) {
+        reply.code(403).send({ error: 'Invalid or expired OAuth state' });
         return;
       }
 
@@ -94,12 +136,14 @@ export async function authRoutes(server: FastifyInstance): Promise<void> {
         accessToken: tokenData.access_token,
         username: ghUser.login,
         avatarUrl: ghUser.avatar_url,
+        createdAt: Date.now(),
       });
 
+      const secureSuffix = config.mode !== 'local' ? '; Secure' : '';
       reply
         .header(
           'Set-Cookie',
-          `insomniac_session=${sessionId}; Path=/; HttpOnly; SameSite=Lax`,
+          `insomniac_session=${sessionId}; Path=/; HttpOnly; SameSite=Lax${secureSuffix}`,
         )
         .redirect('/');
     },
@@ -112,6 +156,13 @@ export async function authRoutes(server: FastifyInstance): Promise<void> {
 
     if (!session) {
       reply.code(401).send({ error: 'Not authenticated' });
+      return;
+    }
+
+    // Check session expiry
+    if (Date.now() - session.createdAt > SESSION_TTL_MS) {
+      sessions.delete(sessionId as string);
+      reply.code(401).send({ error: 'Session expired' });
       return;
     }
 

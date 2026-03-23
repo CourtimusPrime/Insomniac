@@ -12,6 +12,8 @@ export type AgentConfig = {
   provider: string;
   systemPrompt: string;
   transport: 'mcp' | 'stdio' | 'auto';
+  /** When true, passes --dangerously-skip-permissions to the Claude CLI. Defaults to false. */
+  dangerouslySkipPermissions?: boolean;
 };
 
 export interface AgentAdapter {

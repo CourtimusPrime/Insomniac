@@ -76,7 +76,12 @@ export class StdioAdapter implements AgentAdapter {
   private ensureProcess(): void {
     if (this.process) return;
 
-    this.process = spawn('claude', ['--dangerously-skip-permissions'], {
+    const args: string[] = [];
+    if (this.config.dangerouslySkipPermissions) {
+      args.push('--dangerously-skip-permissions');
+    }
+
+    this.process = spawn('claude', args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env },
     });
