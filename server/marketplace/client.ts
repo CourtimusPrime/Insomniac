@@ -136,16 +136,23 @@ const DEFAULT_STORE_URL =
   'https://raw.githubusercontent.com/insomniac-dev/store/main/index.json';
 
 export class MarketplaceClient {
-  constructor(storeUrl?: string) {
-    this.storeUrl = storeUrl ?? DEFAULT_STORE_URL;
+  private readonly storeUrl: string;
+
+  constructor(url?: string) {
+    this.storeUrl = url ?? DEFAULT_STORE_URL;
+  }
+
+  /** Returns the configured store index URL. */
+  getStoreUrl(): string {
+    return this.storeUrl;
   }
 
   /**
    * Fetch marketplace items, optionally filtered by type, trust tier, or search query.
-   * Currently returns mock data; will fetch from GitHub store index in production.
+   * Currently returns mock data; will fetch from this.storeUrl in production.
    */
   async fetchItems(filters?: MarketplaceFilters): Promise<MarketplaceItem[]> {
-    // TODO: Replace with actual fetch from this.storeUrl
+    // TODO: Replace with actual fetch from this.getStoreUrl()
     let items = [...MOCK_STORE_INDEX];
 
     if (filters?.type) {

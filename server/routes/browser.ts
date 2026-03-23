@@ -5,6 +5,7 @@ import type { BrowserEngine } from '../browser/index.js';
 import { PlaywrightAdapter } from '../browser/index.js';
 import { db } from '../db/connection.js';
 import { pipelineStages, pipelines, projects } from '../db/schema/index.js';
+import { getAllowedOrigins } from '../utils/index.js';
 import { broadcast } from '../ws/handler.js';
 import { getRunnerForProject } from './localhost.js';
 
@@ -175,8 +176,12 @@ export async function browserRoutes(server: FastifyInstance): Promise<void> {
       const proxyPath = request.params['*'] || '';
       const targetUrl = `http://127.0.0.1:${status.port}/${proxyPath}`;
 
-      // Add CORS headers for the Insomniac frontend origin
-      reply.header('Access-Control-Allow-Origin', 'http://localhost:5173');
+      // Add CORS headers for the requesting origin (if allowed)
+      const requestOrigin = request.headers.origin ?? '';
+      const allowedOrigins = getAllowedOrigins();
+      if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+        reply.header('Access-Control-Allow-Origin', requestOrigin);
+      }
       reply.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
       reply.header('Access-Control-Allow-Headers', 'Content-Type');
 
