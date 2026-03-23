@@ -20,6 +20,26 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import {
   type Credential,
   useCreateCredential,
@@ -101,103 +121,109 @@ function AddProviderForm({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-lg border border-border-default p-4 space-y-3"
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium font-heading text-text-primary">
-          Add Provider
-        </span>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-text-muted hover:text-text-primary"
-        >
-          <X size={14} />
-        </button>
-      </div>
+    <Card>
+      <form onSubmit={handleSubmit}>
+        <CardHeader className="p-4 pb-0">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium font-heading text-text-primary">
+              Add Provider
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={onClose}
+              className="text-text-muted hover:text-text-primary"
+            >
+              <X size={14} />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 space-y-3">
+          {/* Provider type */}
+          <div className="space-y-1">
+            <Label className="text-[11px] text-text-muted">Provider</Label>
+            <Select
+              value={name}
+              onValueChange={(val) => {
+                const providerName = val as ProviderName;
+                setName(providerName);
+                if (providerName === 'ollama') {
+                  setApiKey('');
+                  setBaseUrl('http://localhost:11434');
+                } else {
+                  setBaseUrl('');
+                }
+              }}
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PROVIDER_OPTIONS.map((opt) => (
+                  <SelectItem
+                    key={opt.value}
+                    value={opt.value}
+                    className="text-xs"
+                  >
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      {/* Provider type */}
-      <div className="space-y-1">
-        <label className="text-[11px] text-text-muted">Provider</label>
-        <select
-          value={name}
-          onChange={(e) => {
-            const val = e.target.value as ProviderName;
-            setName(val);
-            if (val === 'ollama') {
-              setApiKey('');
-              setBaseUrl('http://localhost:11434');
-            } else {
-              setBaseUrl('');
-            }
-          }}
-          className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary"
-        >
-          {PROVIDER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
+          {/* API Key */}
+          {showApiKey && (
+            <div className="space-y-1">
+              <Label className="text-[11px] text-text-muted">API Key</Label>
+              <Input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="sk-..."
+                className="h-8 text-xs"
+              />
+            </div>
+          )}
 
-      {/* API Key */}
-      {showApiKey && (
-        <div className="space-y-1">
-          <label className="text-[11px] text-text-muted">API Key</label>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-..."
-            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
-          />
-        </div>
-      )}
+          {/* Base URL */}
+          {showBaseUrl && (
+            <div className="space-y-1">
+              <Label className="text-[11px] text-text-muted">Base URL</Label>
+              <Input
+                type="text"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder={
+                  isOllama
+                    ? 'http://localhost:11434'
+                    : 'https://api.example.com'
+                }
+                className="h-8 text-xs"
+              />
+            </div>
+          )}
 
-      {/* Base URL */}
-      {showBaseUrl && (
-        <div className="space-y-1">
-          <label className="text-[11px] text-text-muted">Base URL</label>
-          <input
-            type="text"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder={
-              isOllama ? 'http://localhost:11434' : 'https://api.example.com'
-            }
-            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
-          />
-        </div>
-      )}
+          {/* Submit */}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="ghost" size="xs" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" size="xs" disabled={addProvider.isPending}>
+              {addProvider.isPending ? 'Adding...' : 'Add Provider'}
+            </Button>
+          </div>
 
-      {/* Submit */}
-      <div className="flex justify-end gap-2 pt-1">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-3 py-1.5 text-[11px] rounded text-text-muted hover:text-text-primary hover:bg-bg-hover"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={addProvider.isPending}
-          className="px-3 py-1.5 text-[11px] rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50"
-        >
-          {addProvider.isPending ? 'Adding...' : 'Add Provider'}
-        </button>
-      </div>
-
-      {addProvider.isError && (
-        <div className="text-[11px] text-status-error flex items-center gap-1">
-          <AlertCircle size={12} />
-          {(addProvider.error as Error).message}
-        </div>
-      )}
-    </form>
+          {addProvider.isError && (
+            <div className="text-[11px] text-status-error flex items-center gap-1">
+              <AlertCircle size={12} />
+              {(addProvider.error as Error).message}
+            </div>
+          )}
+        </CardContent>
+      </form>
+    </Card>
   );
 }
 
@@ -206,40 +232,48 @@ function ProviderCard({ provider }: { provider: Provider }) {
   const modelCount = models?.length ?? 0;
 
   return (
-    <div className="rounded-lg border border-border-default px-4 py-3 flex items-center gap-3">
-      <div className="w-8 h-8 rounded-md bg-accent-primary/10 flex items-center justify-center shrink-0">
-        <Cpu size={16} className="text-accent-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium font-heading text-text-primary">
-            {provider.displayName}
-          </span>
-          {provider.isActive ? (
-            <span className="text-[10px] px-1.5 py-0.5 rounded border bg-status-success/15 text-status-success border-status-success/30 flex items-center gap-1">
-              <CheckCircle2 size={10} /> Active
-            </span>
-          ) : (
-            <span className="text-[10px] px-1.5 py-0.5 rounded border bg-bg-hover text-text-muted border-border-muted flex items-center gap-1">
-              <XCircle size={10} /> Inactive
-            </span>
-          )}
+    <Card className="shadow-none">
+      <CardContent className="px-4 py-3 p-0 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-md bg-accent-primary/10 flex items-center justify-center shrink-0">
+          <Cpu size={16} className="text-accent-primary" />
         </div>
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="text-[11px] text-text-muted capitalize">
-            {provider.name}
-          </span>
-          <span className="text-[11px] text-text-faint">
-            {modelCount} {modelCount === 1 ? 'model' : 'models'}
-          </span>
-          {provider.hasApiKey && (
-            <span className="text-[10px] text-text-faint flex items-center gap-1">
-              <Shield size={10} /> Key configured
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium font-heading text-text-primary">
+              {provider.displayName}
             </span>
-          )}
+            {provider.isActive ? (
+              <Badge
+                variant="success"
+                className="text-[10px] px-1.5 py-0 gap-1"
+              >
+                <CheckCircle2 size={10} /> Active
+              </Badge>
+            ) : (
+              <Badge
+                variant="secondary"
+                className="text-[10px] px-1.5 py-0 gap-1"
+              >
+                <XCircle size={10} /> Inactive
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-0.5">
+            <span className="text-[11px] text-text-muted capitalize">
+              {provider.name}
+            </span>
+            <span className="text-[11px] text-text-faint">
+              {modelCount} {modelCount === 1 ? 'model' : 'models'}
+            </span>
+            {provider.hasApiKey && (
+              <span className="text-[10px] text-text-faint flex items-center gap-1">
+                <Shield size={10} /> Key configured
+              </span>
+            )}
+          </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -269,13 +303,15 @@ function ProvidersTab() {
     <div className="space-y-3">
       {/* Add Provider button */}
       {!showForm && (
-        <button
+        <Button
+          variant="outline"
+          size="xs"
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] rounded border border-dashed border-border-default text-text-muted hover:text-accent-primary hover:border-accent-primary transition"
+          className="border-dashed text-text-muted hover:text-accent-primary hover:border-accent-primary"
         >
           <Plus size={12} />
           Add Provider
-        </button>
+        </Button>
       )}
 
       {/* Add Provider form */}
@@ -340,63 +376,67 @@ function NotificationsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border-default p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Bell size={14} className="text-accent-primary" />
-          <span className="text-xs font-medium font-heading text-text-primary">
-            Slack Notifications
-          </span>
-        </div>
-
-        <p className="text-[11px] text-text-muted">
-          Enter a Slack incoming webhook URL to receive pipeline notifications,
-          decision alerts, and error reports.
-        </p>
-
-        <div className="space-y-1">
-          <label className="text-[11px] text-text-muted">Webhook URL</label>
-          <input
-            type="text"
-            value={webhookUrl}
-            onChange={(e) => setWebhookUrl(e.target.value)}
-            placeholder="https://hooks.slack.com/services/..."
-            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 pt-1">
-          <button
-            onClick={handleSave}
-            disabled={saveSetting.isPending}
-            className="px-3 py-1.5 text-[11px] rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50"
-          >
-            {saveSetting.isPending ? 'Saving...' : saved ? 'Saved!' : 'Save'}
-          </button>
-
-          <button
-            onClick={handleTest}
-            disabled={!webhookUrl || testWebhook.isPending}
-            className="flex items-center gap-1 px-3 py-1.5 text-[11px] rounded border border-border-default text-text-muted hover:text-text-primary hover:border-accent-primary disabled:opacity-50 transition"
-          >
-            <Send size={10} />
-            {testWebhook.isPending ? 'Sending...' : 'Test'}
-          </button>
-
-          {testWebhook.isSuccess && (
-            <span className="text-[11px] text-status-success flex items-center gap-1">
-              <CheckCircle2 size={12} />
-              Test message sent!
+      <Card>
+        <CardHeader className="p-4 pb-0">
+          <div className="flex items-center gap-2">
+            <Bell size={14} className="text-accent-primary" />
+            <span className="text-xs font-medium font-heading text-text-primary">
+              Slack Notifications
             </span>
-          )}
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 space-y-3">
+          <p className="text-[11px] text-text-muted">
+            Enter a Slack incoming webhook URL to receive pipeline
+            notifications, decision alerts, and error reports.
+          </p>
 
-          {testWebhook.isError && (
-            <span className="text-[11px] text-status-error flex items-center gap-1">
-              <AlertCircle size={12} />
-              {(testWebhook.error as Error).message}
-            </span>
-          )}
-        </div>
-      </div>
+          <div className="space-y-1">
+            <Label className="text-[11px] text-text-muted">Webhook URL</Label>
+            <Input
+              type="text"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              placeholder="https://hooks.slack.com/services/..."
+              className="h-8 text-xs"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              size="xs"
+              onClick={handleSave}
+              disabled={saveSetting.isPending}
+            >
+              {saveSetting.isPending ? 'Saving...' : saved ? 'Saved!' : 'Save'}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={handleTest}
+              disabled={!webhookUrl || testWebhook.isPending}
+            >
+              <Send size={10} />
+              {testWebhook.isPending ? 'Sending...' : 'Test'}
+            </Button>
+
+            {testWebhook.isSuccess && (
+              <span className="text-[11px] text-status-success flex items-center gap-1">
+                <CheckCircle2 size={12} />
+                Test message sent!
+              </span>
+            )}
+
+            {testWebhook.isError && (
+              <span className="text-[11px] text-status-error flex items-center gap-1">
+                <AlertCircle size={12} />
+                {(testWebhook.error as Error).message}
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -462,119 +502,143 @@ function AddHookForm({ onClose }: { onClose: () => void }) {
     actionType === 'shell' ? 'echo "Hook fired"' : 'https://...';
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-lg border border-border-default p-4 space-y-3"
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium font-heading text-text-primary">
-          Add Hook
-        </span>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-text-muted hover:text-text-primary"
-        >
-          <X size={14} />
-        </button>
-      </div>
+    <Card>
+      <form onSubmit={handleSubmit}>
+        <CardHeader className="p-4 pb-0">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium font-heading text-text-primary">
+              Add Hook
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={onClose}
+              className="text-text-muted hover:text-text-primary"
+            >
+              <X size={14} />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 space-y-3">
+          <div className="space-y-1">
+            <Label className="text-[11px] text-text-muted">Name</Label>
+            <Input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="My Hook"
+              className="h-8 text-xs"
+            />
+          </div>
 
-      <div className="space-y-1">
-        <label className="text-[11px] text-text-muted">Name</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="My Hook"
-          className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
-        />
-      </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] text-text-muted">Trigger</Label>
+              <Select
+                value={trigger}
+                onValueChange={(val) => setTrigger(val as Hook['trigger'])}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRIGGER_OPTIONS.map((opt) => (
+                    <SelectItem
+                      key={opt.value}
+                      value={opt.value}
+                      className="text-xs"
+                    >
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-[11px] text-text-muted">Trigger</label>
-          <select
-            value={trigger}
-            onChange={(e) => setTrigger(e.target.value as Hook['trigger'])}
-            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary"
-          >
-            {TRIGGER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div className="space-y-1">
+              <Label className="text-[11px] text-text-muted">Action Type</Label>
+              <Select
+                value={actionType}
+                onValueChange={(val) =>
+                  setActionType(val as Hook['action']['type'])
+                }
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACTION_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem
+                      key={opt.value}
+                      value={opt.value}
+                      className="text-xs"
+                    >
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-        <div className="space-y-1">
-          <label className="text-[11px] text-text-muted">Action Type</label>
-          <select
-            value={actionType}
-            onChange={(e) =>
-              setActionType(e.target.value as Hook['action']['type'])
-            }
-            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary"
-          >
-            {ACTION_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+          <div className="space-y-1">
+            <Label className="text-[11px] text-text-muted">{configLabel}</Label>
+            <Input
+              type="text"
+              value={actionConfig}
+              onChange={(e) => setActionConfig(e.target.value)}
+              placeholder={configPlaceholder}
+              className="h-8 text-xs"
+            />
+          </div>
 
-      <div className="space-y-1">
-        <label className="text-[11px] text-text-muted">{configLabel}</label>
-        <input
-          type="text"
-          value={actionConfig}
-          onChange={(e) => setActionConfig(e.target.value)}
-          placeholder={configPlaceholder}
-          className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
-        />
-      </div>
+          <div className="space-y-1">
+            <Label className="text-[11px] text-text-muted">Project Scope</Label>
+            <Select
+              value={projectId ?? '__global__'}
+              onValueChange={(val) =>
+                setProjectId(val === '__global__' ? null : val)
+              }
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__global__" className="text-xs">
+                  Global (all projects)
+                </SelectItem>
+                {projects?.map((p) => (
+                  <SelectItem key={p.id} value={p.id} className="text-xs">
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      <div className="space-y-1">
-        <label className="text-[11px] text-text-muted">Project Scope</label>
-        <select
-          value={projectId ?? ''}
-          onChange={(e) => setProjectId(e.target.value || null)}
-          className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary"
-        >
-          <option value="">Global (all projects)</option>
-          {projects?.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="ghost" size="xs" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="xs"
+              disabled={createHook.isPending || !name.trim()}
+            >
+              {createHook.isPending ? 'Adding...' : 'Add Hook'}
+            </Button>
+          </div>
 
-      <div className="flex justify-end gap-2 pt-1">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-3 py-1.5 text-[11px] rounded text-text-muted hover:text-text-primary hover:bg-bg-hover"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={createHook.isPending || !name.trim()}
-          className="px-3 py-1.5 text-[11px] rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50"
-        >
-          {createHook.isPending ? 'Adding...' : 'Add Hook'}
-        </button>
-      </div>
-
-      {createHook.isError && (
-        <div className="text-[11px] text-status-error flex items-center gap-1">
-          <AlertCircle size={12} />
-          {(createHook.error as Error).message}
-        </div>
-      )}
-    </form>
+          {createHook.isError && (
+            <div className="text-[11px] text-status-error flex items-center gap-1">
+              <AlertCircle size={12} />
+              {(createHook.error as Error).message}
+            </div>
+          )}
+        </CardContent>
+      </form>
+    </Card>
   );
 }
 
@@ -602,58 +666,62 @@ function HookCard({ hook }: { hook: Hook }) {
   }
 
   return (
-    <div className="rounded-lg border border-border-default px-4 py-3 flex items-center gap-3">
-      <div className="w-8 h-8 rounded-md bg-accent-primary/10 flex items-center justify-center shrink-0">
-        <Webhook size={16} className="text-accent-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium font-heading text-text-primary">
-            {hook.name}
-          </span>
-          {hook.enabled ? (
-            <span className="text-[10px] px-1.5 py-0.5 rounded border bg-status-success/15 text-status-success border-status-success/30 flex items-center gap-1">
-              <CheckCircle2 size={10} /> Enabled
-            </span>
-          ) : (
-            <span className="text-[10px] px-1.5 py-0.5 rounded border bg-bg-hover text-text-muted border-border-muted flex items-center gap-1">
-              <XCircle size={10} /> Disabled
-            </span>
-          )}
+    <Card className="shadow-none">
+      <CardContent className="px-4 py-3 p-0 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-md bg-accent-primary/10 flex items-center justify-center shrink-0">
+          <Webhook size={16} className="text-accent-primary" />
         </div>
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="text-[11px] text-text-muted">{triggerLabel}</span>
-          <span className="text-[11px] text-text-faint">{actionLabel}</span>
-          <span className="text-[11px] text-text-faint">{projectName}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium font-heading text-text-primary">
+              {hook.name}
+            </span>
+            {hook.enabled ? (
+              <Badge
+                variant="success"
+                className="text-[10px] px-1.5 py-0 gap-1"
+              >
+                <CheckCircle2 size={10} /> Enabled
+              </Badge>
+            ) : (
+              <Badge
+                variant="secondary"
+                className="text-[10px] px-1.5 py-0 gap-1"
+              >
+                <XCircle size={10} /> Disabled
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-0.5">
+            <span className="text-[11px] text-text-muted">{triggerLabel}</span>
+            <span className="text-[11px] text-text-faint">{actionLabel}</span>
+            <span className="text-[11px] text-text-faint">{projectName}</span>
+          </div>
         </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={handleToggle}
-          disabled={updateHook.isPending}
-          className={`relative w-8 h-[18px] rounded-full transition ${
-            hook.enabled
-              ? 'bg-accent-primary'
-              : 'bg-bg-hover border border-border-default'
-          }`}
-          title={hook.enabled ? 'Disable' : 'Enable'}
-        >
-          <span
-            className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow transition-transform ${
-              hook.enabled ? 'translate-x-[16px]' : 'translate-x-[2px]'
-            }`}
+        <div className="flex items-center gap-2 shrink-0">
+          <Switch
+            checked={hook.enabled}
+            onCheckedChange={() => handleToggle()}
+            disabled={updateHook.isPending}
+            className="h-[18px] w-8 data-[state=checked]:bg-accent-primary data-[state=unchecked]:bg-bg-hover [&>span]:h-[14px] [&>span]:w-[14px] [&>span]:data-[state=checked]:translate-x-[14px]"
           />
-        </button>
-        <button
-          onClick={handleDelete}
-          disabled={deleteHook.isPending}
-          className="text-text-faint hover:text-status-error transition disabled:opacity-50"
-          title="Delete hook"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
-    </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleDelete}
+                disabled={deleteHook.isPending}
+                className="text-text-faint hover:text-status-error"
+              >
+                <Trash2 size={14} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Delete hook</TooltipContent>
+          </Tooltip>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -682,13 +750,15 @@ function HooksTab() {
   return (
     <div className="space-y-3">
       {!showForm && (
-        <button
+        <Button
+          variant="outline"
+          size="xs"
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] rounded border border-dashed border-border-default text-text-muted hover:text-accent-primary hover:border-accent-primary transition"
+          className="border-dashed text-text-muted hover:text-accent-primary hover:border-accent-primary"
         >
           <Plus size={12} />
           Add Hook
-        </button>
+        </Button>
       )}
 
       {showForm && <AddHookForm onClose={() => setShowForm(false)} />}
@@ -738,139 +808,151 @@ function AddCredentialForm({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-lg border border-border-default p-4 space-y-3"
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium font-heading text-text-primary">
-          Add Credential
-        </span>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-text-muted hover:text-text-primary"
-        >
-          <X size={14} />
-        </button>
-      </div>
+    <Card>
+      <form onSubmit={handleSubmit}>
+        <CardHeader className="p-4 pb-0">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium font-heading text-text-primary">
+              Add Credential
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={onClose}
+              className="text-text-muted hover:text-text-primary"
+            >
+              <X size={14} />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] text-text-muted">Name</Label>
+              <Input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="My OAuth App"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px] text-text-muted">
+                Provider Name
+              </Label>
+              <Input
+                type="text"
+                value={providerName}
+                onChange={(e) => setProviderName(e.target.value)}
+                placeholder="github, google, etc."
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-[11px] text-text-muted">Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="My OAuth App"
-            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-[11px] text-text-muted">Provider Name</label>
-          <input
-            type="text"
-            value={providerName}
-            onChange={(e) => setProviderName(e.target.value)}
-            placeholder="github, google, etc."
-            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
-          />
-        </div>
-      </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] text-text-muted">Client ID</Label>
+              <Input
+                type="password"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                placeholder="Client ID"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px] text-text-muted">
+                Client Secret
+              </Label>
+              <Input
+                type="password"
+                value={clientSecret}
+                onChange={(e) => setClientSecret(e.target.value)}
+                placeholder="Client Secret"
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-[11px] text-text-muted">Client ID</label>
-          <input
-            type="password"
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            placeholder="Client ID"
-            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-[11px] text-text-muted">Client Secret</label>
-          <input
-            type="password"
-            value={clientSecret}
-            onChange={(e) => setClientSecret(e.target.value)}
-            placeholder="Client Secret"
-            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
-          />
-        </div>
-      </div>
+          <div className="space-y-1">
+            <Label className="text-[11px] text-text-muted">Redirect URI</Label>
+            <Input
+              type="text"
+              value={redirectUri}
+              onChange={(e) => setRedirectUri(e.target.value)}
+              placeholder="https://example.com/callback"
+              className="h-8 text-xs"
+            />
+          </div>
 
-      <div className="space-y-1">
-        <label className="text-[11px] text-text-muted">Redirect URI</label>
-        <input
-          type="text"
-          value={redirectUri}
-          onChange={(e) => setRedirectUri(e.target.value)}
-          placeholder="https://example.com/callback"
-          className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
-        />
-      </div>
+          <div className="space-y-1">
+            <Label className="text-[11px] text-text-muted">
+              Scopes (comma-separated)
+            </Label>
+            <Input
+              type="text"
+              value={scopes}
+              onChange={(e) => setScopes(e.target.value)}
+              placeholder="read, write, admin"
+              className="h-8 text-xs"
+            />
+          </div>
 
-      <div className="space-y-1">
-        <label className="text-[11px] text-text-muted">
-          Scopes (comma-separated)
-        </label>
-        <input
-          type="text"
-          value={scopes}
-          onChange={(e) => setScopes(e.target.value)}
-          placeholder="read, write, admin"
-          className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
-        />
-      </div>
+          <div className="space-y-1">
+            <Label className="text-[11px] text-text-muted">Project Scope</Label>
+            <Select
+              value={projectId ?? '__global__'}
+              onValueChange={(val) =>
+                setProjectId(val === '__global__' ? null : val)
+              }
+            >
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__global__" className="text-xs">
+                  Global (all projects)
+                </SelectItem>
+                {projects?.map((p) => (
+                  <SelectItem key={p.id} value={p.id} className="text-xs">
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-      <div className="space-y-1">
-        <label className="text-[11px] text-text-muted">Project Scope</label>
-        <select
-          value={projectId ?? ''}
-          onChange={(e) => setProjectId(e.target.value || null)}
-          className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary"
-        >
-          <option value="">Global (all projects)</option>
-          {projects?.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="ghost" size="xs" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              size="xs"
+              disabled={
+                createCredential.isPending ||
+                !name.trim() ||
+                !providerName.trim() ||
+                !clientId ||
+                !clientSecret
+              }
+            >
+              {createCredential.isPending ? 'Adding...' : 'Add Credential'}
+            </Button>
+          </div>
 
-      <div className="flex justify-end gap-2 pt-1">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-3 py-1.5 text-[11px] rounded text-text-muted hover:text-text-primary hover:bg-bg-hover"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={
-            createCredential.isPending ||
-            !name.trim() ||
-            !providerName.trim() ||
-            !clientId ||
-            !clientSecret
-          }
-          className="px-3 py-1.5 text-[11px] rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50"
-        >
-          {createCredential.isPending ? 'Adding...' : 'Add Credential'}
-        </button>
-      </div>
-
-      {createCredential.isError && (
-        <div className="text-[11px] text-status-error flex items-center gap-1">
-          <AlertCircle size={12} />
-          {(createCredential.error as Error).message}
-        </div>
-      )}
-    </form>
+          {createCredential.isError && (
+            <div className="text-[11px] text-status-error flex items-center gap-1">
+              <AlertCircle size={12} />
+              {(createCredential.error as Error).message}
+            </div>
+          )}
+        </CardContent>
+      </form>
+    </Card>
   );
 }
 
@@ -887,42 +969,52 @@ function CredentialCard({ credential }: { credential: Credential }) {
   }
 
   return (
-    <div className="rounded-lg border border-border-default px-4 py-3 flex items-center gap-3">
-      <div className="w-8 h-8 rounded-md bg-accent-primary/10 flex items-center justify-center shrink-0">
-        <KeyRound size={16} className="text-accent-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium font-heading text-text-primary">
-            {credential.name}
-          </span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded border bg-accent-primary/10 text-accent-primary border-accent-primary/30 capitalize">
-            {credential.providerName}
-          </span>
+    <Card className="shadow-none">
+      <CardContent className="px-4 py-3 p-0 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-md bg-accent-primary/10 flex items-center justify-center shrink-0">
+          <KeyRound size={16} className="text-accent-primary" />
         </div>
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="text-[11px] text-text-muted">{projectName}</span>
-          {credential.scopes && credential.scopes.length > 0 && (
-            <span className="text-[11px] text-text-faint">
-              {credential.scopes.join(', ')}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium font-heading text-text-primary">
+              {credential.name}
             </span>
-          )}
-          <span className="text-[10px] text-text-faint flex items-center gap-1">
-            <Shield size={10} /> ****
-          </span>
+            <Badge
+              variant="info"
+              className="text-[10px] px-1.5 py-0 capitalize"
+            >
+              {credential.providerName}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-3 mt-0.5">
+            <span className="text-[11px] text-text-muted">{projectName}</span>
+            {credential.scopes && credential.scopes.length > 0 && (
+              <span className="text-[11px] text-text-faint">
+                {credential.scopes.join(', ')}
+              </span>
+            )}
+            <span className="text-[10px] text-text-faint flex items-center gap-1">
+              <Shield size={10} /> ****
+            </span>
+          </div>
         </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={handleDelete}
-          disabled={deleteCredential.isPending}
-          className="text-text-faint hover:text-status-error transition disabled:opacity-50"
-          title="Delete credential"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
-    </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="destructive"
+                size="xs"
+                onClick={handleDelete}
+                disabled={deleteCredential.isPending}
+              >
+                <Trash2 size={14} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Delete credential</TooltipContent>
+          </Tooltip>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -951,13 +1043,15 @@ function CredentialsTab() {
   return (
     <div className="space-y-3">
       {!showForm && (
-        <button
+        <Button
+          variant="outline"
+          size="xs"
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] rounded border border-dashed border-border-default text-text-muted hover:text-accent-primary hover:border-accent-primary transition"
+          className="border-dashed text-text-muted hover:text-accent-primary hover:border-accent-primary"
         >
           <Plus size={12} />
           Add Credential
-        </button>
+        </Button>
       )}
 
       {showForm && <AddCredentialForm onClose={() => setShowForm(false)} />}
@@ -1050,28 +1144,34 @@ function ThemesTab() {
               )}
 
               {/* Pin/Unpin button */}
-              <button
-                onClick={() =>
-                  isPinned ? unpinTheme(theme.id) : pinTheme(theme.id)
-                }
-                disabled={!isPinned && !canPin}
-                title={
-                  isPinned
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() =>
+                      isPinned ? unpinTheme(theme.id) : pinTheme(theme.id)
+                    }
+                    disabled={!isPinned && !canPin}
+                    className={cn(
+                      isPinned
+                        ? 'text-accent-primary hover:bg-accent-primary/10'
+                        : canPin
+                          ? 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
+                          : 'text-text-faint cursor-not-allowed opacity-40',
+                    )}
+                  >
+                    {isPinned ? <PinOff size={14} /> : <Pin size={14} />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isPinned
                     ? 'Unpin from toolbar'
                     : canPin
                       ? 'Pin to toolbar'
-                      : 'Max 4 pinned themes'
-                }
-                className={`p-1.5 rounded transition shrink-0 ${
-                  isPinned
-                    ? 'text-accent-primary hover:bg-accent-primary/10'
-                    : canPin
-                      ? 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
-                      : 'text-text-faint cursor-not-allowed opacity-40'
-                }`}
-              >
-                {isPinned ? <PinOff size={14} /> : <Pin size={14} />}
-              </button>
+                      : 'Max 4 pinned themes'}
+                </TooltipContent>
+              </Tooltip>
             </div>
           );
         })}
@@ -1270,256 +1370,268 @@ function ImportTab() {
       </div>
 
       {/* Keybindings Import */}
-      <div className="rounded-lg border border-border-default p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Keyboard size={14} className="text-accent-primary" />
-          <span className="text-xs font-medium font-heading text-text-primary">
-            Keyboard Shortcuts
-          </span>
-        </div>
-        <p className="text-[11px] text-text-muted">
-          Upload your VS Code{' '}
-          <code className="px-1 py-0.5 rounded bg-bg-surface text-text-primary">
-            keybindings.json
-          </code>{' '}
-          to see which shortcuts can be mapped.
-        </p>
-        <input
-          ref={keybindingsRef}
-          type="file"
-          accept=".json"
-          onChange={handleKeybindingsUpload}
-          className="hidden"
-        />
-        <button
-          onClick={() => keybindingsRef.current?.click()}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] rounded border border-dashed border-border-default text-text-muted hover:text-accent-primary hover:border-accent-primary transition"
-        >
-          <Upload size={12} />
-          Upload keybindings.json
-        </button>
-
-        {keybindingsError && (
-          <div className="text-[11px] text-status-error flex items-center gap-1">
-            <AlertCircle size={12} />
-            {keybindingsError}
-          </div>
-        )}
-
-        {/* Mapped shortcuts table */}
-        {mappedBindings && mappedBindings.length > 0 && (
-          <div className="space-y-2">
-            <span className="text-[11px] font-medium text-text-primary">
-              Mapped Shortcuts ({mappedBindings.length})
+      <Card>
+        <CardHeader className="p-4 pb-0">
+          <div className="flex items-center gap-2">
+            <Keyboard size={14} className="text-accent-primary" />
+            <span className="text-xs font-medium font-heading text-text-primary">
+              Keyboard Shortcuts
             </span>
-            <div className="border border-border-default rounded overflow-hidden">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="bg-bg-surface border-b border-border-default">
-                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">
-                      VS Code Shortcut
-                    </th>
-                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">
-                      VS Code Command
-                    </th>
-                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">
-                      Insomniac Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mappedBindings.map((kb, i) => (
-                    <tr
-                      key={i}
-                      className="border-b border-border-default last:border-0"
-                    >
-                      <td className="px-3 py-1.5 text-text-primary font-mono">
-                        {kb.key}
-                      </td>
-                      <td className="px-3 py-1.5 text-text-muted">
-                        {kb.command}
-                      </td>
-                      <td className="px-3 py-1.5 text-status-success">
-                        {KEYBINDING_MAP[kb.command]}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
-        )}
+        </CardHeader>
+        <CardContent className="p-4 space-y-3">
+          <p className="text-[11px] text-text-muted">
+            Upload your VS Code{' '}
+            <code className="px-1 py-0.5 rounded bg-bg-surface text-text-primary">
+              keybindings.json
+            </code>{' '}
+            to see which shortcuts can be mapped.
+          </p>
+          <input
+            ref={keybindingsRef}
+            type="file"
+            accept=".json"
+            onChange={handleKeybindingsUpload}
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => keybindingsRef.current?.click()}
+            className="border-dashed text-text-muted hover:text-accent-primary hover:border-accent-primary"
+          >
+            <Upload size={12} />
+            Upload keybindings.json
+          </Button>
 
-        {/* Unmapped shortcuts */}
-        {unmappedBindings && unmappedBindings.length > 0 && (
-          <div className="space-y-2">
-            <span className="text-[11px] font-medium text-text-muted">
-              Unmapped Shortcuts ({unmappedBindings.length})
-            </span>
-            <p className="text-[10px] text-text-faint">
-              These VS Code shortcuts have no Insomniac equivalent yet.
-            </p>
-            <div className="border border-border-default rounded overflow-hidden max-h-40 overflow-y-auto">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="bg-bg-surface border-b border-border-default sticky top-0">
-                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">
-                      Shortcut
-                    </th>
-                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">
-                      Command
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {unmappedBindings.map((kb, i) => (
-                    <tr
-                      key={i}
-                      className="border-b border-border-default last:border-0"
-                    >
-                      <td className="px-3 py-1.5 text-text-faint font-mono">
-                        {kb.key}
-                      </td>
-                      <td className="px-3 py-1.5 text-text-faint">
-                        {kb.command}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {keybindingsError && (
+            <div className="text-[11px] text-status-error flex items-center gap-1">
+              <AlertCircle size={12} />
+              {keybindingsError}
             </div>
-          </div>
-        )}
+          )}
 
-        {keybindings && keybindings.length === 0 && (
-          <div className="text-[11px] text-text-muted">
-            No keybindings found in the uploaded file.
-          </div>
-        )}
-      </div>
+          {/* Mapped shortcuts table */}
+          {mappedBindings && mappedBindings.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-[11px] font-medium text-text-primary">
+                Mapped Shortcuts ({mappedBindings.length})
+              </span>
+              <div className="border border-border-default rounded overflow-hidden">
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="bg-bg-surface border-b border-border-default">
+                      <th className="text-left px-3 py-1.5 text-text-muted font-medium">
+                        VS Code Shortcut
+                      </th>
+                      <th className="text-left px-3 py-1.5 text-text-muted font-medium">
+                        VS Code Command
+                      </th>
+                      <th className="text-left px-3 py-1.5 text-text-muted font-medium">
+                        Insomniac Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mappedBindings.map((kb, i) => (
+                      <tr
+                        key={i}
+                        className="border-b border-border-default last:border-0"
+                      >
+                        <td className="px-3 py-1.5 text-text-primary font-mono">
+                          {kb.key}
+                        </td>
+                        <td className="px-3 py-1.5 text-text-muted">
+                          {kb.command}
+                        </td>
+                        <td className="px-3 py-1.5 text-status-success">
+                          {KEYBINDING_MAP[kb.command]}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Unmapped shortcuts */}
+          {unmappedBindings && unmappedBindings.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-[11px] font-medium text-text-muted">
+                Unmapped Shortcuts ({unmappedBindings.length})
+              </span>
+              <p className="text-[10px] text-text-faint">
+                These VS Code shortcuts have no Insomniac equivalent yet.
+              </p>
+              <div className="border border-border-default rounded overflow-hidden max-h-40 overflow-y-auto">
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="bg-bg-surface border-b border-border-default sticky top-0">
+                      <th className="text-left px-3 py-1.5 text-text-muted font-medium">
+                        Shortcut
+                      </th>
+                      <th className="text-left px-3 py-1.5 text-text-muted font-medium">
+                        Command
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {unmappedBindings.map((kb, i) => (
+                      <tr
+                        key={i}
+                        className="border-b border-border-default last:border-0"
+                      >
+                        <td className="px-3 py-1.5 text-text-faint font-mono">
+                          {kb.key}
+                        </td>
+                        <td className="px-3 py-1.5 text-text-faint">
+                          {kb.command}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {keybindings && keybindings.length === 0 && (
+            <div className="text-[11px] text-text-muted">
+              No keybindings found in the uploaded file.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Settings Import */}
-      <div className="rounded-lg border border-border-default p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Settings2 size={14} className="text-accent-primary" />
-          <span className="text-xs font-medium font-heading text-text-primary">
-            Editor Settings
-          </span>
-        </div>
-        <p className="text-[11px] text-text-muted">
-          Upload your VS Code{' '}
-          <code className="px-1 py-0.5 rounded bg-bg-surface text-text-primary">
-            settings.json
-          </code>{' '}
-          to import editor preferences.
-        </p>
-        <input
-          ref={settingsRef}
-          type="file"
-          accept=".json"
-          onChange={handleSettingsUpload}
-          className="hidden"
-        />
-        <button
-          onClick={() => settingsRef.current?.click()}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] rounded border border-dashed border-border-default text-text-muted hover:text-accent-primary hover:border-accent-primary transition"
-        >
-          <Upload size={12} />
-          Upload settings.json
-        </button>
-
-        {settingsError && (
-          <div className="text-[11px] text-status-error flex items-center gap-1">
-            <AlertCircle size={12} />
-            {settingsError}
-          </div>
-        )}
-
-        {editorSettings && (
-          <div className="space-y-3">
-            <span className="text-[11px] font-medium text-text-primary">
-              Detected Settings
+      <Card>
+        <CardHeader className="p-4 pb-0">
+          <div className="flex items-center gap-2">
+            <Settings2 size={14} className="text-accent-primary" />
+            <span className="text-xs font-medium font-heading text-text-primary">
+              Editor Settings
             </span>
-            <div className="border border-border-default rounded overflow-hidden">
-              <table className="w-full text-[11px]">
-                <thead>
-                  <tr className="bg-bg-surface border-b border-border-default">
-                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">
-                      Setting
-                    </th>
-                    <th className="text-left px-3 py-1.5 text-text-muted font-medium">
-                      Value
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {editorSettings.fontSize !== undefined && (
-                    <tr className="border-b border-border-default">
-                      <td className="px-3 py-1.5 text-text-primary">
-                        Font Size
-                      </td>
-                      <td className="px-3 py-1.5 text-text-muted font-mono">
-                        {editorSettings.fontSize}px
-                      </td>
-                    </tr>
-                  )}
-                  {editorSettings.fontFamily !== undefined && (
-                    <tr className="border-b border-border-default">
-                      <td className="px-3 py-1.5 text-text-primary">
-                        Font Family
-                      </td>
-                      <td className="px-3 py-1.5 text-text-muted font-mono">
-                        {editorSettings.fontFamily}
-                      </td>
-                    </tr>
-                  )}
-                  {editorSettings.tabSize !== undefined && (
-                    <tr className="border-b border-border-default">
-                      <td className="px-3 py-1.5 text-text-primary">
-                        Tab Size
-                      </td>
-                      <td className="px-3 py-1.5 text-text-muted font-mono">
-                        {editorSettings.tabSize}
-                      </td>
-                    </tr>
-                  )}
-                  {editorSettings.insertSpaces !== undefined && (
-                    <tr className="border-b border-border-default last:border-0">
-                      <td className="px-3 py-1.5 text-text-primary">
-                        Insert Spaces
-                      </td>
-                      <td className="px-3 py-1.5 text-text-muted font-mono">
-                        {editorSettings.insertSpaces ? 'Yes' : 'No'}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={applyEditorSettings}
-                disabled={saveSetting.isPending}
-                className="px-3 py-1.5 text-[11px] rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50"
-              >
-                {saveSetting.isPending ? 'Applying...' : 'Apply Settings'}
-              </button>
-              {applied && (
-                <span className="text-[11px] text-status-success flex items-center gap-1">
-                  <CheckCircle2 size={12} />
-                  Settings applied!
-                </span>
-              )}
-            </div>
-
-            <p className="text-[10px] text-text-faint">
-              Only the settings shown above will be imported. All other
-              Insomniac defaults remain unchanged.
-            </p>
           </div>
-        )}
-      </div>
+        </CardHeader>
+        <CardContent className="p-4 space-y-3">
+          <p className="text-[11px] text-text-muted">
+            Upload your VS Code{' '}
+            <code className="px-1 py-0.5 rounded bg-bg-surface text-text-primary">
+              settings.json
+            </code>{' '}
+            to import editor preferences.
+          </p>
+          <input
+            ref={settingsRef}
+            type="file"
+            accept=".json"
+            onChange={handleSettingsUpload}
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => settingsRef.current?.click()}
+            className="border-dashed text-text-muted hover:text-accent-primary hover:border-accent-primary"
+          >
+            <Upload size={12} />
+            Upload settings.json
+          </Button>
+
+          {settingsError && (
+            <div className="text-[11px] text-status-error flex items-center gap-1">
+              <AlertCircle size={12} />
+              {settingsError}
+            </div>
+          )}
+
+          {editorSettings && (
+            <div className="space-y-3">
+              <span className="text-[11px] font-medium text-text-primary">
+                Detected Settings
+              </span>
+              <div className="border border-border-default rounded overflow-hidden">
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="bg-bg-surface border-b border-border-default">
+                      <th className="text-left px-3 py-1.5 text-text-muted font-medium">
+                        Setting
+                      </th>
+                      <th className="text-left px-3 py-1.5 text-text-muted font-medium">
+                        Value
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {editorSettings.fontSize !== undefined && (
+                      <tr className="border-b border-border-default">
+                        <td className="px-3 py-1.5 text-text-primary">
+                          Font Size
+                        </td>
+                        <td className="px-3 py-1.5 text-text-muted font-mono">
+                          {editorSettings.fontSize}px
+                        </td>
+                      </tr>
+                    )}
+                    {editorSettings.fontFamily !== undefined && (
+                      <tr className="border-b border-border-default">
+                        <td className="px-3 py-1.5 text-text-primary">
+                          Font Family
+                        </td>
+                        <td className="px-3 py-1.5 text-text-muted font-mono">
+                          {editorSettings.fontFamily}
+                        </td>
+                      </tr>
+                    )}
+                    {editorSettings.tabSize !== undefined && (
+                      <tr className="border-b border-border-default">
+                        <td className="px-3 py-1.5 text-text-primary">
+                          Tab Size
+                        </td>
+                        <td className="px-3 py-1.5 text-text-muted font-mono">
+                          {editorSettings.tabSize}
+                        </td>
+                      </tr>
+                    )}
+                    {editorSettings.insertSpaces !== undefined && (
+                      <tr className="border-b border-border-default last:border-0">
+                        <td className="px-3 py-1.5 text-text-primary">
+                          Insert Spaces
+                        </td>
+                        <td className="px-3 py-1.5 text-text-muted font-mono">
+                          {editorSettings.insertSpaces ? 'Yes' : 'No'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="xs"
+                  onClick={applyEditorSettings}
+                  disabled={saveSetting.isPending}
+                >
+                  {saveSetting.isPending ? 'Applying...' : 'Apply Settings'}
+                </Button>
+                {applied && (
+                  <span className="text-[11px] text-status-success flex items-center gap-1">
+                    <CheckCircle2 size={12} />
+                    Settings applied!
+                  </span>
+                )}
+              </div>
+
+              <p className="text-[10px] text-text-faint">
+                Only the settings shown above will be imported. All other
+                Insomniac defaults remain unchanged.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -1548,29 +1660,42 @@ export function SettingsView() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border-default pb-px">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-3 py-1.5 text-[11px] rounded-t transition ${
-              activeTab === tab.id
-                ? 'bg-accent-primary/15 text-accent-primary border-b-2 border-accent-primary'
-                : 'text-text-muted hover:text-text-default hover:bg-bg-hover'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(val) => setActiveTab(val as SettingsTab)}
+      >
+        <TabsList className="h-auto p-0 bg-transparent border-b border-border-default rounded-none w-full justify-start gap-1">
+          {TABS.map((tab) => (
+            <TabsTrigger
+              key={tab.id}
+              value={tab.id}
+              className="text-[11px] rounded-t rounded-b-none px-3 py-1.5 data-[state=active]:bg-accent-primary/15 data-[state=active]:text-accent-primary data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-accent-primary text-text-muted hover:text-text-default hover:bg-bg-hover"
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-      {/* Tab content */}
-      {activeTab === 'providers' && <ProvidersTab />}
-      {activeTab === 'themes' && <ThemesTab />}
-      {activeTab === 'import' && <ImportTab />}
-      {activeTab === 'hooks' && <HooksTab />}
-      {activeTab === 'credentials' && <CredentialsTab />}
-      {activeTab === 'notifications' && <NotificationsTab />}
+        {/* Tab content */}
+        <TabsContent value="providers">
+          <ProvidersTab />
+        </TabsContent>
+        <TabsContent value="themes">
+          <ThemesTab />
+        </TabsContent>
+        <TabsContent value="import">
+          <ImportTab />
+        </TabsContent>
+        <TabsContent value="hooks">
+          <HooksTab />
+        </TabsContent>
+        <TabsContent value="credentials">
+          <CredentialsTab />
+        </TabsContent>
+        <TabsContent value="notifications">
+          <NotificationsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useProjects } from '../../api/projects';
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
@@ -24,28 +26,44 @@ export function MainView() {
             <h1 className="text-sm font-bold text-text-primary font-heading">
               {activeProject?.name ?? 'No project selected'}
             </h1>
-            <span className="text-[10px] px-2 py-0.5 rounded-full border border-accent-primary/30 bg-accent-primary/5 text-accent-primary">
+            <Badge
+              variant="outline"
+              className="text-[10px] px-2 py-0.5 border-accent-primary/30 bg-accent-primary/5 text-accent-primary font-normal"
+            >
               {activeProject?.status ?? 'idle'}
-            </span>
+            </Badge>
           </div>
           <p className="text-[11px] text-text-muted mt-0.5">
             Decentralized OS kernel · Rust · 3 agents running
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          {(['pipeline', 'graph', 'backseat'] as const).map((view) => (
-            <button
-              key={view}
-              onClick={() => setActiveMain(view)}
-              className={`px-3 py-1.5 text-[11px] rounded transition capitalize ${
-                activeMain === view
-                  ? 'bg-accent-primary/15 text-accent-primary'
-                  : 'text-text-muted hover:text-text-default hover:bg-bg-hover'
-              }`}
-            >
-              {view === 'backseat' ? 'Backseat Driver' : view}
-            </button>
-          ))}
+        <div className="ml-auto flex items-center">
+          <Tabs
+            value={activeMain}
+            onValueChange={(value) =>
+              setActiveMain(
+                value as
+                  | 'pipeline'
+                  | 'graph'
+                  | 'backseat'
+                  | 'ability-detail'
+                  | 'settings'
+                  | 'marketplace',
+              )
+            }
+          >
+            <TabsList className="h-8 bg-transparent p-0 gap-1">
+              {(['pipeline', 'graph', 'backseat'] as const).map((view) => (
+                <TabsTrigger
+                  key={view}
+                  value={view}
+                  className="px-3 py-1.5 text-[11px] capitalize data-[state=active]:bg-accent-primary/15 data-[state=active]:text-accent-primary data-[state=active]:shadow-none text-text-muted hover:text-text-default hover:bg-bg-hover rounded transition"
+                >
+                  {view === 'backseat' ? 'Backseat Driver' : view}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 

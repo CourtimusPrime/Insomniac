@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 
 /* ── Node type definitions ── */
 const nodeTypeEntries = [
@@ -88,24 +89,25 @@ export function AddNodeMenu({ position, onSelect, onClose }: AddNodeMenuProps) {
       </div>
       <div className="py-1">
         {nodeTypeEntries.map((entry) => (
-          <button
+          <Button
             key={entry.type}
-            className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/5 transition-colors text-left"
+            variant="ghost"
+            className="w-full flex items-center gap-2.5 px-3 py-2 h-auto justify-start rounded-none"
             onClick={() => onSelect(entry.type, entry.label)}
           >
             <span
               className="w-2.5 h-2.5 rounded-full flex-shrink-0"
               style={{ background: entry.color }}
             />
-            <div className="min-w-0">
+            <div className="min-w-0 text-left">
               <div className="text-[11px] font-medium text-text-primary leading-tight">
                 {entry.label}
               </div>
-              <div className="text-[10px] text-text-muted leading-tight mt-0.5">
+              <div className="text-[10px] text-text-muted leading-tight mt-0.5 font-normal">
                 {entry.description}
               </div>
             </div>
-          </button>
+          </Button>
         ))}
       </div>
     </div>

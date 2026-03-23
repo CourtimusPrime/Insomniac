@@ -1,4 +1,8 @@
 import { Play, RefreshCw, Sparkles } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import {
   useRecommendations,
   useRunRecommendation,
@@ -7,12 +11,18 @@ import {
 import { useProjects } from '../../api/projects';
 import { useProjectsStore } from '../../stores/projects';
 
-const severityColor = (s: string) =>
+const severityVariant = (s: string) =>
   ({
-    critical: 'text-status-error bg-status-error/10 border-status-error/30',
-    warning:
-      'text-status-warning bg-status-warning/10 border-status-warning/30',
-    info: 'text-sky-400 bg-sky-500/10 border-sky-500/30',
+    critical: 'destructive' as const,
+    warning: 'warning' as const,
+    info: 'info' as const,
+  })[s];
+
+const severityCardColor = (s: string) =>
+  ({
+    critical: 'border-status-error/30 bg-status-error/10',
+    warning: 'border-status-warning/30 bg-status-warning/10',
+    info: 'border-sky-500/30 bg-sky-500/10',
   })[s];
 
 function timeAgo(iso: string | null): string {
@@ -49,19 +59,21 @@ export function BackseatView() {
           · Last scan {timeAgo(scannedAt)} · {recommendations.length}{' '}
           recommendations
         </span>
-        <button
+        <Button
+          variant="outline"
+          size="xs"
           onClick={() =>
             activeProjectId && scanMutation.mutate(activeProjectId)
           }
           disabled={scanMutation.isPending}
-          className="ml-auto px-2 py-1 text-[11px] bg-bg-hover hover:bg-bg-surface text-text-default rounded border border-border-muted transition flex items-center gap-1.5 disabled:opacity-50"
+          className="ml-auto"
         >
           <RefreshCw
             size={10}
             className={scanMutation.isPending ? 'animate-spin' : ''}
           />
           {scanMutation.isPending ? 'Scanning...' : 'Scan now'}
-        </button>
+        </Button>
       </div>
       {recommendations.length === 0 && (
         <div className="text-xs text-text-muted py-8 text-center">
@@ -71,42 +83,46 @@ export function BackseatView() {
         </div>
       )}
       {recommendations.map((r) => (
-        <div
+        <Card
           key={r.id}
-          className={`rounded-lg border px-4 py-3 ${severityColor(r.severity)}`}
+          className={cn('shadow-none', severityCardColor(r.severity))}
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold border ${severityColor(r.severity)}`}
-                >
-                  {r.severity}
-                </span>
-                <span className="text-[10px] text-text-muted">{r.type}</span>
-                <span className="text-[10px] font-mono text-text-muted">
-                  {r.file}
-                  {r.line ? `:${r.line}` : ''}
-                </span>
+          <CardContent className="px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge
+                    variant={severityVariant(r.severity)}
+                    className="text-[10px] px-1.5 py-0.5 uppercase font-bold"
+                  >
+                    {r.severity}
+                  </Badge>
+                  <span className="text-[10px] text-text-muted">{r.type}</span>
+                  <span className="text-[10px] font-mono text-text-muted">
+                    {r.file}
+                    {r.line ? `:${r.line}` : ''}
+                  </span>
+                </div>
+                <p className="text-xs text-text-default">{r.message}</p>
               </div>
-              <p className="text-xs text-text-default">{r.message}</p>
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() =>
+                  activeProjectId &&
+                  runMutation.mutate({
+                    recommendationId: r.id,
+                    projectId: activeProjectId,
+                  })
+                }
+                disabled={runMutation.isPending}
+              >
+                <Play size={10} />
+                Run this
+              </Button>
             </div>
-            <button
-              onClick={() =>
-                activeProjectId &&
-                runMutation.mutate({
-                  recommendationId: r.id,
-                  projectId: activeProjectId,
-                })
-              }
-              disabled={runMutation.isPending}
-              className="shrink-0 px-3 py-1.5 text-[11px] bg-bg-hover hover:bg-bg-surface text-text-default rounded border border-border-muted transition flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <Play size={10} />
-              Run this
-            </button>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );

@@ -9,6 +9,12 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import {
   type MarketplaceItemType,
   useInstallItem,
@@ -140,33 +146,34 @@ export function MarketplaceView() {
       <div className="relative">
         <Search
           size={13}
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-faint"
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-faint z-10"
         />
-        <input
+        <Input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search marketplace…"
-          className="w-full rounded border border-border-default bg-bg-surface pl-8 pr-3 py-1.5 text-xs text-text-primary placeholder:text-text-faint outline-none focus:border-accent-primary"
+          className="h-8 text-xs pl-8"
         />
       </div>
 
       {/* Category tabs */}
-      <div className="flex items-center gap-1">
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.key}
-            onClick={() => handleCategoryChange(cat.key)}
-            className={`px-3 py-1.5 text-[11px] rounded transition ${
-              activeCategory === cat.key
-                ? 'bg-accent-primary/15 text-accent-primary'
-                : 'text-text-muted hover:text-text-default hover:bg-bg-hover'
-            }`}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        value={activeCategory}
+        onValueChange={(val) => handleCategoryChange(val as CategoryTab)}
+      >
+        <TabsList className="h-auto bg-transparent p-0 gap-1">
+          {CATEGORIES.map((cat) => (
+            <TabsTrigger
+              key={cat.key}
+              value={cat.key}
+              className="px-3 py-1.5 text-[11px] rounded data-[state=active]:bg-accent-primary/15 data-[state=active]:text-accent-primary data-[state=active]:shadow-none text-text-muted hover:text-text-default hover:bg-bg-hover"
+            >
+              {cat.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Results count */}
       <div className="text-[10px] text-text-faint">
@@ -186,88 +193,96 @@ export function MarketplaceView() {
             const TierIcon = tierCfg.icon;
 
             return (
-              <div
+              <Card
                 key={item.id}
-                className="rounded-lg border border-border-default bg-bg-base p-4 space-y-2.5 hover:border-border-default/80 transition"
+                className="border-border-default bg-bg-base hover:border-border-default/80 transition"
               >
-                {/* Top row: name + badges */}
-                <div className="flex items-start gap-2">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xs font-semibold text-text-primary truncate">
-                      {item.name}
-                    </h3>
-                    <span className="text-[10px] text-text-muted">
-                      {item.author}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded border ${TYPE_COLORS[item.type] ?? ''}`}
-                    >
-                      {item.type}
-                    </span>
-                    <span
-                      className={`flex items-center gap-0.5 ${tierCfg.color}`}
-                      title={tierCfg.label}
-                    >
-                      <TierIcon size={11} />
-                    </span>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <p className="text-[11px] text-text-secondary line-clamp-2 leading-relaxed">
-                  {item.description}
-                </p>
-
-                {/* Footer: install count + install button */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 text-[10px] text-text-faint">
-                    <span className="flex items-center gap-1">
-                      <Download size={10} />
-                      {item.installCount}
-                    </span>
-                    <span>v{item.version}</span>
+                <CardContent className="p-4 space-y-2.5">
+                  {/* Top row: name + badges */}
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xs font-semibold text-text-primary truncate">
+                        {item.name}
+                      </h3>
+                      <span className="text-[10px] text-text-muted">
+                        {item.author}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'text-[10px] px-1.5 py-0.5 rounded font-normal',
+                          TYPE_COLORS[item.type] ?? '',
+                        )}
+                      >
+                        {item.type}
+                      </Badge>
+                      <span
+                        className={`flex items-center gap-0.5 ${tierCfg.color}`}
+                        title={tierCfg.label}
+                      >
+                        <TierIcon size={11} />
+                      </span>
+                    </div>
                   </div>
 
-                  {installedIds.has(item.id) ? (
-                    <span className="flex items-center gap-1 text-[10px] text-status-success">
-                      <Check size={11} />
-                      Installed
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => handleInstall(item.id)}
-                      disabled={
-                        installMutation.isPending &&
-                        installMutation.variables?.id === item.id
-                      }
-                      className="flex items-center gap-1 px-2 py-1 text-[10px] rounded border border-accent-primary/30 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {installMutation.isPending &&
-                      installMutation.variables?.id === item.id ? (
-                        <>
-                          <Loader2 size={10} className="animate-spin" />
-                          Installing…
-                        </>
-                      ) : (
-                        <>
-                          <Download size={10} />
-                          Install
-                        </>
-                      )}
-                    </button>
+                  {/* Description */}
+                  <p className="text-[11px] text-text-secondary line-clamp-2 leading-relaxed">
+                    {item.description}
+                  </p>
+
+                  {/* Footer: install count + install button */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-[10px] text-text-faint">
+                      <span className="flex items-center gap-1">
+                        <Download size={10} />
+                        {item.installCount}
+                      </span>
+                      <span>v{item.version}</span>
+                    </div>
+
+                    {installedIds.has(item.id) ? (
+                      <span className="flex items-center gap-1 text-[10px] text-status-success">
+                        <Check size={11} />
+                        Installed
+                      </span>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={() => handleInstall(item.id)}
+                        disabled={
+                          installMutation.isPending &&
+                          installMutation.variables?.id === item.id
+                        }
+                        className="border-accent-primary/30 bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20"
+                      >
+                        {installMutation.isPending &&
+                        installMutation.variables?.id === item.id ? (
+                          <>
+                            <Loader2 size={10} className="animate-spin" />
+                            Installing…
+                          </>
+                        ) : (
+                          <>
+                            <Download size={10} />
+                            Install
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Inline error */}
+                  {errorIds[item.id] && (
+                    <div className="flex items-center gap-1 text-[10px] text-status-error">
+                      <AlertCircle size={10} />
+                      {errorIds[item.id]}
+                    </div>
                   )}
-                </div>
-
-                {/* Inline error */}
-                {errorIds[item.id] && (
-                  <div className="flex items-center gap-1 text-[10px] text-status-error">
-                    <AlertCircle size={10} />
-                    {errorIds[item.id]}
-                  </div>
-                )}
-              </div>
+                </CardContent>
+              </Card>
             );
           })}
         </div>

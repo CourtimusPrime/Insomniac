@@ -10,6 +10,17 @@ import {
   Zap,
 } from 'lucide-react';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import { useCreateProject, useProjects } from '../../api/projects';
 import {
   type ProviderName,
@@ -103,6 +114,18 @@ function ConnectProviderStep() {
     );
   }
 
+  function handleProviderChange(value: string) {
+    const val = value as ProviderName;
+    setSelectedProvider(val);
+    if (val === 'ollama') {
+      setApiKey('');
+      setBaseUrl('http://localhost:11434');
+    } else {
+      setBaseUrl('');
+    }
+    setAdded(false);
+  }
+
   return (
     <div className="space-y-5">
       <div className="text-center space-y-2">
@@ -125,71 +148,67 @@ function ConnectProviderStep() {
 
       <div className="space-y-3 rounded-lg border border-border-default p-4">
         <div className="space-y-1">
-          <label className="text-[11px] text-text-muted">Provider</label>
-          <select
-            value={selectedProvider}
-            onChange={(e) => {
-              const val = e.target.value as ProviderName;
-              setSelectedProvider(val);
-              if (val === 'ollama') {
-                setApiKey('');
-                setBaseUrl('http://localhost:11434');
-              } else {
-                setBaseUrl('');
-              }
-              setAdded(false);
-            }}
-            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary"
-          >
-            {PROVIDER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label} — {opt.description}
-              </option>
-            ))}
-          </select>
+          <Label className="text-[11px]">Provider</Label>
+          <Select value={selectedProvider} onValueChange={handleProviderChange}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PROVIDER_OPTIONS.map((opt) => (
+                <SelectItem
+                  key={opt.value}
+                  value={opt.value}
+                  className="text-xs"
+                >
+                  {opt.label} — {opt.description}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {showApiKey && (
           <div className="space-y-1">
-            <label className="text-[11px] text-text-muted">API Key</label>
-            <input
+            <Label className="text-[11px]">API Key</Label>
+            <Input
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="sk-..."
-              className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
+              className="h-8 text-xs"
             />
           </div>
         )}
 
         {showBaseUrl && (
           <div className="space-y-1">
-            <label className="text-[11px] text-text-muted">Base URL</label>
-            <input
+            <Label className="text-[11px]">Base URL</Label>
+            <Input
               type="text"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
               placeholder={
                 isOllama ? 'http://localhost:11434' : 'https://api.example.com'
               }
-              className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
+              className="h-8 text-xs"
             />
           </div>
         )}
 
-        <button
+        <Button
           onClick={handleAdd}
           disabled={
             addProvider.isPending || (showApiKey && !apiKey && !isOllama)
           }
-          className="w-full px-3 py-2 text-xs rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50"
+          className="w-full"
+          size="sm"
         >
           {addProvider.isPending ? (
-            <Loader2 size={14} className="animate-spin mx-auto" />
+            <Loader2 size={14} className="animate-spin" />
           ) : (
             'Add Provider'
           )}
-        </button>
+        </Button>
 
         {addProvider.isError && (
           <div className="text-[11px] text-status-error flex items-center gap-1">
@@ -230,12 +249,12 @@ function ConnectGitHubStep() {
           </div>
         </div>
 
-        <input
+        <Input
           type="url"
           value={githubUrl}
           onChange={(e) => setGithubUrl(e.target.value)}
           placeholder="https://github.com/username"
-          className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
+          className="h-8 text-xs"
         />
 
         <p className="text-[10px] text-text-faint">
@@ -291,44 +310,44 @@ function CreateProjectStep() {
           { key: 'template' as const, label: 'Template', icon: FolderPlus },
           { key: 'github' as const, label: 'GitHub Repo', icon: Github },
         ].map(({ key, label, icon: Icon }) => (
-          <button
+          <Button
             key={key}
+            variant="outline"
             onClick={() => setMethod(key)}
-            className={`flex-1 flex flex-col items-center gap-1.5 rounded-lg border p-3 text-xs transition ${
+            className={cn(
+              'flex-1 flex flex-col items-center gap-1.5 h-auto p-3 text-xs',
               method === key
                 ? 'border-accent-primary bg-accent-primary/5 text-accent-primary'
-                : 'border-border-default text-text-muted hover:border-border-hover hover:bg-bg-hover'
-            }`}
+                : 'text-text-muted hover:border-border-hover hover:bg-bg-hover',
+            )}
           >
             <Icon size={16} />
             {label}
-          </button>
+          </Button>
         ))}
       </div>
 
       <div className="space-y-3 rounded-lg border border-border-default p-4">
         <div className="space-y-1">
-          <label className="text-[11px] text-text-muted">Project Name</label>
-          <input
+          <Label className="text-[11px]">Project Name</Label>
+          <Input
             type="text"
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
             placeholder="my-awesome-project"
-            className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
+            className="h-8 text-xs"
           />
         </div>
 
         {method === 'github' && (
           <div className="space-y-1">
-            <label className="text-[11px] text-text-muted">
-              Repository URL
-            </label>
-            <input
+            <Label className="text-[11px]">Repository URL</Label>
+            <Input
               type="url"
               value={repoUrl}
               onChange={(e) => setRepoUrl(e.target.value)}
               placeholder="https://github.com/user/repo"
-              className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary placeholder:text-text-faint"
+              className="h-8 text-xs"
             />
           </div>
         )}
@@ -340,19 +359,20 @@ function CreateProjectStep() {
           </p>
         )}
 
-        <button
+        <Button
           onClick={handleCreate}
           disabled={createProject.isPending || !projectName.trim() || created}
-          className="w-full px-3 py-2 text-xs rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50"
+          className="w-full"
+          size="sm"
         >
           {createProject.isPending ? (
-            <Loader2 size={14} className="animate-spin mx-auto" />
+            <Loader2 size={14} className="animate-spin" />
           ) : created ? (
             'Project Created'
           ) : (
             'Create Project'
           )}
-        </button>
+        </Button>
 
         {createProject.isError && (
           <div className="text-[11px] text-status-error flex items-center gap-1">
@@ -448,43 +468,43 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
           <div className="flex items-center justify-between pt-4 mt-4 border-t border-border-default">
             <div>
               {!isFirst && !isLast && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="xs"
                   onClick={() => setStep((s) => s - 1)}
-                  className="flex items-center gap-1 px-3 py-1.5 text-[11px] rounded text-text-muted hover:text-text-primary hover:bg-bg-hover transition"
                 >
                   <ChevronLeft size={14} />
                   Back
-                </button>
+                </Button>
               )}
             </div>
 
             <div className="flex items-center gap-2">
               {!isLast && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="xs"
                   onClick={handleSkip}
-                  className="flex items-center gap-1 px-3 py-1.5 text-[11px] rounded text-text-faint hover:text-text-muted hover:bg-bg-hover transition"
+                  className="text-text-faint hover:text-text-muted"
                 >
                   <SkipForward size={12} />
                   Skip
-                </button>
+                </Button>
               )}
 
               {isLast ? (
-                <button
+                <Button
                   onClick={handleFinish}
                   disabled={saveSetting.isPending}
-                  className="px-4 py-2 text-xs rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-50 transition"
+                  size="sm"
                 >
                   {saveSetting.isPending ? 'Saving...' : 'Get Started'}
-                </button>
+                </Button>
               ) : (
-                <button
-                  onClick={() => setStep((s) => s + 1)}
-                  className="flex items-center gap-1 px-4 py-2 text-xs rounded bg-accent-primary text-white hover:bg-accent-primary/90 transition"
-                >
+                <Button onClick={() => setStep((s) => s + 1)} size="sm">
                   {isFirst ? 'Get Started' : 'Next'}
                   <ChevronRight size={14} />
-                </button>
+                </Button>
               )}
             </div>
           </div>

@@ -26,7 +26,26 @@ import {
   useState,
 } from 'react';
 import '@xyflow/react/dist/style.css';
-import { Layers, Plus, X } from 'lucide-react';
+import { Layers, Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import {
   type ChainDefinition,
   useChain,
@@ -177,7 +196,7 @@ function deserializeChain(chain: ChainDefinition): {
   return { nodes, edges };
 }
 
-/* ── Template Picker overlay ── */
+/* ── Template Picker Dialog ── */
 const CATEGORY_LABELS: Record<string, string> = {
   workflow: 'Workflow',
   'agent-config': 'Agent Config',
@@ -186,104 +205,93 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 function TemplatePicker({
+  open,
   onSelect,
   onClose,
 }: {
+  open: boolean;
   onSelect: (template: Template) => void;
   onClose: () => void;
 }) {
   const { data: templates, isLoading } = useTemplates();
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: globalThis.MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as HTMLElement)) {
-        onClose();
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
-
-  useEffect(() => {
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/40">
-      <div
-        ref={ref}
-        className="w-96 max-h-[70vh] rounded-lg border shadow-xl overflow-hidden flex flex-col"
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent
+        className="sm:max-w-[400px] p-0 overflow-hidden"
         style={{ background: '#111827', borderColor: '#1e2a3a' }}
       >
-        <div
-          className="px-4 py-3 border-b flex items-center justify-between shrink-0"
+        <DialogHeader
+          className="px-4 py-3 border-b"
           style={{ borderColor: '#1e2a3a' }}
         >
-          <div className="text-xs font-semibold text-text-primary">
+          <DialogTitle className="text-xs font-semibold text-text-primary">
             Load Template
-          </div>
-          <button
-            className="text-text-muted hover:text-text-primary transition-colors"
-            onClick={onClose}
-          >
-            <X size={14} />
-          </button>
-        </div>
-        <div className="overflow-y-auto flex-1 py-1">
-          {isLoading && (
-            <div className="px-4 py-8 text-center text-xs text-text-muted">
-              Loading templates…
-            </div>
-          )}
-          {templates && templates.length === 0 && (
-            <div className="px-4 py-8 text-center text-xs text-text-muted">
-              No templates available
-            </div>
-          )}
-          {templates?.map((t) => (
-            <button
-              key={t.id}
-              className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors border-b last:border-b-0"
-              style={{ borderColor: '#1e2a3a' }}
-              onClick={() => onSelect(t)}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-medium text-text-primary">
-                  {t.name}
-                </span>
-                {t.isBuiltIn && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-accent-primary/10 text-accent-primary font-medium">
-                    Built-in
-                  </span>
-                )}
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-text-muted">
-                  {CATEGORY_LABELS[t.category] ?? t.category}
-                </span>
+          </DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="max-h-[60vh]">
+          <div className="py-1">
+            {isLoading && (
+              <div className="px-4 py-8 text-center text-xs text-text-muted">
+                Loading templates...
               </div>
-              {t.description && (
-                <div className="text-[10px] text-text-muted mt-1 line-clamp-2">
-                  {t.description}
+            )}
+            {templates && templates.length === 0 && (
+              <div className="px-4 py-8 text-center text-xs text-text-muted">
+                No templates available
+              </div>
+            )}
+            {templates?.map((t) => (
+              <button
+                type="button"
+                key={t.id}
+                className="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors border-b last:border-b-0"
+                style={{ borderColor: '#1e2a3a' }}
+                onClick={() => onSelect(t)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-medium text-text-primary">
+                    {t.name}
+                  </span>
+                  {t.isBuiltIn && (
+                    <Badge variant="info" className="text-[9px] px-1.5 py-0.5">
+                      Built-in
+                    </Badge>
+                  )}
+                  <Badge
+                    variant="secondary"
+                    className="text-[9px] px-1.5 py-0.5"
+                  >
+                    {CATEGORY_LABELS[t.category] ?? t.category}
+                  </Badge>
                 </div>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
+                {t.description && (
+                  <div className="text-[10px] text-text-muted mt-1 line-clamp-2">
+                    {t.description}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-/* ── Save Template Form overlay ── */
+/* ── Save Template Form Dialog ── */
 function SaveTemplateForm({
+  open,
   onSave,
   onClose,
   isPending,
 }: {
+  open: boolean;
   onSave: (data: {
     name: string;
     description: string;
@@ -297,25 +305,6 @@ function SaveTemplateForm({
   const [category, setCategory] = useState<
     'workflow' | 'agent-config' | 'template' | 'mcp-adapter'
   >('workflow');
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: globalThis.MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as HTMLElement)) {
-        onClose();
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
-
-  useEffect(() => {
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -323,93 +312,98 @@ function SaveTemplateForm({
     onSave({ name: name.trim(), description: description.trim(), category });
   };
 
-  const inputClass =
-    'w-full px-3 py-2 rounded-md text-xs text-text-primary border bg-transparent outline-none focus:border-accent-primary transition-colors';
-
   return (
-    <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/40">
-      <div
-        ref={ref}
-        className="w-96 rounded-lg border shadow-xl overflow-hidden flex flex-col"
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
+      <DialogContent
+        className="sm:max-w-[400px] p-0 overflow-hidden"
         style={{ background: '#111827', borderColor: '#1e2a3a' }}
       >
-        <div
-          className="px-4 py-3 border-b flex items-center justify-between shrink-0"
+        <DialogHeader
+          className="px-4 py-3 border-b"
           style={{ borderColor: '#1e2a3a' }}
         >
-          <div className="text-xs font-semibold text-text-primary">
+          <DialogTitle className="text-xs font-semibold text-text-primary">
             Save as Template
-          </div>
-          <button
-            className="text-text-muted hover:text-text-primary transition-colors"
-            onClick={onClose}
-          >
-            <X size={14} />
-          </button>
-        </div>
+          </DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit} className="p-4 space-y-3">
           <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-1">
+            <Label className="text-[10px] font-medium text-text-muted mb-1 block">
               Name
-            </label>
-            <input
-              className={inputClass}
-              style={{ borderColor: '#1e2a3a' }}
+            </Label>
+            <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="My Pipeline Template"
               required
+              className="h-8 text-xs"
+              style={{ borderColor: '#1e2a3a' }}
             />
           </div>
           <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-1">
+            <Label className="text-[10px] font-medium text-text-muted mb-1 block">
               Description
-            </label>
-            <textarea
-              className={`${inputClass} resize-none`}
-              style={{ borderColor: '#1e2a3a' }}
+            </Label>
+            <Textarea
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what this template does…"
+              placeholder="Describe what this template does..."
+              className="text-xs resize-none min-h-[72px]"
+              style={{ borderColor: '#1e2a3a' }}
             />
           </div>
           <div>
-            <label className="block text-[10px] font-medium text-text-muted mb-1">
+            <Label className="text-[10px] font-medium text-text-muted mb-1 block">
               Category
-            </label>
-            <select
-              className={inputClass}
-              style={{ borderColor: '#1e2a3a' }}
+            </Label>
+            <Select
               value={category}
-              onChange={(e) => setCategory(e.target.value as typeof category)}
+              onValueChange={(value) => setCategory(value as typeof category)}
             >
-              <option value="workflow">Workflow</option>
-              <option value="agent-config">Agent Config</option>
-              <option value="template">Template</option>
-              <option value="mcp-adapter">MCP Adapter</option>
-            </select>
+              <SelectTrigger
+                className="h-8 text-xs"
+                style={{ borderColor: '#1e2a3a' }}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="workflow" className="text-xs">
+                  Workflow
+                </SelectItem>
+                <SelectItem value="agent-config" className="text-xs">
+                  Agent Config
+                </SelectItem>
+                <SelectItem value="template" className="text-xs">
+                  Template
+                </SelectItem>
+                <SelectItem value="mcp-adapter" className="text-xs">
+                  MCP Adapter
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center justify-end gap-2 pt-1">
-            <button
-              type="button"
-              className="px-3 py-1.5 rounded-md text-[11px] font-medium text-text-muted hover:text-text-primary transition-colors"
-              onClick={onClose}
-            >
+            <Button type="button" variant="ghost" size="xs" onClick={onClose}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              size="xs"
               disabled={!name.trim() || isPending}
-              className="px-3 py-1.5 rounded-md text-[11px] font-medium text-white bg-accent-primary hover:bg-accent-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isPending ? 'Saving…' : 'Save Template'}
-            </button>
+              {isPending ? 'Saving...' : 'Save Template'}
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -780,34 +774,32 @@ function ChainEditorInner() {
                 <span className="text-[10px] text-text-muted">or</span>
                 <div className="h-px w-8 bg-border-default" />
               </div>
-              <button
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium text-text-primary border transition-colors hover:bg-white/5"
-                style={{ borderColor: '#1e2a3a' }}
+              <Button
+                variant="outline"
+                size="xs"
                 onClick={() => setShowTemplatePicker(true)}
               >
                 <Layers size={13} />
                 Start from template
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
-        {/* Template Picker overlay */}
-        {showTemplatePicker && (
-          <TemplatePicker
-            onSelect={handleApplyTemplate}
-            onClose={() => setShowTemplatePicker(false)}
-          />
-        )}
+        {/* Template Picker Dialog */}
+        <TemplatePicker
+          open={showTemplatePicker}
+          onSelect={handleApplyTemplate}
+          onClose={() => setShowTemplatePicker(false)}
+        />
 
-        {/* Save Template Form overlay */}
-        {showSaveForm && (
-          <SaveTemplateForm
-            onSave={handleSaveAsTemplate}
-            onClose={() => setShowSaveForm(false)}
-            isPending={createTemplate.isPending}
-          />
-        )}
+        {/* Save Template Form Dialog */}
+        <SaveTemplateForm
+          open={showSaveForm}
+          onSave={handleSaveAsTemplate}
+          onClose={() => setShowSaveForm(false)}
+          isPending={createTemplate.isPending}
+        />
 
         {/* Save success toast */}
         {saveSuccess && (
@@ -819,7 +811,7 @@ function ChainEditorInner() {
           </div>
         )}
 
-        {/* Node Inspector panel (slide-in from right) */}
+        {/* Node Inspector panel (Sheet from right) */}
         {inspectedNode && (
           <NodeInspector
             node={inspectedNode}

@@ -1,6 +1,13 @@
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react';
 import { ExternalLink, X } from 'lucide-react';
 import { memo } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 /* ── node-type colour map ── */
 const typeColors: Record<string, string> = {
@@ -12,12 +19,15 @@ const typeColors: Record<string, string> = {
   auditor: '#ef4444', // red
 };
 
-/* ── status badge styles ── */
-const statusStyles: Record<string, string> = {
-  pending: 'bg-gray-500/20 text-gray-400',
-  running: 'bg-cyan-500/20 text-cyan-300',
-  done: 'bg-emerald-500/20 text-emerald-300',
-  error: 'bg-red-500/20 text-red-300',
+/* ── status badge variant map ── */
+const statusVariant: Record<
+  string,
+  'secondary' | 'info' | 'success' | 'destructive'
+> = {
+  pending: 'secondary',
+  running: 'info',
+  done: 'success',
+  error: 'destructive',
 };
 
 export type AgentNodeAbility = { id: string; name: string };
@@ -76,20 +86,32 @@ function AgentNodeComponent({ id, data }: NodeProps<AgentNodeType>) {
         </div>
         {/* Action buttons */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button
-            className="p-0.5 rounded text-text-muted hover:text-accent-primary transition-colors"
-            onClick={() => data.onOpen?.(id)}
-            title="Open"
-          >
-            <ExternalLink size={11} />
-          </button>
-          <button
-            className="p-0.5 rounded text-text-muted hover:text-status-error transition-colors"
-            onClick={() => data.onDelete?.(id)}
-            title="Delete"
-          >
-            <X size={11} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-5 w-5 text-text-muted hover:text-accent-primary"
+                onClick={() => data.onOpen?.(id)}
+              >
+                <ExternalLink size={11} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Open</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="h-5 w-5 text-text-muted hover:text-status-error"
+                onClick={() => data.onDelete?.(id)}
+              >
+                <X size={11} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Delete</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -104,11 +126,12 @@ function AgentNodeComponent({ id, data }: NodeProps<AgentNodeType>) {
 
       {/* Footer - status badge */}
       <div className="px-3 pb-2.5 pt-1">
-        <span
-          className={`inline-block text-[9px] uppercase tracking-wider font-medium px-1.5 py-0.5 rounded ${statusStyles[status]}`}
+        <Badge
+          variant={statusVariant[status] ?? 'secondary'}
+          className="text-[9px] uppercase tracking-wider font-medium px-1.5 py-0.5"
         >
           {status}
-        </span>
+        </Badge>
       </div>
 
       {/* Output handle (right) */}

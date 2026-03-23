@@ -8,6 +8,12 @@ import {
 } from '@xyflow/react';
 import { X } from 'lucide-react';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 /* ── edge-condition colour map ── */
 export const edgeColors: Record<string, string> = {
@@ -53,6 +59,7 @@ export function CustomEdge({
   return (
     <>
       {/* Invisible wider path for easier hover/click */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: SVG hover hitarea for edge interaction */}
       <path
         d={edgePath}
         fill="none"
@@ -75,22 +82,28 @@ export function CustomEdge({
       {/* Delete button at edge midpoint on hover */}
       {(hovered || selected) && (
         <EdgeLabelRenderer>
-          <button
-            className="nodrag nopan absolute flex items-center justify-center w-5 h-5 rounded-full bg-red-500/90 text-white hover:bg-red-600 transition-colors shadow-md"
-            style={{
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-              pointerEvents: 'all',
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              deleteElements({ edges: [{ id }] });
-            }}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            title="Delete edge"
-          >
-            <X size={10} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="destructive"
+                size="icon-sm"
+                className="nodrag nopan absolute h-5 w-5 rounded-full shadow-md"
+                style={{
+                  transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+                  pointerEvents: 'all',
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteElements({ edges: [{ id }] });
+                }}
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
+              >
+                <X size={10} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Delete edge</TooltipContent>
+          </Tooltip>
         </EdgeLabelRenderer>
       )}
     </>

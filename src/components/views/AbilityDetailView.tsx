@@ -7,13 +7,30 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
+import {
   useAbility,
   useDeleteAbility,
   useUpdateAbility,
 } from '../../api/abilities';
 import { useLayoutStore } from '../../stores/layout';
 
-const typeBadge = (t: string) =>
+const typeBadgeVariant = (t: string) =>
   ({
     skill: 'bg-violet-500/20 text-violet-300 border-violet-500/30',
     plugin: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
@@ -41,7 +58,7 @@ export function AbilityDetailView() {
   const updateAbility = useUpdateAbility();
   const deleteAbility = useDeleteAbility();
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   if (!activeAbilityId) {
     return (
@@ -65,12 +82,9 @@ export function AbilityDetailView() {
       <div className="p-5 flex flex-col items-center gap-2 justify-center h-full">
         <AlertCircle size={18} className="text-status-error" />
         <p className="text-xs text-text-muted">Failed to load ability</p>
-        <button
-          onClick={() => refetch()}
-          className="text-[10px] text-accent-primary hover:underline"
-        >
+        <Button variant="link" size="xs" onClick={() => refetch()}>
           Retry
-        </button>
+        </Button>
       </div>
     );
   }
@@ -82,6 +96,7 @@ export function AbilityDetailView() {
   const handleDelete = () => {
     deleteAbility.mutate(ability.id, {
       onSuccess: () => {
+        setDeleteDialogOpen(false);
         setActiveAbilityId(null);
         setActiveMain('pipeline');
       },
@@ -91,19 +106,20 @@ export function AbilityDetailView() {
   return (
     <div className="p-5 max-w-xl space-y-4">
       {/* Back button */}
-      <button
+      <Button
+        variant="ghost"
+        size="xs"
         onClick={() => {
           setActiveAbilityId(null);
           setActiveMain('pipeline');
         }}
-        className="flex items-center gap-1 text-[10px] text-text-muted hover:text-text-default transition-colors"
       >
         <ArrowLeft size={12} />
         Back
-      </button>
+      </Button>
 
       {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b border-border-default">
+      <div className="flex items-center gap-3 pb-4">
         <div
           className={`w-10 h-10 rounded-lg border flex items-center justify-center ${typeIcon(ability.type)}`}
         >
@@ -117,33 +133,43 @@ export function AbilityDetailView() {
             {ability.type} {ability.version ? `· v${ability.version}` : ''}
           </div>
         </div>
-        <button
-          onClick={handleToggleActive}
-          disabled={updateAbility.isPending}
-          className={`text-[10px] px-2 py-1 rounded border cursor-pointer transition-colors ${
-            ability.active
-              ? 'bg-status-success/15 text-status-success border-status-success/30 hover:bg-status-success/25'
-              : 'bg-text-faint/15 text-text-muted border-border-muted hover:bg-text-faint/25'
-          }`}
-        >
-          {updateAbility.isPending
-            ? '...'
-            : ability.active
-              ? 'Active'
-              : 'Inactive'}
-        </button>
+        <div className="flex items-center gap-2">
+          <Label
+            htmlFor="ability-active-toggle"
+            className={cn(
+              'text-[10px] cursor-pointer',
+              ability.active ? 'text-status-success' : 'text-text-muted',
+            )}
+          >
+            {updateAbility.isPending
+              ? '...'
+              : ability.active
+                ? 'Active'
+                : 'Inactive'}
+          </Label>
+          <Switch
+            id="ability-active-toggle"
+            checked={ability.active}
+            onCheckedChange={handleToggleActive}
+            disabled={updateAbility.isPending}
+            className="scale-75"
+          />
+        </div>
       </div>
+
+      <Separator />
 
       {/* Type badge */}
       <div>
         <div className="text-[10px] uppercase tracking-widest text-text-faint mb-2">
           Type
         </div>
-        <span
-          className={`text-[11px] px-2 py-1 rounded border inline-block ${typeBadge(ability.type)}`}
+        <Badge
+          variant="outline"
+          className={cn('text-[11px]', typeBadgeVariant(ability.type))}
         >
           {ability.type}
-        </span>
+        </Badge>
       </div>
 
       {/* Version */}
@@ -181,35 +207,39 @@ export function AbilityDetailView() {
       </div>
 
       {/* Delete */}
-      <div className="pt-4 border-t border-border-default">
-        {!showDeleteConfirm ? (
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="flex items-center gap-1.5 text-[11px] text-status-error/70 hover:text-status-error transition-colors"
-          >
-            <Trash2 size={12} />
-            Delete ability
-          </button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-text-muted">
-              Delete this ability?
-            </span>
-            <button
-              onClick={handleDelete}
-              disabled={deleteAbility.isPending}
-              className="text-[11px] px-2 py-1 rounded bg-status-error/20 text-status-error border border-status-error/30 hover:bg-status-error/30 transition-colors"
+      <Separator />
+      <div className="pt-1">
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              size="xs"
+              className="text-status-error/70 hover:text-status-error hover:bg-status-error/10"
             >
-              {deleteAbility.isPending ? 'Deleting...' : 'Confirm'}
-            </button>
-            <button
-              onClick={() => setShowDeleteConfirm(false)}
-              className="text-[11px] px-2 py-1 rounded text-text-muted hover:text-text-default transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
+              <Trash2 size={12} />
+              Delete ability
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete ability</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{ability.name}"? This action
+                cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                disabled={deleteAbility.isPending}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteAbility.isPending ? 'Deleting...' : 'Delete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

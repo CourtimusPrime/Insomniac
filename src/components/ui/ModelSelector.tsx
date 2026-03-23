@@ -1,5 +1,15 @@
 import { useQueries } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import { apiFetch } from '../../api/client';
 import {
   type ModelDefinition,
@@ -48,7 +58,10 @@ export function ModelSelector({
   if (isLoading) {
     return (
       <div
-        className={`flex items-center gap-1.5 text-xs text-text-muted ${className ?? ''}`}
+        className={cn(
+          'flex items-center gap-1.5 text-xs text-text-muted',
+          className,
+        )}
       >
         <Loader2 size={12} className="animate-spin" />
         Loading models...
@@ -58,28 +71,36 @@ export function ModelSelector({
 
   if (groups.length === 0) {
     return (
-      <div className={`text-xs text-text-muted ${className ?? ''}`}>
+      <div className={cn('text-xs text-text-muted', className)}>
         No models available. Configure a provider in Settings.
       </div>
     );
   }
 
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={`rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary outline-none focus:border-accent-primary ${className ?? ''}`}
-    >
-      {!value && <option value="">Select a model...</option>}
-      {groups.map(({ provider, models }) => (
-        <optgroup key={provider.id} label={provider.displayName}>
-          {models.map((model) => (
-            <option key={model.id} value={model.id}>
-              {model.displayName}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
+    <Select value={value || undefined} onValueChange={onChange}>
+      <SelectTrigger
+        className={cn(
+          'h-8 text-xs bg-bg-surface border-border-default text-text-primary',
+          className,
+        )}
+      >
+        <SelectValue placeholder="Select a model..." />
+      </SelectTrigger>
+      <SelectContent>
+        {groups.map(({ provider, models }) => (
+          <SelectGroup key={provider.id}>
+            <SelectLabel className="text-[10px] font-semibold text-text-muted">
+              {provider.displayName}
+            </SelectLabel>
+            {models.map((model) => (
+              <SelectItem key={model.id} value={model.id} className="text-xs">
+                {model.displayName}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

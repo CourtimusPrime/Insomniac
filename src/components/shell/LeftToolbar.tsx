@@ -1,4 +1,11 @@
 import { Github, Layers, Settings, Store, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { useTheme } from '../../hooks/useTheme';
 import { useLayoutStore } from '../../stores/layout';
 import { getThemeById, mapVSCodeColors } from '../../themes';
@@ -36,27 +43,33 @@ export function LeftToolbar() {
         </div>
       </div>
       {toolbarItems.map((item) => (
-        <button
-          key={item.id}
-          onClick={() => {
-            if (activeToolbar === item.id) {
-              togglePanel('leftSidebar');
-            } else {
-              setActiveToolbar(item.id);
-              if (leftSidebarCollapsed) {
-                setCollapsedPanel('leftSidebar', false);
-              }
-            }
-          }}
-          title={item.label}
-          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-            activeToolbar === item.id
-              ? 'bg-accent-primary/15 text-accent-primary'
-              : 'text-text-faint hover:text-text-default hover:bg-bg-hover'
-          }`}
-        >
-          {item.icon}
-        </button>
+        <Tooltip key={item.id}>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                if (activeToolbar === item.id) {
+                  togglePanel('leftSidebar');
+                } else {
+                  setActiveToolbar(item.id);
+                  if (leftSidebarCollapsed) {
+                    setCollapsedPanel('leftSidebar', false);
+                  }
+                }
+              }}
+              className={cn(
+                'w-10 h-10 rounded-lg',
+                activeToolbar === item.id
+                  ? 'bg-accent-primary/15 text-accent-primary'
+                  : 'text-text-faint hover:text-text-default hover:bg-bg-hover',
+              )}
+            >
+              {item.icon}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{item.label}</TooltipContent>
+        </Tooltip>
       ))}
       <div className="mt-auto flex flex-col items-center gap-1">
         {pinnedThemes.length > 0 && (
@@ -67,35 +80,46 @@ export function LeftToolbar() {
               const mapped = mapVSCodeColors(theme.colors);
               const isActive = id === themeId;
               return (
-                <button
-                  key={id}
-                  onClick={() => setThemeId(id)}
-                  title={theme.name}
-                  className={`w-7 h-7 rounded-full border-2 transition-all ${
-                    isActive
-                      ? 'border-accent-primary scale-110'
-                      : 'border-transparent hover:scale-110'
-                  }`}
-                  style={{
-                    background: `linear-gradient(135deg, ${mapped['bg-base']} 50%, ${mapped['accent-primary']} 50%)`,
-                  }}
-                />
+                <Tooltip key={id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setThemeId(id)}
+                      className={cn(
+                        'w-7 h-7 rounded-full border-2 transition-all',
+                        isActive
+                          ? 'border-accent-primary scale-110'
+                          : 'border-transparent hover:scale-110',
+                      )}
+                      style={{
+                        background: `linear-gradient(135deg, ${mapped['bg-base']} 50%, ${mapped['accent-primary']} 50%)`,
+                      }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{theme.name}</TooltipContent>
+                </Tooltip>
               );
             })}
           </div>
         )}
         <ThemeSwitcher />
-        <button
-          onClick={() => setActiveMain('settings')}
-          title="Settings"
-          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-            activeMain === 'settings'
-              ? 'bg-accent-primary/15 text-accent-primary'
-              : 'text-text-faint hover:text-text-default hover:bg-bg-hover'
-          }`}
-        >
-          <Settings size={18} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setActiveMain('settings')}
+              className={cn(
+                'w-10 h-10 rounded-lg',
+                activeMain === 'settings'
+                  ? 'bg-accent-primary/15 text-accent-primary'
+                  : 'text-text-faint hover:text-text-default hover:bg-bg-hover',
+              )}
+            >
+              <Settings size={18} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Settings</TooltipContent>
+        </Tooltip>
       </div>
     </aside>
   );

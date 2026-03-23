@@ -6,6 +6,16 @@ import {
   Circle,
   Loader2,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useActiveAgents } from '../../api/agents';
 import type { Decision } from '../../api/decisions';
 import { useDecisions, useResolveDecision } from '../../api/decisions';
@@ -35,7 +45,7 @@ function DecisionCard({
   };
 
   return (
-    <div className="p-4 border-b border-border-default">
+    <div className="p-4">
       <div className="flex items-center gap-2 mb-3">
         <AlertCircle size={12} className="text-status-warning" />
         <span className="text-[10px] font-bold uppercase tracking-widest text-status-warning/80">
@@ -47,22 +57,26 @@ function DecisionCard({
       </p>
       <div className="space-y-1.5">
         {options.map((opt: string) => (
-          <button
+          <Button
             key={opt}
+            variant="outline"
+            size="xs"
             disabled={resolveDecision.isPending}
             onClick={() => handleResolve(opt)}
-            className="w-full text-left text-[11px] px-3 py-2 rounded border border-border-muted hover:border-accent-primary/50 hover:bg-accent-primary/5 text-text-default transition disabled:opacity-50"
+            className="w-full justify-start text-text-default hover:border-accent-primary/50 hover:bg-accent-primary/5"
           >
             {opt}
-          </button>
+          </Button>
         ))}
-        <button
+        <Button
+          variant="outline"
+          size="xs"
           disabled={resolveDecision.isPending}
           onClick={() => handleResolve(options[0] ?? 'auto', true)}
-          className="w-full text-left text-[11px] px-3 py-2 rounded border border-border-muted/50 hover:border-border-default text-text-faint hover:text-text-muted transition disabled:opacity-50"
+          className="w-full justify-start border-border-muted/50 text-text-faint hover:border-border-default hover:text-text-muted"
         >
           Let agent decide
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -83,61 +97,79 @@ export function RightSidebar() {
     >
       {collapsed ? (
         <div className="w-8 flex flex-col items-center pt-3">
-          <button
-            onClick={() => togglePanel('rightSidebar')}
-            className="p-1 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
-            title="Expand sidebar"
-          >
-            <ChevronLeft size={14} />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => togglePanel('rightSidebar')}
+                className="text-text-faint hover:text-text-default"
+              >
+                <ChevronLeft size={14} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Expand sidebar</TooltipContent>
+          </Tooltip>
         </div>
       ) : (
         <div className="w-72 min-w-[18rem] flex flex-col overflow-hidden h-full">
           {/* Collapse button */}
           <div className="flex items-center justify-end px-2 pt-1">
-            <button
-              onClick={() => togglePanel('rightSidebar')}
-              className="p-1 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
-              title="Collapse sidebar"
-            >
-              <ChevronRight size={14} />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => togglePanel('rightSidebar')}
+                  className="text-text-faint hover:text-text-default"
+                >
+                  <ChevronRight size={14} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Collapse sidebar</TooltipContent>
+            </Tooltip>
           </div>
 
           {/* Decision queue */}
           {isLoading && (
-            <div className="p-4 border-b border-border-default flex items-center justify-center">
+            <div className="p-4 flex items-center justify-center">
               <Loader2 size={16} className="animate-spin text-text-faint" />
             </div>
           )}
+          {isLoading && <Separator />}
           {isError && (
-            <div className="p-4 border-b border-border-default">
+            <div className="p-4">
               <p className="text-[11px] text-status-error">
                 Failed to load decisions
               </p>
             </div>
           )}
+          {isError && <Separator />}
           {!isLoading &&
             !isError &&
             decisions &&
             decisions.length > 0 &&
             activeProjectId &&
-            decisions.map((decision) => (
-              <DecisionCard
-                key={decision.id}
-                decision={decision}
-                projectId={activeProjectId}
-              />
+            decisions.map((decision, i) => (
+              <div key={decision.id}>
+                <DecisionCard decision={decision} projectId={activeProjectId} />
+                {(i < decisions.length - 1 ||
+                  !decisions ||
+                  decisions.length > 0) && <Separator />}
+              </div>
             ))}
           {!isLoading && !isError && (!decisions || decisions.length === 0) && (
-            <div className="p-4 border-b border-border-default">
-              <div className="flex items-center gap-2 mb-1">
-                <CheckCircle2 size={12} className="text-status-success" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">
-                  No decisions pending
-                </span>
+            <>
+              <div className="p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle2 size={12} className="text-status-success" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                    No decisions pending
+                  </span>
+                </div>
               </div>
-            </div>
+              <Separator />
+            </>
           )}
 
           {/* Timeline */}
@@ -182,12 +214,12 @@ export function RightSidebar() {
               </div>
             )}
             {activeAgents?.map((agent) => {
-              const statusColor =
+              const badgeVariant =
                 agent.status === 'error'
-                  ? 'text-status-error'
+                  ? 'destructive'
                   : agent.status === 'paused'
-                    ? 'text-status-warning'
-                    : 'text-status-success';
+                    ? 'warning'
+                    : 'success';
               const statusLabel =
                 agent.status === 'error'
                   ? 'error'
@@ -195,31 +227,33 @@ export function RightSidebar() {
                     ? 'blocked'
                     : 'running';
               return (
-                <div
-                  key={agent.id}
-                  className="px-3 py-2 rounded-lg bg-bg-base border border-border-default"
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="text-[11px] font-medium text-text-primary">
-                      {agent.name}
-                    </span>
-                    <span className={`text-[10px] ${statusColor}`}>
-                      {statusLabel}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-text-faint mt-0.5">
-                    {agent.currentTask ?? 'No task'} ·{' '}
-                    {agent.model ?? 'Unknown'}
-                  </div>
-                  {agent.progress > 0 && (
-                    <div className="mt-2 h-0.5 bg-bg-hover rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-accent-primary rounded-full"
-                        style={{ width: `${agent.progress}%` }}
-                      />
+                <Card key={agent.id} className="bg-bg-base shadow-none">
+                  <CardContent className="px-3 py-2 p-0">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] font-medium text-text-primary">
+                        {agent.name}
+                      </span>
+                      <Badge
+                        variant={
+                          badgeVariant as 'destructive' | 'warning' | 'success'
+                        }
+                        className="text-[10px] px-1.5 py-0"
+                      >
+                        {statusLabel}
+                      </Badge>
                     </div>
-                  )}
-                </div>
+                    <div className="text-[10px] text-text-faint mt-0.5">
+                      {agent.currentTask ?? 'No task'} ·{' '}
+                      {agent.model ?? 'Unknown'}
+                    </div>
+                    {agent.progress > 0 && (
+                      <Progress
+                        value={agent.progress}
+                        className="mt-2 h-0.5 bg-bg-hover"
+                      />
+                    )}
+                  </CardContent>
+                </Card>
               );
             })}
           </div>

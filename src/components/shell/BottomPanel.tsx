@@ -23,6 +23,17 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import {
   useBrowserStatus,
   useCloseBrowser,
@@ -338,41 +349,51 @@ export function BottomPanel() {
       }`}
     >
       <div className="flex border-b border-border-default text-[11px] shrink-0">
-        {[
-          {
-            id: 'terminal' as const,
-            icon: <Terminal size={11} />,
-            label: 'Admin Terminal',
-          },
-          {
-            id: 'usage' as const,
-            icon: <BarChart2 size={11} />,
-            label: 'Usage Graphs',
-          },
-          {
-            id: 'health' as const,
-            icon: <Heart size={11} />,
-            label: 'Project Health',
-          },
-          {
-            id: 'browser' as const,
-            icon: <Globe size={11} />,
-            label: 'Browser',
-          },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 flex items-center gap-1.5 border-r border-border-default transition ${
-              activeTab === tab.id
-                ? 'bg-bg-base text-text-primary border-t-2 border-t-accent-primary'
-                : 'text-text-muted hover:text-text-default hover:bg-bg-hover'
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) =>
+            setActiveTab(value as 'terminal' | 'usage' | 'health' | 'browser')
+          }
+          className="flex-1"
+        >
+          <TabsList className="h-auto bg-transparent p-0 rounded-none gap-0 w-auto">
+            {[
+              {
+                id: 'terminal' as const,
+                icon: <Terminal size={11} />,
+                label: 'Admin Terminal',
+              },
+              {
+                id: 'usage' as const,
+                icon: <BarChart2 size={11} />,
+                label: 'Usage Graphs',
+              },
+              {
+                id: 'health' as const,
+                icon: <Heart size={11} />,
+                label: 'Project Health',
+              },
+              {
+                id: 'browser' as const,
+                icon: <Globe size={11} />,
+                label: 'Browser',
+              },
+            ].map((tab) => (
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
+                className={cn(
+                  'px-4 py-2 flex items-center gap-1.5 border-r border-border-default rounded-none transition text-[11px]',
+                  'data-[state=active]:bg-bg-base data-[state=active]:text-text-primary data-[state=active]:border-t-2 data-[state=active]:border-t-accent-primary data-[state=active]:shadow-none',
+                  'data-[state=inactive]:text-text-muted data-[state=inactive]:hover:text-text-default data-[state=inactive]:hover:bg-bg-hover',
+                )}
+              >
+                {tab.icon}
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
         <div className="ml-auto flex items-center gap-3 px-4">
           <span className="text-[10px] text-text-faint">Session:</span>
           <span className="text-[10px] text-text-secondary">
@@ -383,13 +404,15 @@ export function BottomPanel() {
           <span className="text-[10px] text-accent-primary">
             {usageSummary ? `~$${usageSummary.estimatedCost.toFixed(2)}` : '—'}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => togglePanel('bottomPanel')}
-            className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
             title={collapsed ? 'Expand panel' : 'Collapse panel'}
+            className="h-6 w-6 text-text-faint hover:text-text-default"
           >
             {collapsed ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -398,23 +421,29 @@ export function BottomPanel() {
           <div className="flex flex-col h-full gap-2">
             {/* Search and filter bar */}
             <div className="flex items-center gap-2 shrink-0">
-              <input
+              <Input
                 value={logSearch}
                 onChange={(e) => setLogSearch(e.target.value)}
                 placeholder="Search logs…"
-                className="flex-1 bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
+                className="h-7 text-[11px] flex-1 bg-bg-base placeholder-text-faint"
               />
-              <select
+              <Select
                 value={logSourceFilter}
-                onChange={(e) => setLogSourceFilter(e.target.value)}
-                className="bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default outline-none focus:border-accent-primary"
+                onValueChange={(value) =>
+                  setLogSourceFilter(value === '_all' ? '' : value)
+                }
               >
-                <option value="">All sources</option>
-                <option value="orchestrator">Orchestrator</option>
-                <option value="agent">Agent</option>
-                <option value="system">System</option>
-                <option value="error">Error</option>
-              </select>
+                <SelectTrigger className="h-7 w-auto min-w-[120px] text-[11px] bg-bg-base">
+                  <SelectValue placeholder="All sources" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">All sources</SelectItem>
+                  <SelectItem value="orchestrator">Orchestrator</SelectItem>
+                  <SelectItem value="agent">Agent</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
+                  <SelectItem value="error">Error</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             {/* Log entries */}
             <div className="flex-1 min-h-0 overflow-y-auto space-y-0.5">
@@ -464,8 +493,8 @@ export function BottomPanel() {
             {/* Input */}
             <div className="flex items-center gap-2 shrink-0 text-text-faint">
               <ChevronRight size={12} />
-              <input
-                className="bg-transparent outline-none text-text-default placeholder-text-faint flex-1"
+              <Input
+                className="h-7 text-[11px] bg-transparent border-none shadow-none focus-visible:ring-0 text-text-default placeholder-text-faint flex-1 px-0"
                 placeholder="Chat with Orchestrator…"
               />
             </div>
@@ -513,25 +542,31 @@ export function BottomPanel() {
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-text-faint">Group by:</span>
               {(['provider', 'model', 'agent', 'project'] as const).map((g) => (
-                <button
+                <Button
                   key={g}
+                  variant="outline"
+                  size="xs"
                   onClick={() => setBreakdownGroup(g)}
-                  className={`text-[10px] px-2 py-0.5 rounded border transition ${
+                  className={cn(
+                    'text-[10px] px-2 py-0.5 h-auto',
                     breakdownGroup === g
                       ? 'bg-accent-primary/15 text-accent-primary border-accent-primary/30'
-                      : 'text-text-muted border-border-default hover:bg-bg-hover'
-                  }`}
+                      : 'text-text-muted border-border-default hover:bg-bg-hover',
+                  )}
                 >
                   {g.charAt(0).toUpperCase() + g.slice(1)}
-                </button>
+                </Button>
               ))}
-              <a
-                href={apiUrl('/api/usage/export?format=csv')}
-                download
-                className="ml-auto flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border border-border-default text-text-muted hover:bg-bg-hover transition"
+              <Button
+                variant="outline"
+                size="xs"
+                className="ml-auto text-[10px] text-text-muted border-border-default hover:bg-bg-hover h-auto px-2 py-0.5"
+                asChild
               >
-                <Download size={10} /> Export CSV
-              </a>
+                <a href={apiUrl('/api/usage/export?format=csv')} download>
+                  <Download size={10} /> Export CSV
+                </a>
+              </Button>
             </div>
             {usageBreakdown && usageBreakdown.length > 0 ? (
               <div className="bg-bg-base border border-border-default rounded overflow-hidden">
@@ -627,21 +662,25 @@ export function BottomPanel() {
                     )}
                   </span>
                   {devStatus?.running ? (
-                    <button
+                    <Button
+                      variant="destructive"
+                      size="xs"
                       onClick={() => stopServer.mutate(activeProjectId)}
                       disabled={stopServer.isPending}
-                      className="ml-auto flex items-center gap-1 text-[10px] px-2 py-1 bg-status-error/15 text-status-error border border-status-error/30 rounded hover:bg-status-error/25 transition disabled:opacity-50"
+                      className="ml-auto bg-status-error/15 text-status-error border border-status-error/30 hover:bg-status-error/25"
                     >
                       <Square size={9} /> Stop
-                    </button>
+                    </Button>
                   ) : (
-                    <button
+                    <Button
+                      variant="outline"
+                      size="xs"
                       onClick={() => startServer.mutate(activeProjectId)}
                       disabled={startServer.isPending}
-                      className="ml-auto flex items-center gap-1 text-[10px] px-2 py-1 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition disabled:opacity-50"
+                      className="ml-auto bg-status-success/15 text-status-success border border-status-success/30 hover:bg-status-success/25"
                     >
                       <Play size={9} /> Start
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {(startServer.isError || stopServer.isError) && (
@@ -675,13 +714,15 @@ export function BottomPanel() {
                 <div className="text-text-faint text-sm">
                   Dev server not running
                 </div>
-                <button
+                <Button
+                  variant="outline"
+                  size="xs"
                   onClick={() => startServer.mutate(activeProjectId)}
                   disabled={startServer.isPending}
-                  className="flex items-center gap-1 text-[10px] px-3 py-1.5 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition disabled:opacity-50"
+                  className="bg-status-success/15 text-status-success border border-status-success/30 hover:bg-status-success/25"
                 >
                   <Play size={9} /> Start Dev Server
-                </button>
+                </Button>
               </div>
             ) : (
               <>
@@ -694,53 +735,63 @@ export function BottomPanel() {
                     onSubmit={handleNavigate}
                     className="flex-1 flex items-center gap-1"
                   >
-                    <input
+                    <Input
                       value={browserUrl}
                       onChange={(e) => setBrowserUrl(e.target.value)}
                       placeholder={`http://localhost:${devStatus.port ?? 3000}`}
-                      className="flex-1 bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
+                      className="h-7 text-[11px] flex-1 bg-bg-base placeholder-text-faint"
                     />
                   </form>
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={handleRefresh}
-                    className="p-1 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
                     title="Refresh"
+                    className="text-text-faint hover:text-text-default"
                   >
                     <RefreshCw size={12} />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
                     onClick={handleScreenshot}
                     disabled={screenshot.isPending || !browserStatus?.running}
-                    className="flex items-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition disabled:opacity-50"
                     title="Capture screenshot"
+                    className="bg-accent-primary/10 text-accent-primary border-accent-primary/30 hover:bg-accent-primary/20"
                   >
                     <Camera size={10} />{' '}
                     {screenshot.isPending ? 'Capturing…' : 'Screenshot'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
                     onClick={() => setShowInspectDialog(true)}
                     disabled={!browserStatus?.running}
-                    className="flex items-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition disabled:opacity-50"
                     title="Inspect in agent"
+                    className="bg-accent-primary/10 text-accent-primary border-accent-primary/30 hover:bg-accent-primary/20"
                   >
                     <Crosshair size={10} /> Inspect
-                  </button>
+                  </Button>
                   {!browserStatus?.running ? (
-                    <button
+                    <Button
+                      variant="outline"
+                      size="xs"
                       onClick={() => launchBrowser.mutate()}
                       disabled={launchBrowser.isPending}
-                      className="flex items-center gap-1 text-[10px] px-2 py-1 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition disabled:opacity-50"
+                      className="bg-status-success/15 text-status-success border-status-success/30 hover:bg-status-success/25"
                     >
                       <Play size={9} /> Launch
-                    </button>
+                    </Button>
                   ) : (
-                    <button
+                    <Button
+                      variant="destructive"
+                      size="xs"
                       onClick={() => closeBrowser.mutate()}
                       disabled={closeBrowser.isPending}
-                      className="flex items-center gap-1 text-[10px] px-2 py-1 bg-status-error/15 text-status-error border border-status-error/30 rounded hover:bg-status-error/25 transition disabled:opacity-50"
+                      className="bg-status-error/15 text-status-error border-status-error/30 hover:bg-status-error/25"
                     >
                       <X size={9} /> Close
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {/* iframe preview + console split */}
@@ -771,31 +822,33 @@ export function BottomPanel() {
                             onSubmit={handleInspectSubmit}
                             className="flex flex-col gap-2 w-64"
                           >
-                            <input
+                            <Input
                               value={inspectSelector}
                               onChange={(e) =>
                                 setInspectSelector(e.target.value)
                               }
                               placeholder="CSS selector (e.g. #submit-btn)"
-                              className="bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
+                              className="h-7 text-[11px] bg-bg-base placeholder-text-faint"
                             />
-                            <input
+                            <Input
                               value={inspectDescription}
                               onChange={(e) =>
                                 setInspectDescription(e.target.value)
                               }
                               placeholder="What's wrong? (e.g. button is misaligned)"
-                              className="bg-bg-base border border-border-default rounded px-2 py-1 text-[11px] text-text-default placeholder-text-faint outline-none focus:border-accent-primary"
+                              className="h-7 text-[11px] bg-bg-base placeholder-text-faint"
                             />
                             <div className="flex items-center gap-2">
-                              <button
+                              <Button
                                 type="submit"
+                                variant="outline"
+                                size="xs"
                                 disabled={
                                   !inspectSelector.trim() ||
                                   !inspectDescription.trim() ||
                                   inspectInAgent.isPending
                                 }
-                                className="flex-1 flex items-center justify-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition disabled:opacity-50"
+                                className="flex-1 bg-accent-primary/10 text-accent-primary border-accent-primary/30 hover:bg-accent-primary/20"
                               >
                                 {inspectInAgent.isPending ? (
                                   <Loader2 size={10} className="animate-spin" />
@@ -805,17 +858,19 @@ export function BottomPanel() {
                                 {inspectInAgent.isPending
                                   ? 'Sending…'
                                   : 'Send to Agent'}
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 type="button"
+                                variant="outline"
+                                size="xs"
                                 onClick={() => {
                                   setShowInspectDialog(false);
                                   setInspectConfirmation(null);
                                 }}
-                                className="flex items-center gap-1 text-[10px] px-2 py-1 bg-bg-hover text-text-muted border border-border-default rounded hover:bg-bg-base transition"
+                                className="bg-bg-hover text-text-muted border-border-default hover:bg-bg-base"
                               >
                                 <X size={10} /> Cancel
-                              </button>
+                              </Button>
                             </div>
                             {inspectInAgent.isError && (
                               <div className="text-status-error text-[10px]">
@@ -830,27 +885,33 @@ export function BottomPanel() {
                     {screenshotPreview && (
                       <div className="absolute inset-0 bg-bg-base/95 flex flex-col items-center justify-center gap-3 z-10">
                         <div className="flex items-center gap-2">
-                          <button
+                          <Button
+                            variant="outline"
+                            size="xs"
                             onClick={handleCopyScreenshot}
-                            className="flex items-center gap-1 text-[10px] px-2 py-1 bg-accent-primary/10 text-accent-primary border border-accent-primary/30 rounded hover:bg-accent-primary/20 transition"
                             title="Copy to clipboard"
+                            className="bg-accent-primary/10 text-accent-primary border-accent-primary/30 hover:bg-accent-primary/20"
                           >
                             <Copy size={10} /> Copy
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="xs"
                             onClick={handleSaveScreenshot}
-                            className="flex items-center gap-1 text-[10px] px-2 py-1 bg-status-success/15 text-status-success border border-status-success/30 rounded hover:bg-status-success/25 transition"
                             title="Save as PNG"
+                            className="bg-status-success/15 text-status-success border-status-success/30 hover:bg-status-success/25"
                           >
                             <Download size={10} /> Save
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="xs"
                             onClick={() => setScreenshotPreview(null)}
-                            className="flex items-center gap-1 text-[10px] px-2 py-1 bg-bg-hover text-text-muted border border-border-default rounded hover:bg-bg-base transition"
                             title="Close preview"
+                            className="bg-bg-hover text-text-muted border-border-default hover:bg-bg-base"
                           >
                             <X size={10} /> Close
-                          </button>
+                          </Button>
                         </div>
                         <img
                           src={`data:image/png;base64,${screenshotPreview}`}
@@ -868,13 +929,15 @@ export function BottomPanel() {
                         <span className="text-[10px] text-text-muted font-medium">
                           Console
                         </span>
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
                           onClick={handleClearConsole}
-                          className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
                           title="Clear console"
+                          className="h-5 w-5 text-text-faint hover:text-text-default"
                         >
                           <Trash2 size={10} />
-                        </button>
+                        </Button>
                       </div>
                       <div className="flex-1 overflow-y-auto px-2 py-1 font-mono text-[10px] space-y-0.5">
                         {consoleEntries.length === 0 ? (
@@ -924,13 +987,15 @@ export function BottomPanel() {
                         <span className="text-[10px] text-text-muted font-medium">
                           Agent Activity
                         </span>
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
                           onClick={handleClearActions}
-                          className="p-0.5 rounded text-text-faint hover:text-text-default hover:bg-bg-hover transition"
                           title="Clear activity"
+                          className="h-5 w-5 text-text-faint hover:text-text-default"
                         >
                           <Trash2 size={10} />
-                        </button>
+                        </Button>
                       </div>
                       <div className="flex-1 overflow-y-auto px-2 py-1 font-mono text-[10px] space-y-0.5">
                         {agentActions.length === 0 ? (

@@ -1,4 +1,6 @@
 import { Clock, Coins, Cpu, Globe, HardDrive, User, Zap } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import {
   useAuthUser,
   useSessionUsage,
@@ -23,7 +25,7 @@ function formatTokens(n: number): string {
   return n.toLocaleString();
 }
 
-const modeBadge = (mode: string) =>
+const modeBadgeClasses = (mode: string) =>
   ({
     local: 'bg-status-success/20 text-status-success border-status-success/30',
     remote: 'bg-accent-primary/20 text-accent-primary border-accent-primary/30',
@@ -52,15 +54,19 @@ export function StatusBar() {
 
   return (
     <div className="h-6 shrink-0 flex items-center gap-4 px-3 border-t border-border-default bg-bg-base text-[10px] text-text-muted select-none">
-      <span
-        className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${modeBadge(mode)}`}
+      <Badge
+        variant="outline"
+        className={cn(
+          'flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-normal',
+          modeBadgeClasses(mode),
+        )}
       >
         {mode === 'local' && (
           <span className="w-1.5 h-1.5 rounded-full bg-status-success" />
         )}
         {mode !== 'local' && <Globe size={9} />}
         <span>{modeLabel(mode)}</span>
-      </span>
+      </Badge>
 
       {mode === 'hosted' && authUser?.username && (
         <span className="flex items-center gap-1 text-text-secondary">

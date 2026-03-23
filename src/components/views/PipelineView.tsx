@@ -10,6 +10,11 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import type { Pipeline, PipelineStage } from '../../api/pipelines';
 import {
   useAddStage,
@@ -53,37 +58,43 @@ const stageIcon = (s: string) => {
   return <Circle size={14} className="text-text-faint shrink-0" />;
 };
 
-const statusLabel = (s: string) => {
+const statusBadgeProps = (s: string) => {
   if (s === 'needs-you')
     return {
       text: 'needs you',
-      className:
-        'bg-status-warning/20 text-status-warning border-status-warning/30',
+      variant: 'warning' as const,
+      className: '',
     };
   if (s === 'running')
     return {
       text: 'running',
+      variant: 'outline' as const,
       className:
         'bg-accent-primary/20 text-accent-primary border-accent-primary/30',
     };
   if (s === 'error')
     return {
       text: 'error',
-      className: 'bg-status-error/20 text-status-error border-status-error/30',
+      variant: 'destructive' as const,
+      className: '',
     };
   if (s === 'skipped')
     return {
       text: 'skipped',
+      variant: 'outline' as const,
       className: 'bg-text-faint/20 text-text-faint border-text-faint/30',
     };
   return null;
 };
 
 function StageRow({ stage }: { stage: PipelineStage }) {
-  const label = statusLabel(stage.status);
+  const badgeProps = statusBadgeProps(stage.status);
   return (
     <div
-      className={`rounded-lg border px-4 py-3 flex items-start gap-3 ${stageColor(stage.status)}`}
+      className={cn(
+        'rounded-lg border px-4 py-3 flex items-start gap-3',
+        stageColor(stage.status),
+      )}
     >
       <div className="mt-0.5">{stageIcon(stage.status)}</div>
       <div className="flex-1 min-w-0">
@@ -91,12 +102,16 @@ function StageRow({ stage }: { stage: PipelineStage }) {
           <span className="text-xs font-medium text-text-primary">
             {stage.name}
           </span>
-          {label && (
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded border ${label.className}`}
+          {badgeProps && (
+            <Badge
+              variant={badgeProps.variant}
+              className={cn(
+                'text-[10px] px-1.5 py-0.5 font-normal',
+                badgeProps.className,
+              )}
             >
-              {label.text}
-            </span>
+              {badgeProps.text}
+            </Badge>
           )}
         </div>
         <div className="text-[11px] text-text-muted mt-0.5">
@@ -109,9 +124,13 @@ function StageRow({ stage }: { stage: PipelineStage }) {
         )}
       </div>
       {stage.status === 'needs-you' && (
-        <button className="shrink-0 px-2.5 py-1 text-[10px] bg-status-warning/20 hover:bg-status-warning/30 text-status-warning rounded border border-status-warning/30 transition">
+        <Button
+          variant="outline"
+          size="xs"
+          className="shrink-0 bg-status-warning/20 hover:bg-status-warning/30 text-status-warning border-status-warning/30"
+        >
           Decide
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -134,64 +153,88 @@ function PipelineToolbar({
   const canCancel = status === 'running' || status === 'paused';
   const isBusy = pause.isPending || resume.isPending || cancel.isPending;
 
-  const statusBadge: Record<string, { text: string; className: string }> = {
-    idle: { text: 'Idle', className: 'text-text-muted border-border-muted' },
+  const statusBadgeConfig: Record<
+    string,
+    {
+      text: string;
+      variant:
+        | 'outline'
+        | 'default'
+        | 'secondary'
+        | 'destructive'
+        | 'success'
+        | 'warning'
+        | 'info';
+      className?: string;
+    }
+  > = {
+    idle: {
+      text: 'Idle',
+      variant: 'outline',
+      className: 'text-text-muted border-border-muted',
+    },
     running: {
       text: 'Running',
+      variant: 'outline',
       className:
         'text-accent-primary border-accent-primary/30 bg-accent-primary/10',
     },
     completed: {
       text: 'Completed',
-      className:
-        'text-status-success border-status-success/30 bg-status-success/10',
+      variant: 'success',
     },
     error: {
       text: 'Error',
-      className: 'text-status-error border-status-error/30 bg-status-error/10',
+      variant: 'destructive',
     },
     paused: {
       text: 'Paused',
-      className:
-        'text-status-warning border-status-warning/30 bg-status-warning/10',
+      variant: 'warning',
     },
     cancelled: {
       text: 'Cancelled',
+      variant: 'outline',
       className: 'text-text-muted border-border-muted bg-bg-muted',
     },
   };
 
-  const badge = statusBadge[status] ?? statusBadge.idle;
+  const badge = statusBadgeConfig[status] ?? statusBadgeConfig.idle;
 
   return (
     <div className="flex items-center gap-2 mb-3">
-      <span
-        className={`text-[10px] font-medium px-2 py-0.5 rounded border ${badge.className}`}
+      <Badge
+        variant={badge.variant}
+        className={cn('text-[10px] font-medium px-2 py-0.5', badge.className)}
       >
         {badge.text}
-      </span>
+      </Badge>
       <div className="flex-1" />
-      <button
+      <Button
+        variant="outline"
+        size="xs"
         disabled={!canPause || isBusy}
         onClick={() => pause.mutate(pipeline.id)}
-        className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded border border-border-muted text-text-secondary hover:bg-bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition"
       >
         <Pause size={11} /> Pause
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="outline"
+        size="xs"
         disabled={!canResume || isBusy}
         onClick={() => resume.mutate(pipeline.id)}
-        className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded border border-accent-primary/30 text-accent-primary hover:bg-accent-primary/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+        className="border-accent-primary/30 text-accent-primary hover:bg-accent-primary/10"
       >
         <Play size={11} /> Resume
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="outline"
+        size="xs"
         disabled={!canCancel || isBusy}
         onClick={() => cancel.mutate(pipeline.id)}
-        className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded border border-status-error/30 text-status-error hover:bg-status-error/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+        className="border-status-error/30 text-status-error hover:bg-status-error/10"
       >
         <XCircle size={11} /> Cancel
-      </button>
+      </Button>
     </div>
   );
 }
@@ -220,11 +263,11 @@ function SteeringInput({
       className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg border border-border-muted bg-bg-base"
     >
       <ArrowRight size={13} className="text-accent-primary shrink-0" />
-      <input
+      <Input
         value={text}
         onChange={(e) => setText(e.target.value)}
         disabled={steer.isPending}
-        className="flex-1 bg-transparent text-xs text-text-default placeholder-text-faint outline-none"
+        className="h-8 text-xs flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0 placeholder-text-faint"
         placeholder="Steer the pipeline — 'skip Stripe for now', 'add dark mode first'…"
       />
       {steer.isPending && (
@@ -272,41 +315,37 @@ function AddStageForm({
       className="rounded-lg border border-border-muted bg-bg-base p-4 space-y-3"
     >
       <div className="text-xs font-medium text-text-primary">Add Stage</div>
-      <input
+      <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Stage name"
-        className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary placeholder-text-faint outline-none focus:border-accent-primary"
+        className="h-8 text-xs"
       />
       <div>
-        <label className="text-[11px] text-text-muted mb-1 block">Model</label>
+        <Label className="text-[11px] text-text-muted mb-1 block">Model</Label>
         <ModelSelector
           value={effectiveModel}
           onChange={setModel}
           className="w-full"
         />
       </div>
-      <input
+      <Input
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description (optional)"
-        className="w-full rounded border border-border-default bg-bg-surface px-2 py-1.5 text-xs text-text-primary placeholder-text-faint outline-none focus:border-accent-primary"
+        className="h-8 text-xs"
       />
       <div className="flex items-center gap-2">
-        <button
+        <Button
           type="submit"
+          size="xs"
           disabled={!name.trim() || addStage.isPending}
-          className="px-3 py-1.5 text-xs font-medium rounded bg-accent-primary text-white hover:bg-accent-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition"
         >
           {addStage.isPending ? 'Adding…' : 'Add'}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-3 py-1.5 text-xs font-medium rounded border border-border-muted text-text-secondary hover:bg-bg-muted transition"
-        >
+        </Button>
+        <Button type="button" variant="outline" size="xs" onClick={onClose}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -385,12 +424,13 @@ export function PipelineView() {
           onClose={() => setShowAddStage(false)}
         />
       ) : (
-        <button
+        <Button
+          variant="outline"
           onClick={() => setShowAddStage(true)}
-          className="w-full rounded-lg border border-dashed border-border-muted px-4 py-2.5 text-xs text-text-muted hover:border-accent-primary hover:text-accent-primary transition"
+          className="w-full rounded-lg border-dashed border-border-muted text-xs text-text-muted hover:border-accent-primary hover:text-accent-primary"
         >
           + Add Stage
-        </button>
+        </Button>
       )}
       {/* Steering input */}
       <SteeringInput
