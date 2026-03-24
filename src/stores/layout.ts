@@ -8,7 +8,13 @@ type MainView =
   | 'ability-detail'
   | 'settings'
   | 'marketplace';
-type BottomTab = 'terminal' | 'usage' | 'health' | 'browser';
+type BottomTab =
+  | 'terminal'
+  | 'usage'
+  | 'health'
+  | 'browser'
+  | 'files'
+  | 'shell';
 export type MarketplaceCategory =
   | 'all'
   | 'workflow'

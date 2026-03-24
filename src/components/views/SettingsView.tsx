@@ -76,7 +76,8 @@ type SettingsTab =
   | 'hooks'
   | 'credentials'
   | 'themes'
-  | 'import';
+  | 'import'
+  | 'shell';
 
 const PROVIDER_OPTIONS: { value: ProviderName; label: string }[] = [
   { value: 'anthropic', label: 'Anthropic' },
@@ -1636,6 +1637,130 @@ function ImportTab() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Shell & Files Settings Tab
+// ---------------------------------------------------------------------------
+
+function ShellSettingsTab() {
+  const { data: bashSetting } = useSetting('shell.bash.enabled');
+  const { data: psSetting } = useSetting('shell.powershell.enabled');
+  const { data: cloneDirSetting } = useSetting('projects.cloneDir');
+  const saveSetting = useSaveSetting();
+  const [cloneDir, setCloneDir] = useState('');
+
+  const bashEnabled =
+    bashSetting?.value !== false && bashSetting?.value !== 'false';
+  const psEnabled = psSetting?.value !== false && psSetting?.value !== 'false';
+
+  useEffect(() => {
+    if (cloneDirSetting?.value && typeof cloneDirSetting.value === 'string') {
+      setCloneDir(cloneDirSetting.value);
+    }
+  }, [cloneDirSetting]);
+
+  return (
+    <div className="space-y-4 mt-4">
+      <Card className="bg-bg-surface border-border-default">
+        <CardHeader className="pb-2">
+          <h3 className="text-xs font-semibold text-text-primary flex items-center gap-2">
+            <Shield size={13} />
+            Shell Access
+          </h3>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-[11px] text-text-default">
+                Enable Bash
+              </Label>
+              <p className="text-[10px] text-text-faint">
+                Allow agents and the shell panel to execute bash commands
+              </p>
+            </div>
+            <Switch
+              checked={bashEnabled}
+              onCheckedChange={(checked) =>
+                saveSetting.mutate({
+                  key: 'shell.bash.enabled',
+                  value: checked,
+                  category: 'shell',
+                })
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-[11px] text-text-default">
+                Enable PowerShell
+              </Label>
+              <p className="text-[10px] text-text-faint">
+                Allow PowerShell commands (WSL only, via Windows interop)
+              </p>
+            </div>
+            <Switch
+              checked={psEnabled}
+              onCheckedChange={(checked) =>
+                saveSetting.mutate({
+                  key: 'shell.powershell.enabled',
+                  value: checked,
+                  category: 'shell',
+                })
+              }
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-bg-surface border-border-default">
+        <CardHeader className="pb-2">
+          <h3 className="text-xs font-semibold text-text-primary flex items-center gap-2">
+            <Settings2 size={13} />
+            Projects Directory
+          </h3>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <Label className="text-[11px] text-text-default">
+              Clone Directory
+            </Label>
+            <p className="text-[10px] text-text-faint mb-2">
+              Default directory where GitHub repos are cloned
+            </p>
+            <div className="flex items-center gap-2">
+              <Input
+                value={cloneDir}
+                onChange={(e) => setCloneDir(e.target.value)}
+                placeholder="~/projects"
+                className="h-7 text-[11px] flex-1"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[11px]"
+                onClick={() =>
+                  saveSetting.mutate({
+                    key: 'projects.cloneDir',
+                    value: cloneDir,
+                    category: 'projects',
+                  })
+                }
+                disabled={!cloneDir || saveSetting.isPending}
+              >
+                {saveSetting.isPending ? (
+                  <Loader2 size={11} className="animate-spin" />
+                ) : (
+                  'Save'
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'providers', label: 'Providers' },
   { id: 'themes', label: 'Themes' },
@@ -1643,6 +1768,7 @@ const TABS: { id: SettingsTab; label: string }[] = [
   { id: 'hooks', label: 'Hooks' },
   { id: 'credentials', label: 'Credentials' },
   { id: 'notifications', label: 'Notifications' },
+  { id: 'shell', label: 'Shell & Files' },
 ];
 
 export function SettingsView() {
@@ -1694,6 +1820,9 @@ export function SettingsView() {
         </TabsContent>
         <TabsContent value="notifications">
           <NotificationsTab />
+        </TabsContent>
+        <TabsContent value="shell">
+          <ShellSettingsTab />
         </TabsContent>
       </Tabs>
     </div>

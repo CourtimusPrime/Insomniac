@@ -13,6 +13,7 @@ import { backseatRoutes } from './routes/backseat.js';
 import { browserRoutes } from './routes/browser.js';
 import { credentialRoutes } from './routes/credentials.js';
 import { decisionRoutes } from './routes/decisions.js';
+import { filesystemRoutes } from './routes/filesystem.js';
 import { hookRoutes } from './routes/hooks.js';
 import { localhostRoutes } from './routes/localhost.js';
 import { logRoutes } from './routes/logs.js';
@@ -25,6 +26,7 @@ import { projectRoutes } from './routes/projects.js';
 import { providerRoutes } from './routes/providers.js';
 import { sandboxRoutes } from './routes/sandboxes.js';
 import { settingsRoutes } from './routes/settings.js';
+import { shellRoutes } from './routes/shell.js';
 import { templateRoutes } from './routes/templates.js';
 import { usageRoutes } from './routes/usage.js';
 import { getAllowedOrigins } from './utils/index.js';
@@ -89,6 +91,8 @@ await server.register(metricsRoutes);
 await server.register(usageRoutes);
 await server.register(logRoutes);
 await server.register(agentRoutes);
+await server.register(filesystemRoutes);
+await server.register(shellRoutes);
 
 // Health check
 server.get('/api/health', async () => {

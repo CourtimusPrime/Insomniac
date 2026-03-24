@@ -1,13 +1,27 @@
 import { asc, eq } from 'drizzle-orm';
 import { createAgent, getTransportSetting } from '../agents/index.js';
-import type { AgentAdapter, AgentConfig } from '../agents/types.js';
+import type {
+  AgentAdapter,
+  AgentConfig,
+  AgentMessage,
+} from '../agents/types.js';
+import { executeBrowserTool } from '../browser/index.js';
 import { db } from '../db/connection.js';
-import { agents, pipelineStages, pipelines } from '../db/schema/index.js';
+import {
+  abilities,
+  agents,
+  pipelineStages,
+  pipelines,
+  projects,
+  stageAbilities,
+} from '../db/schema/index.js';
+import { executeFilesystemTool } from '../filesystem/index.js';
 import { HooksEngine } from '../hooks/engine.js';
 import {
   createFileAccessAdapter,
   type FileAccessAdapter,
 } from '../hosted/file-access-factory.js';
+import { executeShellTool } from '../shell/index.js';
 import { broadcast } from '../ws/handler.js';
 
 type PipelineRow = typeof pipelines.$inferSelect;
@@ -262,8 +276,99 @@ export class PipelineEngine {
   }
 
   /**
+   * Resolves tool definitions for a stage by querying its assigned abilities.
+   * Returns an array of tool names available for the stage.
+   */
+  private resolveStageTools(stageId: string): {
+    toolNames: string[];
+    toolDefinitions: unknown[];
+  } {
+    const rows = db
+      .select({
+        config: abilities.config,
+      })
+      .from(stageAbilities)
+      .innerJoin(abilities, eq(stageAbilities.abilityId, abilities.id))
+      .where(eq(stageAbilities.stageId, stageId))
+      .all();
+
+    const toolNames: string[] = [];
+    const toolDefinitions: unknown[] = [];
+
+    for (const row of rows) {
+      const config = row.config as Record<string, unknown> | null;
+      if (!config) continue;
+      if (Array.isArray(config.tools)) {
+        toolNames.push(...(config.tools as string[]));
+      }
+      if (Array.isArray(config.toolDefinitions)) {
+        toolDefinitions.push(...(config.toolDefinitions as unknown[]));
+      }
+    }
+
+    return { toolNames, toolDefinitions };
+  }
+
+  /**
+   * Dispatches a tool call to the appropriate executor based on tool name prefix.
+   */
+  private async handleToolCall(
+    toolName: string,
+    args: Record<string, unknown>,
+  ): Promise<{ success: boolean; data?: unknown; error?: string }> {
+    const projectRoot = this.getProjectRoot();
+
+    if (toolName.startsWith('fs_')) {
+      return executeFilesystemTool(projectRoot, toolName, args);
+    }
+
+    if (toolName.startsWith('shell_')) {
+      return executeShellTool(projectRoot, toolName, args);
+    }
+
+    // Browser tools don't have a prefix — check known names
+    const browserToolNames = [
+      'navigate',
+      'click',
+      'fill',
+      'screenshot',
+      'assertText',
+      'assertElement',
+      'getConsoleErrors',
+      'evaluateScript',
+      'waitForSelector',
+    ];
+    if (browserToolNames.includes(toolName)) {
+      // Browser tools need an engine instance — not available in pipeline context yet
+      return {
+        success: false,
+        error: `Browser tool "${toolName}" requires a running browser instance`,
+      };
+    }
+
+    return { success: false, error: `Unknown tool: ${toolName}` };
+  }
+
+  /**
+   * Resolves the project root path for the current pipeline's project.
+   */
+  private getProjectRoot(): string {
+    if (!this.pipeline?.projectId) {
+      return process.cwd();
+    }
+    const project = db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, this.pipeline.projectId))
+      .get();
+    return project?.path ?? process.cwd();
+  }
+
+  /**
    * Executes a single pipeline stage: spawns an agent, sends the prompt,
    * waits for the response, and updates the stage status.
+   * Includes a tool-call loop: if the agent returns a tool_call, execute it
+   * and send the result back until the agent returns a final message.
    */
   private async executeStage(stage: StageRow): Promise<void> {
     // Set stage status to running
@@ -275,7 +380,19 @@ export class PipelineEngine {
     let agent: AgentAdapter | null = null;
 
     try {
+      // Resolve available tools for this stage
+      const { toolNames, toolDefinitions } = this.resolveStageTools(stage.id);
+
       const config = this.buildAgentConfig(stage);
+
+      // Append tool information to the system prompt if tools are available
+      if (toolNames.length > 0) {
+        const toolList = toolNames.join(', ');
+        config.systemPrompt +=
+          `\n\nYou have access to the following tools: ${toolList}\n` +
+          `To use a tool, respond with a tool_call message containing the tool name and arguments.`;
+      }
+
       agent = await createAgent(config);
       this.activeAgents.push(agent);
 
@@ -283,8 +400,22 @@ export class PipelineEngine {
       const prompt = stage.description ?? stage.name;
       await agent.sendMessage(prompt);
 
-      // Wait for the agent to complete
-      await agent.getResponse();
+      // Tool-call loop: keep processing until we get a non-tool_call response
+      let response: AgentMessage = await agent.getResponse();
+      while (response.type === 'tool_call') {
+        const toolCall = response.payload as {
+          name: string;
+          arguments: Record<string, unknown>;
+        };
+        const toolResult = await this.handleToolCall(
+          toolCall.name,
+          toolCall.arguments ?? {},
+        );
+
+        // Send tool result back to the agent
+        await agent.sendMessage(JSON.stringify(toolResult));
+        response = await agent.getResponse();
+      }
 
       this.updateStageStatus(stage.id, 'done');
 

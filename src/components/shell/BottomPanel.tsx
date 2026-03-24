@@ -10,6 +10,7 @@ import {
   Copy,
   Crosshair,
   Download,
+  FolderOpen,
   Globe,
   Heart,
   Info,
@@ -18,6 +19,7 @@ import {
   RefreshCw,
   Square,
   Terminal,
+  TerminalSquare,
   Trash2,
   X,
   XCircle,
@@ -52,6 +54,8 @@ import { type LogEntry, useLogs } from '../../api/logs';
 import { useUsageBreakdown, useUsageSummary } from '../../api/usage';
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
+import { FileBrowser } from '../bottom/FileBrowser';
+import { ShellPanel } from '../bottom/ShellPanel';
 
 export function BottomPanel() {
   const activeTab = useLayoutStore((s) => s.activeTab);
@@ -352,7 +356,15 @@ export function BottomPanel() {
         <Tabs
           value={activeTab}
           onValueChange={(value) =>
-            setActiveTab(value as 'terminal' | 'usage' | 'health' | 'browser')
+            setActiveTab(
+              value as
+                | 'terminal'
+                | 'usage'
+                | 'health'
+                | 'browser'
+                | 'files'
+                | 'shell',
+            )
           }
           className="flex-1"
         >
@@ -377,6 +389,16 @@ export function BottomPanel() {
                 id: 'browser' as const,
                 icon: <Globe size={11} />,
                 label: 'Browser',
+              },
+              {
+                id: 'files' as const,
+                icon: <FolderOpen size={11} />,
+                label: 'Files',
+              },
+              {
+                id: 'shell' as const,
+                icon: <TerminalSquare size={11} />,
+                label: 'Shell',
               },
             ].map((tab) => (
               <TabsTrigger
@@ -1044,6 +1066,10 @@ export function BottomPanel() {
             )}
           </div>
         )}
+
+        {activeTab === 'files' && <FileBrowser />}
+
+        {activeTab === 'shell' && <ShellPanel />}
       </div>
     </div>
   );

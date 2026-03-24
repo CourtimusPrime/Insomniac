@@ -1,0 +1,128 @@
+---
+id: pr-review-and-notify
+name: PR Review and Notify
+version: 1.0.0
+description: >
+  Fetches a PR, runs the full review agent, then notifies the author via
+  Slack with the verdict. Runs on a post-push hook or manual trigger.
+  Stops and waits for human approval before posting if verdict is
+  request-changes.
+tags: [pr, review, notify, workflow]
+author: ncz
+enabled: true
+---
+
+## Trigger
+
+- CI hook fires after a PR is opened or synchronised
+- Orchestrator routes tasks tagged `[pr, workflow]`
+- Explicitly invoked via `[pr-review-and-notify]`
+
+## Interface
+
+### Input
+| Field        | Type    | Required | Description                        |
+|--------------|---------|----------|------------------------------------|
+| repo         | string  | yes      | Target repo in `owner/repo` format |
+| pr_number    | integer | yes      | Pull request number                |
+| notify_slack | boolean | no       | Send Slack DM to PR author         |
+
+### Output
+| Field    | Type    | Description                                   |
+|----------|---------|-----------------------------------------------|
+| verdict  | string  | Final verdict from review agent               |
+| posted   | boolean | Whether review comments were posted to GitHub |
+| notified | boolean | Whether Slack notification was sent           |
+
+## Config
+
+on_error: stop
+max_retries: 1
+timeout_seconds: 300
+
+runtime:
+  executor: workflow
+
+## Instructions
+
+- id: fetch-pr
+  use: github
+  label: "Fetch PR metadata"
+  input:
+    intent: "get pull request"
+    repo: $input.repo
+    payload:
+      pr_number: $input.pr_number
+  output: pr_data
+
+- id: review
+  use: pr-review-agent
+  label: "Run full PR review"
+  input:
+    repo: $input.repo
+    pr_number: $input.pr_number
+    post_comment: false
+  output: review_data
+  on_error: stop
+
+- id: approval-gate
+  type: gate
+  label: "Human approval before posting request-changes"
+  condition: $steps.review.verdict == "request-changes"
+  message: |
+    Review verdict is **request-changes** for PR #{{ $input.pr_number }}.
+    Approve to post comments, reject to notify author only.
+  on_reject:
+    goto: notify
+
+- id: post-comments
+  use: github
+  label: "Post review comments to PR"
+  condition: $steps.review.verdict != "approve"
+  input:
+    intent: "post review comments"
+    repo: $input.repo
+    payload:
+      pr_number: $input.pr_number
+      comments: $steps.review.issues
+      body: $steps.review.summary
+      verdict: $steps.review.verdict
+  output: post_data
+
+- id: notify
+  use: slack
+  label: "Notify PR author on Slack"
+  condition: $input.notify_slack == true
+  input:
+    intent: "send direct message"
+    payload:
+      to: $steps.fetch-pr.pr_data.author
+      message: |
+        Review complete for PR #{{ $input.pr_number }} in {{ $input.repo }}.
+        Verdict: **{{ $steps.review.verdict }}**
+        {{ $steps.review.summary }}
+  output: notify_data
+  on_error: continue
+
+output_map:
+  verdict:  $steps.review.verdict
+  posted:   $steps.post-comments.post_data.success ?? false
+  notified: $steps.notify.notify_data.success ?? false
+
+## Examples
+
+### Input
+repo: "ncz/my-project"
+pr_number: 42
+notify_slack: true
+
+### Output
+verdict: request-changes
+posted: true
+notified: true
+
+## Dependencies
+
+- pr-review-agent
+- github
+- slack

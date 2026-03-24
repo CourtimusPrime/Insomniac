@@ -1,10 +1,10 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Insomnia",
+  "productName": "Insomniac",
   "version": "0.1.0",
-  "identifier": "com.court.Insomnia",
+  "identifier": "com.court.Insomniac",
   "build": {
-    "beforeDevCommand": "bun run dev",
+    "beforeDevCommand": "bun run dev:all",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "bun run build",
     "frontendDist": "../dist"
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Insomnia",
+        "title": "Insomniac",
         "width": 800,
         "height": 600
       }

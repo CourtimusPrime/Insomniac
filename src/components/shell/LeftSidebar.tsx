@@ -1,12 +1,18 @@
+import { open } from '@tauri-apps/plugin-dialog';
 import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  ChevronRight,
   Code2,
   Download,
+  Folder,
+  FolderOpen,
   FolderPlus,
   Github,
   GitMerge,
+  HardDrive,
+  Home,
   Loader2,
   Pencil,
   Plus,
@@ -30,6 +36,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAbilities } from '../../api/abilities';
+import {
+  type BrowseEntry,
+  type BrowseResult,
+  useBrowseDirectory,
+  useBrowseInfo,
+} from '../../api/filesystem';
 import { useMarketplace } from '../../api/marketplace';
 import type { Project } from '../../api/projects';
 import {
@@ -192,12 +204,25 @@ export function LeftSidebar() {
 
   // Create project dialog state
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [createMode, setCreateMode] = useState<'choose' | 'github' | 'empty'>(
-    'choose',
-  );
+  const [createMode, setCreateMode] = useState<
+    'choose' | 'github' | 'empty' | 'local'
+  >('choose');
   const [githubUrl, setGithubUrl] = useState('');
   const [projectName, setProjectName] = useState('');
   const [createError, setCreateError] = useState('');
+
+  // Local folder browser state
+  const browseInfo = useBrowseInfo(createMode === 'local');
+  const browseDirectory = useBrowseDirectory();
+  const [browseSource, setBrowseSource] = useState<'linux' | 'windows'>(
+    'linux',
+  );
+  const [browseData, setBrowseData] = useState<BrowseResult | null>(null);
+  const [browseHistory, setBrowseHistory] = useState<string[]>([]);
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [browseError, setBrowseError] = useState<string | null>(null);
+  const initialBrowseAttempted = useRef(false);
+  const [slowLoad, setSlowLoad] = useState(false);
 
   const resetCreateDialog = useCallback(() => {
     setShowCreateDialog(false);
@@ -205,6 +230,13 @@ export function LeftSidebar() {
     setGithubUrl('');
     setProjectName('');
     setCreateError('');
+    setBrowseData(null);
+    setBrowseHistory([]);
+    setSelectedPath(null);
+    setBrowseSource('linux');
+    setBrowseError(null);
+    initialBrowseAttempted.current = false;
+    setSlowLoad(false);
   }, []);
 
   const handleCreateFromGitHub = useCallback(() => {
@@ -213,7 +245,10 @@ export function LeftSidebar() {
     cloneProject.mutate(
       { repoUrl: githubUrl.trim(), name: projectName.trim() || undefined },
       {
-        onSuccess: () => resetCreateDialog(),
+        onSuccess: (project) => {
+          setActiveProjectId(project.id);
+          resetCreateDialog();
+        },
         onError: (err) =>
           setCreateError(err instanceof Error ? err.message : 'Clone failed'),
       },
@@ -226,14 +261,178 @@ export function LeftSidebar() {
     createProject.mutate(
       { name: projectName.trim() },
       {
-        onSuccess: () => resetCreateDialog(),
+        onSuccess: (project) => {
+          setActiveProjectId(project.id);
+          resetCreateDialog();
+        },
         onError: (err) =>
           setCreateError(
             err instanceof Error ? err.message : 'Creation failed',
           ),
       },
     );
-  }, [projectName, createProject, resetCreateDialog]);
+  }, [projectName, createProject, setActiveProjectId, resetCreateDialog]);
+
+  const browseTo = useCallback(
+    (path: string, resetHistory = false) => {
+      setBrowseError(null);
+      browseDirectory.mutate(
+        { path },
+        {
+          onSuccess: (data) => {
+            setBrowseData(data);
+            setSelectedPath(null);
+            if (resetHistory) {
+              setBrowseHistory([path]);
+            } else {
+              setBrowseHistory((prev) => [...prev, path]);
+            }
+          },
+          onError: (err) => {
+            setBrowseError(
+              err instanceof Error ? err.message : 'Failed to browse directory',
+            );
+          },
+        },
+      );
+    },
+    [browseDirectory],
+  );
+
+  // Auto-load the initial directory when entering local mode and info is ready
+  useEffect(() => {
+    if (
+      createMode !== 'local' ||
+      !browseInfo.data ||
+      initialBrowseAttempted.current
+    )
+      return;
+    initialBrowseAttempted.current = true;
+    const startPath =
+      browseSource === 'windows' && browseInfo.data.wslDrives.length > 0
+        ? `/mnt/${browseInfo.data.wslDrives[0]}/Users`
+        : browseInfo.data.home;
+    browseTo(startPath, true);
+  }, [createMode, browseInfo.data, browseSource, browseTo]);
+
+  const handleBrowseBack = useCallback(() => {
+    if (browseHistory.length <= 1) return;
+    const newHistory = browseHistory.slice(0, -1);
+    const parentPath = newHistory[newHistory.length - 1];
+    setBrowseError(null);
+    browseDirectory.mutate(
+      { path: parentPath },
+      {
+        onSuccess: (data) => {
+          setBrowseData(data);
+          setBrowseHistory(newHistory);
+          setSelectedPath(null);
+        },
+        onError: (err) => {
+          setBrowseError(
+            err instanceof Error ? err.message : 'Failed to browse directory',
+          );
+        },
+      },
+    );
+  }, [browseHistory, browseDirectory]);
+
+  const handleSwitchSource = useCallback(
+    (source: 'linux' | 'windows') => {
+      if (!browseInfo.data) return;
+      setBrowseSource(source);
+      setBrowseData(null);
+      setSelectedPath(null);
+      setBrowseError(null);
+      const startPath =
+        source === 'windows' && browseInfo.data.wslDrives.length > 0
+          ? `/mnt/${browseInfo.data.wslDrives[0]}/Users`
+          : browseInfo.data.home;
+      browseDirectory.mutate(
+        { path: startPath },
+        {
+          onSuccess: (data) => {
+            setBrowseData(data);
+            setBrowseHistory([startPath]);
+          },
+          onError: (err) => {
+            setBrowseError(
+              err instanceof Error ? err.message : 'Failed to browse directory',
+            );
+          },
+        },
+      );
+    },
+    [browseInfo.data, browseDirectory],
+  );
+
+  const handleNativePicker = useCallback(async () => {
+    try {
+      const selected = await open({ directory: true, multiple: false });
+      if (selected) {
+        const name =
+          projectName.trim() ||
+          selected.split('/').filter(Boolean).pop() ||
+          'project';
+        setCreateError('');
+        createProject.mutate(
+          { name, path: selected },
+          {
+            onSuccess: (project) => {
+              setActiveProjectId(project.id);
+              resetCreateDialog();
+            },
+            onError: (err) =>
+              setCreateError(
+                err instanceof Error ? err.message : 'Creation failed',
+              ),
+          },
+        );
+      }
+    } catch {
+      // User cancelled or dialog unavailable
+    }
+  }, [projectName, createProject, setActiveProjectId, resetCreateDialog]);
+
+  // Slow-load warning timer
+  useEffect(() => {
+    if (!browseDirectory.isPending) {
+      setSlowLoad(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlowLoad(true), 3000);
+    return () => clearTimeout(timer);
+  }, [browseDirectory.isPending]);
+
+  const handleCreateFromLocal = useCallback(() => {
+    const pathToUse = selectedPath ?? browseData?.path;
+    if (!pathToUse) return;
+    const name =
+      projectName.trim() ||
+      pathToUse.split('/').filter(Boolean).pop() ||
+      'project';
+    setCreateError('');
+    createProject.mutate(
+      { name, path: pathToUse },
+      {
+        onSuccess: (project) => {
+          setActiveProjectId(project.id);
+          resetCreateDialog();
+        },
+        onError: (err) =>
+          setCreateError(
+            err instanceof Error ? err.message : 'Creation failed',
+          ),
+      },
+    );
+  }, [
+    selectedPath,
+    browseData,
+    projectName,
+    createProject,
+    setActiveProjectId,
+    resetCreateDialog,
+  ]);
 
   // Focus rename input when it appears
   useEffect(() => {
@@ -499,6 +698,7 @@ export function LeftSidebar() {
                 {createMode === 'choose' && 'New Project'}
                 {createMode === 'github' && 'From GitHub'}
                 {createMode === 'empty' && 'Empty Project'}
+                {createMode === 'local' && 'From Local Folder'}
               </DialogTitle>
             </div>
           </DialogHeader>
@@ -518,6 +718,23 @@ export function LeftSidebar() {
                     </div>
                     <div className="text-text-faint mt-0.5">
                       Clone an existing repository
+                    </div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setCreateMode('local')}
+                  className="w-full text-left px-3 py-3 rounded-lg border border-border-muted hover:border-accent-primary/50 hover:bg-accent-primary/5 text-xs transition flex items-center gap-3"
+                >
+                  <FolderOpen
+                    size={16}
+                    className="text-text-secondary shrink-0"
+                  />
+                  <div>
+                    <div className="font-medium text-text-primary">
+                      From local folder
+                    </div>
+                    <div className="text-text-faint mt-0.5">
+                      Choose from your filesystem or WSL
                     </div>
                   </div>
                 </button>
@@ -624,6 +841,215 @@ export function LeftSidebar() {
                   {createProject.isPending ? 'Creating...' : 'Create Project'}
                 </Button>
               </form>
+            )}
+
+            {createMode === 'local' && (
+              <div className="space-y-3">
+                {/* Native folder picker (Tauri only) */}
+                {window.__TAURI_INTERNALS__ && (
+                  <Button
+                    variant="outline"
+                    onClick={handleNativePicker}
+                    className="w-full text-xs gap-2"
+                  >
+                    <FolderOpen size={13} />
+                    Open folder picker
+                  </Button>
+                )}
+
+                {/* Source toggle: Linux (WSL) vs Windows */}
+                {browseInfo.data?.wsl && (
+                  <div className="flex rounded-lg border border-border-default overflow-hidden">
+                    <button
+                      onClick={() => handleSwitchSource('linux')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium transition ${
+                        browseSource === 'linux'
+                          ? 'bg-accent-primary/10 text-accent-primary border-r border-border-default'
+                          : 'text-text-muted hover:bg-bg-hover border-r border-border-default'
+                      }`}
+                    >
+                      <Home size={12} />
+                      Linux (WSL)
+                    </button>
+                    <button
+                      onClick={() => handleSwitchSource('windows')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-medium transition ${
+                        browseSource === 'windows'
+                          ? 'bg-accent-primary/10 text-accent-primary'
+                          : 'text-text-muted hover:bg-bg-hover'
+                      }`}
+                    >
+                      <HardDrive size={12} />
+                      Windows
+                    </button>
+                  </div>
+                )}
+
+                {/* Path bar with back button */}
+                {browseData && (
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={handleBrowseBack}
+                      disabled={browseHistory.length <= 1}
+                      className="text-text-faint hover:text-text-primary h-auto w-auto p-0.5 shrink-0 disabled:opacity-30"
+                    >
+                      <ArrowLeft size={12} />
+                    </Button>
+                    <span className="text-[10px] text-text-muted truncate font-mono flex-1">
+                      {browseData.path}
+                    </span>
+                    {browseData.isProject && (
+                      <span className="text-[9px] bg-status-success/15 text-status-success px-1.5 py-0.5 rounded shrink-0">
+                        project
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Server connection error */}
+                {browseInfo.isError && (
+                  <div className="flex flex-col items-center gap-2 py-4">
+                    <AlertCircle size={16} className="text-status-error" />
+                    <span className="text-[10px] text-text-faint">
+                      Failed to connect to server
+                    </span>
+                    <Button
+                      variant="link"
+                      size="xs"
+                      onClick={() => browseInfo.refetch()}
+                      className="text-[10px] text-accent-primary hover:underline p-0 h-auto"
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                )}
+
+                {/* Directory listing */}
+                <div className="rounded-lg border border-border-default overflow-hidden">
+                  <div className="max-h-[240px] overflow-y-auto">
+                    {(browseDirectory.isPending || browseInfo.isLoading) && (
+                      <div className="flex flex-col items-center justify-center py-8 text-text-faint gap-2">
+                        <Loader2 size={14} className="animate-spin" />
+                        {slowLoad && (
+                          <span className="text-[10px] text-text-faint px-3 text-center">
+                            Reading Windows filesystem via WSL can be slow...
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {(browseDirectory.isError || browseError) &&
+                      !browseDirectory.isPending && (
+                        <div className="flex flex-col items-center gap-2 py-6">
+                          <AlertCircle
+                            size={16}
+                            className="text-status-error"
+                          />
+                          <span className="text-[10px] text-text-faint text-center px-3">
+                            {browseError || 'Failed to read directory'}
+                          </span>
+                          <Button
+                            variant="link"
+                            size="xs"
+                            onClick={() => {
+                              if (browseData?.path) {
+                                browseTo(browseData.path, false);
+                                // Remove the duplicate history entry that browseTo adds
+                                setBrowseHistory((prev) => prev.slice(0, -1));
+                              } else if (browseHistory.length > 0) {
+                                browseTo(
+                                  browseHistory[browseHistory.length - 1],
+                                  false,
+                                );
+                                setBrowseHistory((prev) => prev.slice(0, -1));
+                              }
+                            }}
+                            className="text-[10px] text-accent-primary hover:underline p-0 h-auto"
+                          >
+                            Retry
+                          </Button>
+                        </div>
+                      )}
+                    {browseData &&
+                      !browseDirectory.isPending &&
+                      !browseDirectory.isError &&
+                      !browseError &&
+                      browseData.entries.length === 0 && (
+                        <div className="px-3 py-6 text-center text-[10px] text-text-faint">
+                          Empty folder
+                        </div>
+                      )}
+                    {!browseDirectory.isPending &&
+                      browseData?.entries.map((entry: BrowseEntry) => {
+                        const isSelected = selectedPath === entry.path;
+                        return (
+                          <button
+                            key={entry.path}
+                            onClick={() => setSelectedPath(entry.path)}
+                            onDoubleClick={() => browseTo(entry.path)}
+                            className={`w-full text-left px-3 py-2 flex items-center gap-2.5 text-xs transition ${
+                              isSelected
+                                ? 'bg-accent-primary/10 text-accent-primary'
+                                : 'hover:bg-bg-hover text-text-secondary'
+                            }`}
+                          >
+                            <Folder size={13} className="shrink-0" />
+                            <span className="truncate flex-1">
+                              {entry.name}
+                            </span>
+                            <ChevronRight
+                              size={11}
+                              className="text-text-faint shrink-0 opacity-40"
+                            />
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-text-faint">
+                  Double-click to open a folder. Select and click Open to add as
+                  a project.
+                </p>
+
+                {/* Optional project name override */}
+                <div>
+                  <Label className="block text-[10px] font-medium text-text-muted uppercase tracking-wide mb-1">
+                    Project name{' '}
+                    <span className="text-text-faint">(optional)</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    placeholder={
+                      selectedPath
+                        ? selectedPath.split('/').filter(Boolean).pop()
+                        : (browseData?.name ?? 'Derived from folder name')
+                    }
+                    className="h-8 text-xs bg-bg-input border-border-default rounded-lg text-text-primary placeholder:text-text-faint focus-visible:border-accent-primary"
+                  />
+                </div>
+
+                {createError && (
+                  <p className="text-[10px] text-status-error">{createError}</p>
+                )}
+
+                <Button
+                  onClick={handleCreateFromLocal}
+                  disabled={
+                    (!selectedPath && !browseData?.path) ||
+                    createProject.isPending
+                  }
+                  className="w-full py-2 rounded-lg text-xs font-medium bg-accent-primary text-white hover:bg-accent-primary/90"
+                >
+                  {createProject.isPending && (
+                    <Loader2 size={12} className="animate-spin" />
+                  )}
+                  {createProject.isPending ? 'Adding...' : 'Open as Project'}
+                </Button>
+              </div>
             )}
           </div>
         </DialogContent>

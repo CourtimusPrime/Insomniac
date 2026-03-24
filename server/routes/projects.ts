@@ -1,18 +1,39 @@
 import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { eq } from 'drizzle-orm';
+import { homedir } from 'node:os';
+import { resolve } from 'node:path';
+import { and, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { db } from '../db/connection.js';
-import { projects, workspaces } from '../db/schema/index.js';
+import { projects, settings } from '../db/schema/index.js';
 import { GitHubService } from '../integrations/github.js';
 import { getVSCodeCommand } from '../utils/index.js';
+import { getOrCreateDefaultWorkspace } from '../utils/workspace.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROJECTS_DIR = resolve(__dirname, '../../data/projects');
+/** Default clone directory — user's home directory */
+const DEFAULT_PROJECTS_DIR = resolve(homedir());
 
-const DEFAULT_WORKSPACE_NAME = 'Default';
+/**
+ * Gets the configured projects directory from settings, falling back to home dir.
+ */
+function getProjectsDir(workspaceId: string): string {
+  const row = db
+    .select()
+    .from(settings)
+    .where(
+      and(
+        eq(settings.workspaceId, workspaceId),
+        eq(settings.key, 'projects.cloneDir'),
+      ),
+    )
+    .get();
+
+  if (row?.value && typeof row.value === 'string') {
+    return row.value;
+  }
+
+  return DEFAULT_PROJECTS_DIR;
+}
 
 const SEED_PROJECTS = [
   { name: 'Aether-OS', language: 'Rust', status: 'building' as const },
@@ -20,20 +41,6 @@ const SEED_PROJECTS = [
   { name: 'Lumina-API', language: 'Python', status: 'error' as const },
   { name: 'Void-Shell', language: 'Go', status: 'completed' as const },
 ];
-
-async function getOrCreateDefaultWorkspace(): Promise<string> {
-  const existing = db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.name, DEFAULT_WORKSPACE_NAME))
-    .get();
-
-  if (existing) return existing.id;
-
-  const id = crypto.randomUUID();
-  db.insert(workspaces).values({ id, name: DEFAULT_WORKSPACE_NAME }).run();
-  return id;
-}
 
 async function seedIfEmpty(workspaceId: string) {
   const count = db.select().from(projects).all();
@@ -139,15 +146,16 @@ export async function projectRoutes(server: FastifyInstance) {
         return { error: 'Invalid project name' };
       }
 
-      const targetPath = resolve(PROJECTS_DIR, repoName);
-      // Security: verify resolved path is inside PROJECTS_DIR
-      if (!targetPath.startsWith(`${PROJECTS_DIR}/`)) {
+      const projectsDir = getProjectsDir(workspaceId);
+      const targetPath = resolve(projectsDir, repoName);
+      // Security: verify resolved path is inside the configured projects dir
+      if (!targetPath.startsWith(`${projectsDir}/`)) {
         reply.code(400);
         return { error: 'Invalid project path' };
       }
 
       // Ensure projects directory exists
-      await mkdir(PROJECTS_DIR, { recursive: true });
+      await mkdir(projectsDir, { recursive: true });
 
       const github = new GitHubService();
       const result = await github.cloneRepo(repoUrl, targetPath);
@@ -369,6 +377,67 @@ export async function projectRoutes(server: FastifyInstance) {
 
       db.delete(projects).where(eq(projects.id, id)).run();
       return reply.code(204).send();
+    },
+  );
+
+  // GET /api/projects/config/clone-dir — get the current clone directory
+  server.get('/api/projects/config/clone-dir', async () => {
+    return {
+      cloneDir: getProjectsDir(workspaceId),
+      default: DEFAULT_PROJECTS_DIR,
+    };
+  });
+
+  // PUT /api/projects/config/clone-dir — set the clone directory
+  server.put<{ Body: { cloneDir: string } }>(
+    '/api/projects/config/clone-dir',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['cloneDir'],
+          properties: {
+            cloneDir: { type: 'string', minLength: 1 },
+          },
+        },
+      },
+    },
+    async (request) => {
+      const { cloneDir } = request.body;
+      const resolvedDir = resolve(cloneDir);
+
+      // Ensure directory exists
+      await mkdir(resolvedDir, { recursive: true });
+
+      // Upsert the setting
+      const existing = db
+        .select()
+        .from(settings)
+        .where(
+          and(
+            eq(settings.workspaceId, workspaceId),
+            eq(settings.key, 'projects.cloneDir'),
+          ),
+        )
+        .get();
+
+      if (existing) {
+        db.update(settings)
+          .set({ value: resolvedDir })
+          .where(eq(settings.id, existing.id))
+          .run();
+      } else {
+        db.insert(settings)
+          .values({
+            workspaceId,
+            key: 'projects.cloneDir',
+            value: resolvedDir,
+            category: 'projects',
+          })
+          .run();
+      }
+
+      return { cloneDir: resolvedDir };
     },
   );
 }
