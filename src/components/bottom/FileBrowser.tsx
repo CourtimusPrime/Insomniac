@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { wsUrl } from '../../api/client';
 import { useListDirectory, useReadFile } from '../../api/filesystem';
+import { useWsEvent } from '../../hooks/useWebSocket';
 import { useProjectsStore } from '../../stores/projects';
 
 interface TreeNode {
@@ -64,29 +64,27 @@ export function FileBrowser() {
     }
   }, [rootListing]);
 
-  // WebSocket listener for filesystem:agent-action events
-  useEffect(() => {
-    const ws = new WebSocket(wsUrl());
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.event === 'filesystem:agent-action') {
-          setAgentActions((prev) => {
-            const existing = prev.find((a) => a.id === msg.data.id);
-            if (existing) {
-              return prev.map((a) =>
-                a.id === msg.data.id ? { ...a, ...msg.data } : a,
-              );
-            }
-            return [...prev.slice(-49), msg.data];
-          });
+  // Listen for filesystem:agent-action via global WS connection
+  useWsEvent(
+    'filesystem:agent-action',
+    useCallback((data: unknown) => {
+      const action = data as {
+        id: string;
+        action: string;
+        status: string;
+        timestamp: string;
+      };
+      setAgentActions((prev) => {
+        const existing = prev.find((a) => a.id === action.id);
+        if (existing) {
+          return prev.map((a) =>
+            a.id === action.id ? { ...a, ...action } : a,
+          );
         }
-      } catch {
-        // ignore parse errors
-      }
-    };
-    return () => ws.close();
-  }, []);
+        return [...prev.slice(-49), action];
+      });
+    }, []),
+  );
 
   useEffect(() => {
     actionsEndRef.current?.scrollIntoView({ behavior: 'smooth' });

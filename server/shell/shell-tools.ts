@@ -247,9 +247,16 @@ const toolHandlers: Record<
 
 let actionCounter = 0;
 
+const REDACT_RE = /(bearer|token|secret|password|key|api[_-]?key)\s+\S+/gi;
+
 function describeAction(toolName: string, args: ToolArgs): string {
   const command = String(args.command ?? '');
-  const preview = command.length > 60 ? command.slice(0, 57) + '...' : command;
+  const redacted = command.replace(
+    REDACT_RE,
+    (_, label) => `${label} [REDACTED]`,
+  );
+  const preview =
+    redacted.length > 60 ? redacted.slice(0, 57) + '...' : redacted;
   switch (toolName) {
     case 'shell_exec_bash':
       return `bash: ${preview}`;

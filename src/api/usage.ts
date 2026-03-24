@@ -33,7 +33,7 @@ export function useUsageSummary() {
   return useQuery<UsageSummary>({
     queryKey: ['usageSummary'],
     queryFn: () => apiFetch<UsageSummary>('/api/usage/summary'),
-    refetchInterval: 5000,
+    refetchInterval: 30_000,
   });
 }
 
@@ -42,7 +42,7 @@ export function useUsageTimeline(hours = 24) {
     queryKey: ['usageTimeline', hours],
     queryFn: () =>
       apiFetch<UsageTimelineEntry[]>(`/api/usage/timeline?hours=${hours}`),
-    refetchInterval: 10000,
+    refetchInterval: 60_000,
   });
 }
 
@@ -55,6 +55,6 @@ export function useUsageBreakdown(
       apiFetch<UsageBreakdownEntry[]>(
         `/api/usage/breakdown?groupBy=${groupBy}`,
       ),
-    refetchInterval: 10000,
+    refetchInterval: 60_000,
   });
 }

@@ -27,7 +27,7 @@ export async function apiFetch<T>(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
   const signal = init?.signal
-    ? anySignal([init.signal, controller.signal])
+    ? AbortSignal.any([init.signal, controller.signal])
     : controller.signal;
 
   try {
@@ -46,19 +46,4 @@ export async function apiFetch<T>(
   } finally {
     clearTimeout(timeout);
   }
-}
-
-/** Combine multiple AbortSignals into one that fires when any of them aborts. */
-function anySignal(signals: AbortSignal[]): AbortSignal {
-  const controller = new AbortController();
-  for (const s of signals) {
-    if (s.aborted) {
-      controller.abort(s.reason);
-      return controller.signal;
-    }
-    s.addEventListener('abort', () => controller.abort(s.reason), {
-      once: true,
-    });
-  }
-  return controller.signal;
 }

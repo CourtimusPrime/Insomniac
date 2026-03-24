@@ -45,7 +45,7 @@ export function useSystemMetrics() {
   return useQuery<SystemMetrics>({
     queryKey: ['systemMetrics'],
     queryFn: () => apiFetch<SystemMetrics>('/api/system/metrics'),
-    refetchInterval: 2000,
+    refetchInterval: 15_000,
   });
 }
 
@@ -53,6 +53,6 @@ export function useSessionUsage() {
   return useQuery<SessionUsage>({
     queryKey: ['sessionUsage'],
     queryFn: () => apiFetch<SessionUsage>('/api/usage/session'),
-    refetchInterval: 2000,
+    refetchInterval: 15_000,
   });
 }

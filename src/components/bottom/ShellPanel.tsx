@@ -3,12 +3,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { wsUrl } from '../../api/client';
 import {
   useExecBash,
   useExecPowershell,
   useShellStatus,
 } from '../../api/shell';
+import { useWsEvent } from '../../hooks/useWebSocket';
 import { useProjectsStore } from '../../stores/projects';
 
 interface ShellEntry {
@@ -36,32 +36,30 @@ export function ShellPanel() {
 
   const isExecuting = execBash.isPending || execPowershell.isPending;
 
-  // WebSocket listener for shell:agent-action events
-  useEffect(() => {
-    const ws = new WebSocket(wsUrl());
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.event === 'shell:agent-action') {
-          setHistory((prev) => [
-            ...prev,
-            {
-              id: msg.data.id,
-              type: 'agent',
-              shell: msg.data.action?.startsWith('powershell')
-                ? 'powershell'
-                : 'bash',
-              content: `[Agent] ${msg.data.action} (${msg.data.status})`,
-              timestamp: msg.data.timestamp,
-            },
-          ]);
-        }
-      } catch {
-        // ignore
-      }
-    };
-    return () => ws.close();
-  }, []);
+  // Listen for shell:agent-action via global WS connection
+  useWsEvent(
+    'shell:agent-action',
+    useCallback((data: unknown) => {
+      const d = data as {
+        id: string;
+        action: string;
+        status: string;
+        timestamp: string;
+      };
+      setHistory((prev) => [
+        ...prev,
+        {
+          id: d.id,
+          type: 'agent' as const,
+          shell: d.action?.startsWith('powershell')
+            ? ('powershell' as const)
+            : ('bash' as const),
+          content: `[Agent] ${d.action} (${d.status})`,
+          timestamp: d.timestamp,
+        },
+      ]);
+    }, []),
+  );
 
   useEffect(() => {
     outputEndRef.current?.scrollIntoView({ behavior: 'smooth' });

@@ -44,7 +44,7 @@ import {
   useNavigate,
   useScreenshot,
 } from '../../api/browser';
-import { apiUrl, wsUrl } from '../../api/client';
+import { apiUrl } from '../../api/client';
 import {
   useDevServerStatus,
   useStartDevServer,
@@ -52,6 +52,7 @@ import {
 } from '../../api/localhost';
 import { type LogEntry, useLogs } from '../../api/logs';
 import { useUsageBreakdown, useUsageSummary } from '../../api/usage';
+import { useWsEvent } from '../../hooks/useWebSocket';
 import { useLayoutStore } from '../../stores/layout';
 import { useProjectsStore } from '../../stores/projects';
 import { FileBrowser } from '../bottom/FileBrowser';
@@ -112,24 +113,14 @@ export function BottomPanel() {
     return [...base, ...extras];
   })();
 
-  // Listen for log:entry WebSocket events
-  useEffect(() => {
-    const ws = new WebSocket(wsUrl());
-    function onMessage(evt: MessageEvent) {
-      try {
-        const msg = JSON.parse(evt.data) as { event: string; data?: LogEntry };
-        if (msg.event === 'log:entry' && msg.data) {
-          setRealtimeLogs((prev) => [...prev.slice(-199), msg.data!]);
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-    ws.addEventListener('message', onMessage);
-    return () => {
-      ws.close();
-    };
-  }, []);
+  // Listen for log:entry WebSocket events via global connection
+  useWsEvent(
+    'log:entry',
+    useCallback((data: unknown) => {
+      if (data)
+        setRealtimeLogs((prev) => [...prev.slice(-199), data as LogEntry]);
+    }, []),
+  );
 
   // Clear realtime buffer when API data refreshes (it includes latest)
   useEffect(() => {
@@ -231,62 +222,50 @@ export function BottomPanel() {
   const actionsEndRef = useRef<HTMLDivElement>(null);
 
   // Listen for browser:console and browser:agent-action WebSocket events
-  useEffect(() => {
-    function onBrowserMessage(evt: MessageEvent) {
-      try {
-        const msg = JSON.parse(evt.data) as {
-          event: string;
-          data?: Record<string, unknown>;
-        };
-        if (msg.event === 'browser:console' && msg.data) {
-          const level =
-            msg.data.level === 'warn'
-              ? 'warn'
-              : msg.data.level === 'error'
-                ? 'error'
-                : 'info';
-          setConsoleEntries((prev) => [
-            ...prev.slice(-199),
-            {
-              level: level as 'info' | 'warn' | 'error',
-              timestamp:
-                (msg.data!.timestamp as string) ?? new Date().toISOString(),
-              message: (msg.data!.message as string) ?? '',
-            },
-          ]);
-        }
-        if (msg.event === 'browser:agent-action' && msg.data) {
-          const { id, action, status, timestamp, error } = msg.data as {
-            id: string;
-            action: string;
-            status: 'pending' | 'done' | 'error';
-            timestamp: string;
-            error?: string;
-          };
-          setAgentActions((prev) => {
-            const idx = prev.findIndex((a) => a.id === id);
-            if (idx >= 0) {
-              const updated = [...prev];
-              updated[idx] = { ...updated[idx], status, error };
-              return updated;
-            }
-            return [
-              ...prev.slice(-99),
-              { id, action, status, timestamp, error },
-            ];
-          });
-        }
-      } catch {
-        /* ignore */
-      }
-    }
+  // Browser console entries via global WS
+  useWsEvent(
+    'browser:console',
+    useCallback((data: unknown) => {
+      const d = data as {
+        level?: string;
+        timestamp?: string;
+        message?: string;
+      };
+      const level =
+        d.level === 'warn' ? 'warn' : d.level === 'error' ? 'error' : 'info';
+      setConsoleEntries((prev) => [
+        ...prev.slice(-199),
+        {
+          level: level as 'info' | 'warn' | 'error',
+          timestamp: d.timestamp ?? new Date().toISOString(),
+          message: d.message ?? '',
+        },
+      ]);
+    }, []),
+  );
 
-    const ws = new WebSocket(wsUrl());
-    ws.addEventListener('message', onBrowserMessage);
-    return () => {
-      ws.close();
-    };
-  }, []);
+  // Browser agent actions via global WS
+  useWsEvent(
+    'browser:agent-action',
+    useCallback((data: unknown) => {
+      const { id, action, status, timestamp, error } = data as {
+        id: string;
+        action: string;
+        status: 'pending' | 'done' | 'error';
+        timestamp: string;
+        error?: string;
+      };
+      setAgentActions((prev) => {
+        const idx = prev.findIndex((a) => a.id === id);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], status, error };
+          return updated;
+        }
+        return [...prev.slice(-99), { id, action, status, timestamp, error }];
+      });
+    }, []),
+  );
 
   // Auto-scroll console
   useEffect(() => {
@@ -309,32 +288,19 @@ export function BottomPanel() {
   const [logs, setLogs] = useState<string[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
-  // Listen for devserver:log WebSocket events
-  useEffect(() => {
-    function onMessage(evt: MessageEvent) {
-      try {
-        const msg = JSON.parse(evt.data) as {
-          event: string;
-          data?: { projectId?: string; line?: string };
-        };
-        if (
-          msg.event === 'devserver:log' &&
-          msg.data?.projectId === activeProjectId &&
-          msg.data.line
-        ) {
-          setLogs((prev) => [...prev.slice(-199), msg.data!.line!]);
+  // Listen for devserver:log via global WS
+  useWsEvent(
+    'devserver:log',
+    useCallback(
+      (data: unknown) => {
+        const d = data as { projectId?: string; line?: string };
+        if (d.projectId === activeProjectId && d.line) {
+          setLogs((prev) => [...prev.slice(-199), d.line!]);
         }
-      } catch {
-        /* ignore */
-      }
-    }
-
-    const ws = new WebSocket(wsUrl());
-    ws.addEventListener('message', onMessage);
-    return () => {
-      ws.close();
-    };
-  }, [activeProjectId]);
+      },
+      [activeProjectId],
+    ),
+  );
 
   // Auto-scroll logs
   useEffect(() => {

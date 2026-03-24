@@ -148,8 +148,11 @@ export function validatePath(
   }
 
   const resolved = resolve(projectRoot, normalizedPath);
+  const normalizedRoot = projectRoot.endsWith('/')
+    ? projectRoot
+    : `${projectRoot}/`;
 
-  if (!resolved.startsWith(projectRoot)) {
+  if (resolved !== projectRoot && !resolved.startsWith(normalizedRoot)) {
     throw new Error(
       `Path traversal blocked: "${requestedPath}" resolves outside project root`,
     );

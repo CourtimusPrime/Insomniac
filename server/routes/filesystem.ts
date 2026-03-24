@@ -221,6 +221,18 @@ export async function filesystemRoutes(server: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       const resolved = resolve(request.body.path);
+
+      // Restrict browsing to home directory and /mnt (WSL drives)
+      const home = homedir();
+      const allowedRoots = [home, '/mnt', '/tmp'];
+      const isAllowed = allowedRoots.some(
+        (root) => resolved === root || resolved.startsWith(`${root}/`),
+      );
+      if (!isAllowed) {
+        reply.code(403);
+        return { error: 'Path is outside allowed browse roots' };
+      }
+
       const entries: { name: string; path: string; type: 'dir' }[] = [];
 
       try {

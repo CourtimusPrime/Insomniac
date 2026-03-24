@@ -13,7 +13,7 @@ export function useDevServerStatus(projectId: string | null) {
     queryFn: () =>
       apiFetch<DevServerStatus>(`/api/projects/${projectId}/dev-server/status`),
     enabled: !!projectId,
-    refetchInterval: 5000,
+    refetchInterval: 15_000,
   });
 }
 

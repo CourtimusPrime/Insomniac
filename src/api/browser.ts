@@ -18,7 +18,7 @@ export function useBrowserStatus() {
   return useQuery<BrowserStatus>({
     queryKey: ['browser-status'],
     queryFn: () => apiFetch<BrowserStatus>('/api/browser/status'),
-    refetchInterval: 5000,
+    refetchInterval: 15_000,
   });
 }
 

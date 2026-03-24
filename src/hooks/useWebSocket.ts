@@ -7,9 +7,39 @@ const WS_URL = wsUrl();
 const MAX_RECONNECT_DELAY = 8000;
 const INITIAL_RECONNECT_DELAY = 1000;
 
+type WsMessage = { event: string; data?: unknown };
+type WsListener = (msg: WsMessage) => void;
+
+/** Global listener set — components subscribe via useWsEvent() */
+const listeners = new Set<WsListener>();
+
+/**
+ * Subscribe to raw WebSocket messages from the global connection.
+ * Returns an unsubscribe function. No new WS connections are created.
+ */
+export function useWsEvent(
+  event: string,
+  handler: (data: unknown) => void,
+): void {
+  const handlerRef = useRef(handler);
+  handlerRef.current = handler;
+
+  useEffect(() => {
+    const listener: WsListener = (msg) => {
+      if (msg.event === event) handlerRef.current(msg.data);
+    };
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, [event]);
+}
+
 /**
  * Connects to the backend WebSocket and invalidates TanStack Query caches
  * when pipeline, stage, or decision events arrive.
+ *
+ * Also dispatches events to subscribers registered via useWsEvent().
  *
  * Reconnects automatically with exponential backoff on disconnect.
  */
@@ -36,8 +66,12 @@ export function useWebSocket(): void {
 
       ws.onmessage = (evt) => {
         try {
-          const msg = JSON.parse(evt.data) as { event: string; data?: unknown };
+          const msg = JSON.parse(evt.data) as WsMessage;
           handleEvent(msg.event);
+          // Dispatch to component subscribers
+          for (const listener of listeners) {
+            listener(msg);
+          }
         } catch {
           // Ignore non-JSON messages
         }
@@ -72,6 +106,9 @@ export function useWebSocket(): void {
           break;
         case 'agent:status':
           queryClient.invalidateQueries({ queryKey: ['activeAgents'] });
+          break;
+        case 'log:entry':
+          queryClient.invalidateQueries({ queryKey: ['logs'] });
           break;
       }
     }

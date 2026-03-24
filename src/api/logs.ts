@@ -18,6 +18,6 @@ export function useLogs(search?: string, source?: string) {
   return useQuery<LogEntry[]>({
     queryKey: ['logs', search, source],
     queryFn: () => apiFetch<LogEntry[]>(`/api/logs?${params.toString()}`),
-    refetchInterval: 3000,
+    refetchInterval: 30_000,
   });
 }

@@ -16,6 +16,6 @@ export function useActiveAgents() {
   return useQuery<ActiveAgent[]>({
     queryKey: ['activeAgents'],
     queryFn: () => apiFetch<ActiveAgent[]>('/api/agents/active'),
-    refetchInterval: 3000,
+    refetchInterval: 10_000,
   });
 }
