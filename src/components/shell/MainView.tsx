@@ -18,7 +18,7 @@ export function MainView() {
   const activeProject = projects?.find((p) => p.id === activeProjectId);
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex flex-col overflow-hidden h-full w-full">
       {/* Project header */}
       <div className="px-6 py-3 border-b border-border-default flex items-center gap-4 shrink-0">
         <div>

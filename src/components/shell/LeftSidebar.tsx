@@ -181,7 +181,6 @@ export function LeftSidebar() {
   const activeToolbar = useLayoutStore((s) => s.activeToolbar);
   const setActiveMain = useLayoutStore((s) => s.setActiveMain);
   const setActiveAbilityId = useLayoutStore((s) => s.setActiveAbilityId);
-  const collapsed = useLayoutStore((s) => s.collapsedPanels.leftSidebar);
   const activeProjectId = useProjectsStore((s) => s.activeProjectId);
   const setActiveProjectId = useProjectsStore((s) => s.setActiveProjectId);
   const { data: projects, isLoading, isError, refetch } = useProjects();
@@ -469,12 +468,8 @@ export function LeftSidebar() {
   );
 
   return (
-    <aside
-      className={`flex flex-col bg-bg-default shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out ${
-        collapsed ? 'w-0' : 'w-56 border-r border-border-default'
-      }`}
-    >
-      <div className="w-56 min-w-[14rem] flex flex-col h-full">
+    <aside className="flex flex-col bg-bg-default overflow-hidden h-full w-full">
+      <div className="min-w-0 flex flex-col h-full">
         {activeToolbar === 'projects' && (
           <>
             <div className="px-4 py-3 flex items-center justify-between border-b border-border-default">

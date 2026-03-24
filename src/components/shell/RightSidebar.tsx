@@ -90,13 +90,10 @@ export function RightSidebar() {
   const { data: activeAgents } = useActiveAgents();
 
   return (
-    <aside
-      className={`border-l border-border-default flex flex-col shrink-0 overflow-hidden transition-[width] duration-200 ease-in-out ${
-        collapsed ? 'w-8' : 'w-72'
-      }`}
-    >
-      {collapsed ? (
-        <div className="w-8 flex flex-col items-center pt-3">
+    <aside className="flex flex-col overflow-hidden h-full w-full">
+      <div className="min-w-0 flex flex-col overflow-hidden h-full">
+        {/* Collapse button */}
+        <div className="flex items-center justify-end px-2 pt-1 shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -105,160 +102,145 @@ export function RightSidebar() {
                 onClick={() => togglePanel('rightSidebar')}
                 className="text-text-faint hover:text-text-default"
               >
-                <ChevronLeft size={14} />
+                {collapsed ? (
+                  <ChevronLeft size={14} />
+                ) : (
+                  <ChevronRight size={14} />
+                )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">Expand sidebar</TooltipContent>
+            <TooltipContent side="left">
+              {collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            </TooltipContent>
           </Tooltip>
         </div>
-      ) : (
-        <div className="w-72 min-w-[18rem] flex flex-col overflow-hidden h-full">
-          {/* Collapse button */}
-          <div className="flex items-center justify-end px-2 pt-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => togglePanel('rightSidebar')}
-                  className="text-text-faint hover:text-text-default"
-                >
-                  <ChevronRight size={14} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Collapse sidebar</TooltipContent>
-            </Tooltip>
-          </div>
 
-          {/* Decision queue */}
-          {isLoading && (
-            <div className="p-4 flex items-center justify-center">
-              <Loader2 size={16} className="animate-spin text-text-faint" />
+        {/* Decision queue */}
+        {isLoading && (
+          <div className="p-4 flex items-center justify-center">
+            <Loader2 size={16} className="animate-spin text-text-faint" />
+          </div>
+        )}
+        {isLoading && <Separator />}
+        {isError && (
+          <div className="p-4">
+            <p className="text-[11px] text-status-error">
+              Failed to load decisions
+            </p>
+          </div>
+        )}
+        {isError && <Separator />}
+        {!isLoading &&
+          !isError &&
+          decisions &&
+          decisions.length > 0 &&
+          activeProjectId &&
+          decisions.map((decision, i) => (
+            <div key={decision.id}>
+              <DecisionCard decision={decision} projectId={activeProjectId} />
+              {(i < decisions.length - 1 ||
+                !decisions ||
+                decisions.length > 0) && <Separator />}
             </div>
-          )}
-          {isLoading && <Separator />}
-          {isError && (
+          ))}
+        {!isLoading && !isError && (!decisions || decisions.length === 0) && (
+          <>
             <div className="p-4">
-              <p className="text-[11px] text-status-error">
-                Failed to load decisions
-              </p>
-            </div>
-          )}
-          {isError && <Separator />}
-          {!isLoading &&
-            !isError &&
-            decisions &&
-            decisions.length > 0 &&
-            activeProjectId &&
-            decisions.map((decision, i) => (
-              <div key={decision.id}>
-                <DecisionCard decision={decision} projectId={activeProjectId} />
-                {(i < decisions.length - 1 ||
-                  !decisions ||
-                  decisions.length > 0) && <Separator />}
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle2 size={12} className="text-status-success" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                  No decisions pending
+                </span>
               </div>
+            </div>
+            <Separator />
+          </>
+        )}
+
+        {/* Timeline */}
+        <div className="p-4 flex-1">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-3">
+            Pipeline stages
+          </div>
+          <ul className="space-y-2.5">
+            {TIMELINE.map((item, i) => (
+              <li key={i} className="flex items-center gap-3">
+                {item.done ? (
+                  <CheckCircle2
+                    size={13}
+                    className="text-status-success shrink-0"
+                  />
+                ) : item.current ? (
+                  <Circle
+                    size={13}
+                    className="text-accent-primary fill-accent-primary shrink-0 animate-pulse"
+                  />
+                ) : (
+                  <Circle size={13} className="text-text-faint shrink-0" />
+                )}
+                <span
+                  className={`text-[11px] ${item.done ? 'line-through text-text-faint' : item.current ? 'text-text-primary font-medium' : 'text-text-faint'}`}
+                >
+                  {item.label}
+                </span>
+              </li>
             ))}
-          {!isLoading && !isError && (!decisions || decisions.length === 0) && (
-            <>
-              <div className="p-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <CheckCircle2 size={12} className="text-status-success" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">
-                    No decisions pending
-                  </span>
-                </div>
-              </div>
-              <Separator />
-            </>
-          )}
-
-          {/* Timeline */}
-          <div className="p-4 flex-1">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-3">
-              Pipeline stages
-            </div>
-            <ul className="space-y-2.5">
-              {TIMELINE.map((item, i) => (
-                <li key={i} className="flex items-center gap-3">
-                  {item.done ? (
-                    <CheckCircle2
-                      size={13}
-                      className="text-status-success shrink-0"
-                    />
-                  ) : item.current ? (
-                    <Circle
-                      size={13}
-                      className="text-accent-primary fill-accent-primary shrink-0 animate-pulse"
-                    />
-                  ) : (
-                    <Circle size={13} className="text-text-faint shrink-0" />
-                  )}
-                  <span
-                    className={`text-[11px] ${item.done ? 'line-through text-text-faint' : item.current ? 'text-text-primary font-medium' : 'text-text-faint'}`}
-                  >
-                    {item.label}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Agent status strip */}
-          <div className="p-4 border-t border-border-default space-y-2">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-2">
-              Active agents
-            </div>
-            {(!activeAgents || activeAgents.length === 0) && (
-              <div className="text-[10px] text-text-faint">
-                No active agents
-              </div>
-            )}
-            {activeAgents?.map((agent) => {
-              const badgeVariant =
-                agent.status === 'error'
-                  ? 'destructive'
-                  : agent.status === 'paused'
-                    ? 'warning'
-                    : 'success';
-              const statusLabel =
-                agent.status === 'error'
-                  ? 'error'
-                  : agent.status === 'paused'
-                    ? 'blocked'
-                    : 'running';
-              return (
-                <Card key={agent.id} className="bg-bg-base shadow-none">
-                  <CardContent className="px-3 py-2 p-0">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[11px] font-medium text-text-primary">
-                        {agent.name}
-                      </span>
-                      <Badge
-                        variant={
-                          badgeVariant as 'destructive' | 'warning' | 'success'
-                        }
-                        className="text-[10px] px-1.5 py-0"
-                      >
-                        {statusLabel}
-                      </Badge>
-                    </div>
-                    <div className="text-[10px] text-text-faint mt-0.5">
-                      {agent.currentTask ?? 'No task'} ·{' '}
-                      {agent.model ?? 'Unknown'}
-                    </div>
-                    {agent.progress > 0 && (
-                      <Progress
-                        value={agent.progress}
-                        className="mt-2 h-0.5 bg-bg-hover"
-                      />
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          </ul>
         </div>
-      )}
+
+        {/* Agent status strip */}
+        <div className="p-4 border-t border-border-default space-y-2">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-2">
+            Active agents
+          </div>
+          {(!activeAgents || activeAgents.length === 0) && (
+            <div className="text-[10px] text-text-faint">No active agents</div>
+          )}
+          {activeAgents?.map((agent) => {
+            const badgeVariant =
+              agent.status === 'error'
+                ? 'destructive'
+                : agent.status === 'paused'
+                  ? 'warning'
+                  : 'success';
+            const statusLabel =
+              agent.status === 'error'
+                ? 'error'
+                : agent.status === 'paused'
+                  ? 'blocked'
+                  : 'running';
+            return (
+              <Card key={agent.id} className="bg-bg-base shadow-none">
+                <CardContent className="px-3 py-2 p-0">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[11px] font-medium text-text-primary">
+                      {agent.name}
+                    </span>
+                    <Badge
+                      variant={
+                        badgeVariant as 'destructive' | 'warning' | 'success'
+                      }
+                      className="text-[10px] px-1.5 py-0"
+                    >
+                      {statusLabel}
+                    </Badge>
+                  </div>
+                  <div className="text-[10px] text-text-faint mt-0.5">
+                    {agent.currentTask ?? 'No task'} ·{' '}
+                    {agent.model ?? 'Unknown'}
+                  </div>
+                  {agent.progress > 0 && (
+                    <Progress
+                      value={agent.progress}
+                      className="mt-2 h-0.5 bg-bg-hover"
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
     </aside>
   );
 }

@@ -347,11 +347,7 @@ export function BottomPanel() {
   }, []);
 
   return (
-    <div
-      className={`border-t border-border-default flex flex-col shrink-0 transition-[height] duration-200 ease-in-out ${
-        collapsed ? 'h-9' : 'h-52'
-      }`}
-    >
+    <div className="border-t border-border-default flex flex-col h-full w-full overflow-hidden">
       <div className="flex border-b border-border-default text-[11px] shrink-0">
         <Tabs
           value={activeTab}
