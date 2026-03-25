@@ -94,6 +94,10 @@ function AddProviderForm({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState<ProviderName>('anthropic');
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
+  const [keyTestResult, setKeyTestResult] = useState<{
+    valid: boolean;
+    error?: string;
+  } | null>(null);
 
   const isOllama = name === 'ollama';
   const isCustom = name === 'custom';
@@ -105,6 +109,7 @@ function AddProviderForm({ onClose }: { onClose: () => void }) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setKeyTestResult(null);
     const workspaceId = projects?.[0]?.workspaceId;
     if (!workspaceId) return;
 
@@ -117,7 +122,16 @@ function AddProviderForm({ onClose }: { onClose: () => void }) {
         ...(showBaseUrl && baseUrl ? { baseUrl } : {}),
         isActive: true,
       },
-      { onSuccess: () => onClose() },
+      {
+        onSuccess: (data) => {
+          if (data.keyTest && !data.keyTest.valid) {
+            setKeyTestResult(data.keyTest);
+            // Don't close — show the error so user can fix the key
+          } else {
+            onClose();
+          }
+        },
+      },
     );
   }
 
@@ -220,6 +234,29 @@ function AddProviderForm({ onClose }: { onClose: () => void }) {
             <div className="text-[11px] text-status-error flex items-center gap-1">
               <AlertCircle size={12} />
               {(addProvider.error as Error).message}
+            </div>
+          )}
+
+          {keyTestResult && !keyTestResult.valid && (
+            <div className="text-[11px] text-amber-400 bg-amber-500/10 px-3 py-2 rounded flex items-start gap-1.5">
+              <AlertCircle size={12} className="mt-0.5 shrink-0" />
+              <div>
+                <div className="font-medium">API key validation failed</div>
+                <div className="text-amber-400/80 mt-0.5">
+                  {keyTestResult.error}
+                </div>
+                <div className="text-amber-400/60 mt-1">
+                  Provider saved but inactive. Fix the key and update to
+                  activate.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {keyTestResult?.valid && (
+            <div className="text-[11px] text-status-success flex items-center gap-1">
+              <CheckCircle2 size={12} />
+              API key verified
             </div>
           )}
         </CardContent>

@@ -4,6 +4,7 @@ import { providers, workspaces } from '../db/schema/index.js';
 import { getModelsForProvider } from '../providers/models.js';
 import { OllamaProvider } from '../providers/ollama.js';
 import { ProviderRegistry } from '../providers/registry.js';
+import { testProviderKey } from '../providers/test-key.js';
 
 const PROVIDER_NAMES = [
   'anthropic',
@@ -90,9 +91,21 @@ export async function providerRoutes(server: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      const { name, apiKey, baseUrl } = request.body;
+
+      // Test key before saving
+      let keyTest: { valid: boolean; error?: string } | undefined;
+      if (apiKey || name === 'ollama') {
+        keyTest = await testProviderKey(name, apiKey ?? '', baseUrl);
+        if (!keyTest.valid) {
+          // Save anyway but mark inactive
+          request.body.isActive = false;
+        }
+      }
+
       const created = registry.addProvider(request.body);
       reply.code(201);
-      return created;
+      return { ...created, keyTest };
     },
   );
 
@@ -122,12 +135,30 @@ export async function providerRoutes(server: FastifyInstance) {
       },
     },
     async (request, reply) => {
+      const { apiKey } = request.body;
+
+      // If a new API key is provided, test it
+      let keyTest: { valid: boolean; error?: string } | undefined;
+      if (apiKey) {
+        const provider = registry.getProvider(request.params.id);
+        if (provider) {
+          keyTest = await testProviderKey(
+            provider.name,
+            apiKey,
+            request.body.baseUrl ?? provider.baseUrl,
+          );
+          if (!keyTest.valid) {
+            request.body.isActive = false;
+          }
+        }
+      }
+
       const updated = registry.updateProvider(request.params.id, request.body);
       if (!updated) {
         reply.code(404);
         return { error: 'Provider not found' };
       }
-      return updated;
+      return { ...updated, keyTest };
     },
   );
 

@@ -38,6 +38,13 @@ export function useProviders() {
   });
 }
 
+export interface KeyTestResult {
+  valid: boolean;
+  error?: string;
+}
+
+export type ProviderWithKeyTest = Provider & { keyTest?: KeyTestResult };
+
 export function useAddProvider() {
   const queryClient = useQueryClient();
 
@@ -50,7 +57,7 @@ export function useAddProvider() {
       apiKey?: string;
       isActive?: boolean;
     }) =>
-      apiFetch<Provider>('/api/providers', {
+      apiFetch<ProviderWithKeyTest>('/api/providers', {
         method: 'POST',
         body: JSON.stringify(body),
       }),
@@ -74,7 +81,7 @@ export function useUpdateProvider() {
       apiKey?: string;
       isActive?: boolean;
     }) =>
-      apiFetch<Provider>(`/api/providers/${id}`, {
+      apiFetch<ProviderWithKeyTest>(`/api/providers/${id}`, {
         method: 'PUT',
         body: JSON.stringify(body),
       }),
