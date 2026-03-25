@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useProjects } from '../../api/projects';
@@ -9,6 +10,17 @@ import { GraphView } from '../views/GraphView';
 import { MarketplaceView } from '../views/MarketplaceView';
 import { PipelineView } from '../views/PipelineView';
 import { SettingsView } from '../views/SettingsView';
+
+const AgentBuilder = lazy(() =>
+  import('../builders/agent/AgentBuilder').then((m) => ({
+    default: m.AgentBuilder,
+  })),
+);
+const WorkflowBuilder = lazy(() =>
+  import('../builders/workflow/WorkflowBuilder').then((m) => ({
+    default: m.WorkflowBuilder,
+  })),
+);
 
 export function MainView() {
   const activeMain = useLayoutStore((s) => s.activeMain);
@@ -73,6 +85,28 @@ export function MainView() {
         {activeMain === 'graph' && <GraphView />}
         {activeMain === 'backseat' && <BackseatView />}
         {activeMain === 'ability-detail' && <AbilityDetailView />}
+        {activeMain === 'agent-builder' && (
+          <Suspense
+            fallback={
+              <div className="p-8 text-center text-text-muted text-xs">
+                Loading builder...
+              </div>
+            }
+          >
+            <AgentBuilder />
+          </Suspense>
+        )}
+        {activeMain === 'workflow-builder' && (
+          <Suspense
+            fallback={
+              <div className="p-8 text-center text-text-muted text-xs">
+                Loading builder...
+              </div>
+            }
+          >
+            <WorkflowBuilder />
+          </Suspense>
+        )}
         {activeMain === 'settings' && <SettingsView />}
         {activeMain === 'marketplace' && <MarketplaceView />}
       </div>

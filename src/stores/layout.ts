@@ -6,6 +6,8 @@ type MainView =
   | 'graph'
   | 'backseat'
   | 'ability-detail'
+  | 'agent-builder'
+  | 'workflow-builder'
   | 'settings'
   | 'marketplace';
 type BottomTab =
@@ -53,6 +55,7 @@ interface LayoutState {
   activeMain: MainView;
   activeTab: BottomTab;
   activeAbilityId: string | null;
+  editingAbilityId: string | null;
   collapsedPanels: CollapsedPanels;
   marketplaceCategory: MarketplaceCategory;
   pinnedThemes: string[];
@@ -61,6 +64,7 @@ interface LayoutState {
   setActiveMain: (view: MainView) => void;
   setActiveTab: (tab: BottomTab) => void;
   setActiveAbilityId: (id: string | null) => void;
+  setEditingAbilityId: (id: string | null) => void;
   togglePanel: (panel: keyof CollapsedPanels) => void;
   setCollapsedPanel: (panel: keyof CollapsedPanels, collapsed: boolean) => void;
   setMarketplaceCategory: (category: MarketplaceCategory) => void;
@@ -73,6 +77,7 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   activeMain: 'pipeline',
   activeTab: 'terminal',
   activeAbilityId: null,
+  editingAbilityId: null,
   collapsedPanels: {
     leftSidebar: false,
     rightSidebar: false,
@@ -85,6 +90,7 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   setActiveMain: (view) => set({ activeMain: view }),
   setActiveTab: (tab) => set({ activeTab: tab }),
   setActiveAbilityId: (id) => set({ activeAbilityId: id }),
+  setEditingAbilityId: (id) => set({ editingAbilityId: id }),
   setMarketplaceCategory: (category) => set({ marketplaceCategory: category }),
   togglePanel: (panel) =>
     set((state) => ({

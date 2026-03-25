@@ -152,14 +152,6 @@ Leaf nodes (`shell`, `mcp`, skills) do one thing and return. Composing nodes
 (`agent`, `workflows`) orchestrate leaves, but only agents reason about _what_
 to do. workflows only reason about _whether_ to proceed.
 
-| Example              | Executor |
-| -------------------- | -------- |
-| Create a branch      | `shell`  |
-| Review documentation | `mcp`    |
-
-|
-
-- **Renamed
-
-- **Legacy Installation:** Bash install commands are converted into abilities,
-  preserving the legacy format until its eventual discontinuation.
+- **Legacy Installation:** Bash install commands used to install skills,
+  plugins, or MCPs to Claude code are converted into abilities, preserving the
+  legacy format until its eventual discontinuation.

@@ -4,9 +4,11 @@ import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import Fastify from 'fastify';
+import { AbilityRegistry } from './abilities/registry.js';
 import { validatePlatformForSandbox } from './config/platform-check.js';
 import { registerAuthMiddleware } from './hosted/index.js';
 import { abilityRoutes } from './routes/abilities.js';
+import { abilityGenerateRoutes } from './routes/abilities-generate.js';
 import { agentRoutes } from './routes/agents.js';
 import { authRoutes } from './routes/auth.js';
 import { backseatRoutes } from './routes/backseat.js';
@@ -30,6 +32,7 @@ import { shellRoutes } from './routes/shell.js';
 import { templateRoutes } from './routes/templates.js';
 import { usageRoutes } from './routes/usage.js';
 import { getAllowedOrigins } from './utils/index.js';
+import { getOrCreateDefaultWorkspace } from './utils/workspace.js';
 import { wsRoutes } from './ws/handler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -81,6 +84,7 @@ await server.register(localhostRoutes);
 await server.register(settingsRoutes);
 await server.register(mcpRoutes);
 await server.register(abilityRoutes);
+await server.register(abilityGenerateRoutes);
 await server.register(templateRoutes);
 await server.register(marketplaceRoutes);
 await server.register(browserRoutes);
@@ -93,6 +97,17 @@ await server.register(logRoutes);
 await server.register(agentRoutes);
 await server.register(filesystemRoutes);
 await server.register(shellRoutes);
+
+// Sync abilities from disk to DB on startup
+const workspaceId = await getOrCreateDefaultWorkspace();
+const registry = new AbilityRegistry();
+const syncResult = registry.syncToDb(workspaceId);
+server.log.info(
+  `Abilities sync: +${syncResult.added} ~${syncResult.updated} -${syncResult.removed}` +
+    (syncResult.errors.length > 0
+      ? ` (${syncResult.errors.length} errors)`
+      : ''),
+);
 
 // Health check
 server.get('/api/health', async () => {

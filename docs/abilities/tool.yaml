@@ -47,7 +47,7 @@ enabled: true
 timeout_seconds: 30
 
 runtime:
-  executor: shell
+  executor: command
   working_directory: project_root
   parse_output: json
   entrypoint: |

@@ -1,4 +1,4 @@
-export { abilities } from './abilities.js';
+export { abilities, abilitiesV2 } from './abilities.js';
 export { agents } from './agents.js';
 export { credentials } from './credentials.js';
 export { decisions } from './decisions.js';

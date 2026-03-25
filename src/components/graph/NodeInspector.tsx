@@ -42,8 +42,9 @@ const edgeConditionOptions = [
 /* ── Ability type badge variant ── */
 const abilityTypeVariant: Record<string, 'info' | 'success' | 'secondary'> = {
   skill: 'info',
-  plugin: 'success',
+  command: 'success',
   mcp: 'info',
+  workflow: 'secondary',
 };
 
 interface NodeInspectorProps {
@@ -121,7 +122,7 @@ export function NodeInspector({
 
   // Available abilities (not already assigned)
   const availableAbilities = (allAbilities ?? []).filter(
-    (a) => a.active && !abilities.some((assigned) => assigned.id === a.id),
+    (a) => a.enabled && !abilities.some((assigned) => assigned.id === a.id),
   );
 
   return (
@@ -269,11 +270,12 @@ export function NodeInspector({
                           </span>
                           <Badge
                             variant={
-                              abilityTypeVariant[ability.type] ?? 'secondary'
+                              abilityTypeVariant[ability.executor] ??
+                              'secondary'
                             }
                             className="text-[9px] px-1.5 py-0.5"
                           >
-                            {ability.type}
+                            {ability.executor}
                           </Badge>
                         </button>
                       ))}

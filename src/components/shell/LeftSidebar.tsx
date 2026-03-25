@@ -16,6 +16,7 @@ import {
   Loader2,
   Pencil,
   Plus,
+  Search,
   Trash2,
   TrendingUp,
 } from 'lucide-react';
@@ -35,7 +36,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAbilities } from '../../api/abilities';
+import {
+  type ExecutorType,
+  useAbilities,
+  useToggleAbility,
+} from '../../api/abilities';
 import {
   type BrowseEntry,
   type BrowseResult,
@@ -66,7 +71,8 @@ const statusDot = (s: string) =>
 const typeBadge = (t: string) =>
   ({
     skill: 'bg-violet-500/20 text-violet-300',
-    plugin: 'bg-emerald-500/20 text-emerald-300',
+    agent: 'bg-blue-500/20 text-blue-300',
+    command: 'bg-emerald-500/20 text-emerald-300',
     mcp: 'bg-cyan-500/20 text-cyan-300',
     workflow: 'bg-amber-500/20 text-amber-300',
   })[t];
@@ -181,15 +187,24 @@ export function LeftSidebar() {
   const activeToolbar = useLayoutStore((s) => s.activeToolbar);
   const setActiveMain = useLayoutStore((s) => s.setActiveMain);
   const setActiveAbilityId = useLayoutStore((s) => s.setActiveAbilityId);
+  const setEditingAbilityId = useLayoutStore((s) => s.setEditingAbilityId);
   const activeProjectId = useProjectsStore((s) => s.activeProjectId);
   const setActiveProjectId = useProjectsStore((s) => s.setActiveProjectId);
   const { data: projects, isLoading, isError, refetch } = useProjects();
+  const [abilitySearch, setAbilitySearch] = useState('');
+  const [executorFilter, setExecutorFilter] = useState<ExecutorType | null>(
+    null,
+  );
   const {
     data: abilities,
     isLoading: abilitiesLoading,
     isError: abilitiesError,
     refetch: refetchAbilities,
-  } = useAbilities();
+  } = useAbilities({
+    search: abilitySearch || undefined,
+    executor: executorFilter ?? undefined,
+  });
+  const toggleAbility = useToggleAbility();
 
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -583,9 +598,49 @@ export function LeftSidebar() {
                 variant="ghost"
                 size="icon-sm"
                 className="text-text-faint hover:text-accent-primary h-auto w-auto p-0"
+                onClick={() => {
+                  setEditingAbilityId(null);
+                  setActiveMain('agent-builder');
+                }}
               >
                 <Plus size={13} />
               </Button>
+            </div>
+            {/* Search */}
+            <div className="px-3 py-2 border-b border-border-default">
+              <div className="relative">
+                <Search
+                  size={12}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 text-text-faint"
+                />
+                <input
+                  type="text"
+                  placeholder="Search abilities..."
+                  value={abilitySearch}
+                  onChange={(e) => setAbilitySearch(e.target.value)}
+                  className="w-full pl-7 pr-2 py-1.5 text-[11px] bg-bg-base border border-border-muted rounded focus:outline-none focus:border-accent-primary/50 text-text-default placeholder:text-text-faint"
+                />
+              </div>
+              {/* Executor filter chips */}
+              <div className="flex gap-1 mt-2 flex-wrap">
+                {(['skill', 'command', 'mcp', 'workflow'] as const).map(
+                  (ex) => (
+                    <button
+                      key={ex}
+                      onClick={() =>
+                        setExecutorFilter(executorFilter === ex ? null : ex)
+                      }
+                      className={`text-[9px] px-2 py-0.5 rounded-full border transition ${
+                        executorFilter === ex
+                          ? 'bg-accent-primary/15 border-accent-primary/30 text-accent-primary'
+                          : 'bg-transparent border-border-muted text-text-faint hover:text-text-muted hover:border-border-default'
+                      }`}
+                    >
+                      {ex}
+                    </button>
+                  ),
+                )}
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto py-1">
               {abilitiesLoading && (
@@ -614,19 +669,38 @@ export function LeftSidebar() {
                     setActiveAbilityId(a.id);
                     setActiveMain('ability-detail');
                   }}
-                  className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-bg-hover transition border-l-2 border-transparent hover:border-border-muted"
+                  className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-bg-hover transition border-l-2 border-transparent hover:border-border-muted group"
                 >
                   <div
-                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${a.active ? 'bg-status-success' : 'bg-text-faint'}`}
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${a.enabled ? 'bg-status-success' : 'bg-text-faint'}`}
                   />
                   <div className="min-w-0 flex-1">
                     <div className="text-xs truncate">{a.name}</div>
-                    <div
-                      className={`text-[10px] mt-0.5 ${typeBadge(a.type)} px-1.5 py-0.5 rounded inline-block`}
-                    >
-                      {a.type}
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <div
+                        className={`text-[9px] ${typeBadge(a.executor)} px-1.5 py-0.5 rounded inline-block`}
+                      >
+                        {a.kind ?? a.executor}
+                      </div>
+                      {a.tags?.slice(0, 2).map((tag: string) => (
+                        <span key={tag} className="text-[9px] text-text-faint">
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleAbility.mutate(a.id);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
+                    title={a.enabled ? 'Disable' : 'Enable'}
+                  >
+                    <div
+                      className={`w-2 h-2 rounded-full border ${a.enabled ? 'bg-status-success border-status-success' : 'border-text-faint'}`}
+                    />
+                  </button>
                 </button>
               ))}
               {abilities && abilities.length === 0 && (
