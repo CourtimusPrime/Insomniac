@@ -1,0 +1,114 @@
+---
+id: run-eslint
+name: Run ESLint
+version: 1.0.0
+description: >
+  Executes ESLint against one or more file paths and returns structured
+  lint results. Requires ESLint to be installed in the project. Use when
+  an agent needs static analysis output before forming a code review.
+tags: [lint, static-analysis, code, typescript, javascript]
+author: ncz
+enabled: true
+---
+
+## Trigger
+
+- A calling agent needs lint results for changed files
+- Orchestrator routes tasks tagged `[lint, eslint]`
+- Explicitly invoked via `[run-eslint]`
+
+## Interface
+
+### Input
+| Field  | Type     | Required | Description                                    |
+|--------|----------|----------|------------------------------------------------|
+| paths  | string[] | yes      | File paths to lint, relative to project root   |
+| config | string   | no       | Path to ESLint config (default: auto-discover) |
+| fix    | boolean  | no       | Apply auto-fixable rules (default: false)      |
+
+### Output
+| Field          | Type          | Description                                   |
+|----------------|---------------|-----------------------------------------------|
+| exit_code      | integer       | 0 = clean, 1 = lint errors, 2 = config error  |
+| results        | FileResult[]  | Per-file lint output                          |
+| total_errors   | integer       | Sum of error-severity violations              |
+| total_warnings | integer       | Sum of warning-severity violations            |
+
+### FileResult shape
+| Field         | Type          | Description                         |
+|---------------|---------------|-------------------------------------|
+| path          | string        | File that was linted                |
+| messages      | LintMessage[] | Individual rule violations          |
+| error_count   | integer       | Errors in this file                 |
+| warning_count | integer       | Warnings in this file               |
+
+## Config
+
+timeout_seconds: 30
+
+runtime:
+  executor: command
+  working_directory: project_root
+  parse_output: json
+  entrypoint: |
+    npx eslint --format json $ESLINT_CONFIG_FLAG $FIX_FLAG ${PATHS[@]}
+  env:
+    ESLINT_CONFIG_FLAG: ""   # populated at runtime if config is provided
+    FIX_FLAG: ""             # populated as --fix if fix: true
+
+## Instructions
+
+Execute ESLint and return its output raw — do not reason about results.
+
+### Runtime Behaviour
+- Resolve `paths` relative to `working_directory`
+- If `config` is provided, set `ESLINT_CONFIG_FLAG` to `--config <value>`
+- If `fix` is true, set `FIX_FLAG` to `--fix`
+- Capture stdout as the JSON result payload; capture stderr separately
+- If ESLint exits with code 2, surface stderr as `error` and return no `results`
+
+### Constraints
+- Never modify files unless `fix: true` is explicitly set
+- Do not filter or suppress any lint rule — return all violations
+- If a path does not exist, include it in results with a config error message
+  rather than silently skipping it
+
+## Examples
+
+### Input
+paths:
+  - "src/auth/token.ts"
+  - "src/retry.ts"
+
+### Output
+exit_code: 1
+total_errors: 1
+total_warnings: 2
+results:
+  - path: "src/auth/token.ts"
+    error_count: 1
+    warning_count: 0
+    messages:
+      - rule: "no-process-env"
+        severity: 2
+        message: "Unexpected use of process.env"
+        line: 34
+        column: 16
+  - path: "src/retry.ts"
+    error_count: 0
+    warning_count: 2
+    messages:
+      - rule: "@typescript-eslint/no-explicit-any"
+        severity: 1
+        message: "Unexpected any. Specify a different type."
+        line: 4
+        column: 22
+      - rule: "no-await-in-loop"
+        severity: 1
+        message: "Unexpected await inside a loop."
+        line: 18
+        column: 5
+
+## Dependencies
+
+# none

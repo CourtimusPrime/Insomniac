@@ -1,0 +1,98 @@
+---
+id: summarize-code
+name: Summarize Code
+version: 1.1.0
+description: >
+  Produces a concise, plain-English summary of a code block or diff hunk.
+  Stateless and reusable. Does not evaluate quality — only describes intent.
+  Use before sending code to a reviewer or storing in memory.
+tags: [code, summary, utility]
+author: ncz
+enabled: true
+---
+
+## Trigger
+
+- A calling agent needs a human-readable description of a code block
+- Orchestrator routes tasks tagged `[summarize, code]`
+- Explicitly invoked via `[summarize-code]`
+
+## Interface
+
+### Input
+| Field     | Type    | Required | Description                               |
+|-----------|---------|----------|-------------------------------------------|
+| code      | string  | yes      | Raw code or unified diff hunk             |
+| language  | string  | no       | Hint for syntax interpretation            |
+| max_words | integer | no       | Output length cap (default: 60)           |
+| mode      | string  | no       | `intent` \| `changes` (default: `intent`) |
+
+### Output
+| Field   | Type   | Description                           |
+|---------|--------|---------------------------------------|
+| summary | string | Plain-English description of the code |
+
+## Config
+
+max_retries: 2
+
+runtime:
+  executor: skill
+
+## Instructions
+
+Summarise the provided code block in plain English.
+
+### Modes
+- `intent`  → describe what the code *does*, as if explaining to a new
+               team member. Focus on purpose, not mechanics.
+- `changes` → describe what *changed* in the diff: what was removed,
+               what was added, and why the change appears to have been made.
+
+### Constraints
+- Do not evaluate quality, flag issues, or suggest improvements
+- Stay within `max_words` if provided; default to 60 words
+- Never wrap output in markdown code fences
+- If the input is empty or unparseable, return:
+  `{ summary: "Could not summarise: input was empty or malformed" }`
+
+## Examples
+
+### Input (mode: intent)
+language: typescript
+mode: intent
+code: |
+  export async function withRetry<T>(
+    fn: () => Promise<T>,
+    attempts = 3,
+    delayMs = 500
+  ): Promise<T> {
+    for (let i = 0; i < attempts; i++) {
+      try { return await fn() }
+      catch (e) {
+        if (i === attempts - 1) throw e
+        await sleep(delayMs)
+      }
+    }
+  }
+
+### Output
+summary: "A generic async retry wrapper that calls a function up to a
+          configurable number of times, waiting between attempts, and
+          re-throwing the last error if all attempts fail."
+
+### Input (mode: changes)
+language: typescript
+mode: changes
+code: |
+  - return user.id
+  + return user.id ?? null
+
+### Output
+summary: "Changed the user ID return to use nullish coalescing, so the
+          function now returns null instead of undefined when the ID
+          is absent."
+
+## Dependencies
+
+# none

@@ -1,0 +1,119 @@
+---
+id: github
+name: GitHub
+version: 2.1.0
+description: >
+  Provides read/write access to GitHub repositories, pull requests, issues,
+  and actions. Use when tasks involve code review, branch management, PR
+  creation, issue tracking, or CI status checks.
+tags: [github, git, code, pr, issues, ci]
+author: ncz
+enabled: true
+---
+
+## Trigger
+
+- Any task referencing a GitHub repo, PR, issue, branch, or commit
+- Orchestrator routes tasks tagged `[github, version-control]`
+- Explicitly invoked via `[github]`
+
+## Interface
+
+### Input
+| Field   | Type   | Required | Description                                 |
+|---------|--------|----------|---------------------------------------------|
+| intent  | string | yes      | What the caller wants to do                 |
+| repo    | string | no       | Target repo in `owner/repo` format          |
+| ref     | string | no       | Branch, tag, or commit SHA                  |
+| payload | object | no       | Tool-specific body (PR number, issue ID...) |
+
+### Output
+| Field     | Type    | Description                            |
+|-----------|---------|----------------------------------------|
+| result    | object  | Raw tool response from the integration |
+| tool_used | string  | Name of the tool that was invoked      |
+| error     | string? | Present only on failure                |
+
+## Config
+
+retry:
+  attempts: 3
+  backoff_ms: 500
+
+tools:
+  - get_repository
+  - list_branches
+  - get_pull_request
+  - list_pull_requests
+  - create_pull_request
+  - post_review_comment
+  - merge_pull_request
+  - get_issue
+  - create_issue
+  - update_issue
+  - get_actions_run
+  - list_check_runs
+
+runtime:
+  executor: mcp
+  transport: sse
+  url: https://mcp.github.com/sse
+  auth:
+    type: oauth
+    scopes: [repo, pull_requests, actions, issues]
+
+## Instructions
+
+Pass-through — do not add reasoning or transform outputs.
+Select the correct tool based on the caller's intent and return the raw result.
+
+### Tool Selection
+- Reading PR details → `get_pull_request`
+- Listing open PRs → `list_pull_requests` with `state: open`
+- Posting a review → `post_review_comment`
+- Merging a PR → `merge_pull_request` — only if caller has explicit permission
+- CI status → `list_check_runs` on the relevant ref
+
+### Constraints
+- Never infer a `repo` value — if not provided, return a structured error asking for it
+- Do not call `merge_pull_request` unless the calling agent has `allow_merge: true` in its Config
+- Treat any 4xx response as a hard failure; do not retry
+
+## Examples
+
+### List open PRs
+Input:
+  intent: "list open pull requests"
+  repo: "ncz/my-project"
+
+Output:
+  tool_used: list_pull_requests
+  result:
+    - number: 42
+      title: "feat: add retry logic"
+      state: open
+      author: ncz
+    - number: 39
+      title: "fix: null check on user ID"
+      state: open
+      author: dependabot
+
+### Post a review comment
+Input:
+  intent: "leave a comment on PR 42 at line 18"
+  repo: "ncz/my-project"
+  payload:
+    pr_number: 42
+    path: "src/retry.ts"
+    line: 18
+    body: "Consider capping this at a max of 5 retries."
+
+Output:
+  tool_used: post_review_comment
+  result:
+    id: 9981234
+    created_at: "2026-03-23T10:44:00Z"
+
+## Dependencies
+
+# none

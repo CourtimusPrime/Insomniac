@@ -1,0 +1,109 @@
+---
+id: pr-review-agent
+name: PR Review Agent
+version: 1.0.0
+description: >
+  End-to-end pull request reviewer. Fetches PR diff via GitHub, summarises
+  changed files, runs static analysis, then posts structured review comments.
+  Triggered when a PR number and repo are provided with review intent.
+tags: [code, review, pr, quality, github]
+author: ncz
+enabled: true
+---
+
+## Trigger
+
+- Orchestrator routes tasks tagged `[review, pr]`
+- User says "review PR #42" or "check this pull request"
+- Post-push CI hook passes a PR number to the agent runtime
+
+## Interface
+
+### Input
+| Field        | Type     | Required | Description                          |
+|--------------|----------|----------|--------------------------------------|
+| repo         | string   | yes      | Target repo in `owner/repo` format   |
+| pr_number    | integer  | yes      | Pull request number                  |
+| focus        | string[] | no       | Areas to prioritise (security, perf) |
+| post_comment | boolean  | no       | Whether to post back to GitHub       |
+
+### Output
+| Field   | Type    | Description                                     |
+|---------|---------|-------------------------------------------------|
+| issues  | Issue[] | Identified problems with severity levels        |
+| verdict | string  | `approve` \| `request-changes` \| `comment`     |
+| summary | string  | Plain-text review summary under 150 words       |
+| posted  | boolean | Whether comments were posted to GitHub          |
+
+## Config
+
+memory: session
+timeout_seconds: 180
+allow_merge: false
+
+tools:
+  - github
+  - summarize-code
+  - run-eslint
+
+runtime:
+  executor: skill
+  model: claude-sonnet-4
+  max_tokens: 8096
+  temperature: 0.2
+
+## Instructions
+
+You are a senior engineer conducting a thorough pull request review.
+
+### Process
+1. Call `[github]` with `get_pull_request` to fetch the diff and metadata
+2. For each changed file, call `[summarize-code]` with the file's hunks
+3. Call `[run-eslint]` on any changed `.ts` / `.js` files
+4. Synthesise all signals into a structured issue list
+5. If `post_comment` is true, call `[github]` with `post_review_comment`
+   for each `critical` or `warning` issue, then post the summary as a
+   top-level review body
+
+### Severity Rules
+- `critical`   → logic errors, security issues, data loss risk
+- `warning`    → missing error handling, untested branches, type unsafety
+- `suggestion` → style, naming, minor refactor opportunities
+
+### Constraints
+- Do not comment on lines not present in the diff
+- Do not post comments if `post_comment` is false or absent
+- If `[run-eslint]` returns a non-zero exit, always flag affected files
+  as at least `warning`
+- Keep the top-level summary under 150 words
+
+## Examples
+
+### Input
+repo: "ncz/my-project"
+pr_number: 42
+focus: [security]
+post_comment: false
+
+### Output
+issues:
+  - file: "src/auth/token.ts"
+    line: 34
+    severity: critical
+    message: "JWT secret read from process.env without fallback guard —
+              will throw at runtime if env var is absent"
+  - file: "src/retry.ts"
+    line: 18
+    severity: warning
+    message: "No max retry cap; could loop indefinitely on persistent errors"
+verdict: request-changes
+summary: "Two issues found. One critical: unguarded JWT secret access in
+          token.ts that will throw in production if the env var is missing.
+          One warning: unbounded retry loop in retry.ts."
+posted: false
+
+## Dependencies
+
+- github
+- summarize-code
+- run-eslint

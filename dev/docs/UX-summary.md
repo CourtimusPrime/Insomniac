@@ -1,0 +1,6 @@
+Orchestration Sidebar (Left): Allows you to swap between parallel agentic runs. Unlike a folder-view, this treats projects as "live processes."
+The "Docs" Triptych (Center): Instead of a wall of code, you see the Build, Design, and Progress definitions. This is the "Source of Truth" that the AI uses to keep the project on track.
+The Progress Doc "Run" Buttons: These are not just labels; they are triggers for specialized agents (e.g., a "Playwright Agent" spins up, writes the tests based on the Design Doc, and reports back in the terminal).
+Admin Terminal: A specialized chat-layer where you talk directly to the Primary Orchestrator. You don't ask it to write functions; you ask it for status or to change project goals.
+Human-in-the-Loop (Right): The "Your Input" section is the app's critical feature. It prevents the AI from "hallucinating a path forward" when it reaches a fork in the road (security, architecture, or aesthetic decisions).
+Usage & Health: Built for 2026 developer needs—monitoring token usage costs and agent "sanity" (health) in real-time.
