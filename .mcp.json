@@ -1,5 +1,15 @@
 {
   "mcpServers": {
+    "obsidian": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-obsidian"
+      ],
+      "env": {
+        "OBSIDIAN_API_KEY": "${env:OBSIDIAN_API_KEY}"
+      }
+    },
     "shadcn": {
       "command": "npx",
       "args": [

@@ -1,2 +1,0 @@
-Security: Since "Insomniac" is agentic and interacts with your system (Playwright, security audits), Tauri’s Isolation Pattern and fine-grained Allowlist for system APIs (fs, shell, process) make it much safer than Electron for running AI-generated code.
-Performance: The Rust backend can handle the heavy lifting of multi-agent orchestration via "Tokio" (async Rust), while the React frontend remains snappy and lightweight.
